@@ -1,0 +1,51 @@
+[package]
+name = "opendefocus-kernel"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "opendefocus_kernel"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["std"]
+std = [
+    "glam/default",
+    "opendefocus-shared/std",
+    "opendefocus-datastructure/std",
+]
+libm = [
+    "glam/libm",
+    "opendefocus-shared/libm",
+    "opendefocus-datastructure/libm",
+]
+rayon-test = []
+spirv = ["dep:spirv-std"]
+
+[dependencies]
+bitflags = "2.10.0"
+glam = { version = "0.30.8", default-features = false }
+opendefocus-shared = { path = "../opendefocus-shared", default-features = false }
+opendefocus-macros = { path = "../opendefocus-macros" }
+spirv-std = { git = "https://github.com/rust-gpu/rust-gpu", rev = "5719b273fd1fa8207e6e4537fed8c1f8175d4cc8", optional = true}
+
+[target.'cfg(not(any(target_arch = "spirv")))'.dependencies]
+image = { version = "0.25", default-features = false }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+rayon = { version = "1.11.0" }
+rstest = "0.26"
+opendefocus-datastructure = { path = "../opendefocus-datastructure" }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+debug = 1

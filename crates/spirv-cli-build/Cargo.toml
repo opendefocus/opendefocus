@@ -1,0 +1,12 @@
+[package]
+name = "spirv-cli-build"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+spirv-builder = { git = "https://github.com/rust-gpu/rust-gpu", rev = "5719b273fd1fa8207e6e4537fed8c1f8175d4cc8", features = [
+    "rustc_codegen_spirv",
+] }

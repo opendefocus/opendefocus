@@ -1,0 +1,33 @@
+[workspace]
+members = [
+    "crates/opendefocus",
+    "crates/opendefocus-shared",
+    "crates/opendefocus-kernel",
+    "crates/opendefocus-macros",
+    "crates/opendefocus-datastructure",
+    "crates/opendefocus-nuke",
+    "xtask",
+]
+exclude = ["crates/spirv-cli-build"]
+resolver = "2"
+
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = [
+    'cfg(target_arch, values("spirv"))',
+] }
+
+
+[workspace.package]
+version = "0.1.0"
+authors = ["OpenDefocus Developers"]
+edition = "2024"
+license = "EUPL-1.2"
+repository = "https://codeberg.org/opendefocus/opendefocus"
+
+
+[profile.release.build-override]
+opt-level = 3
+codegen-units = 16
+[profile.dev.build-override]
+opt-level = 3

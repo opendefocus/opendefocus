@@ -1,0 +1,35 @@
+{
+  "name": "Linux",
+  "image": "quay.io/pypa/manylinux_2_28",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer
+        "rust-lang.rust-analyzer",
+        // https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools
+        "ms-vscode.cpptools",
+        // https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools-extension-pack
+        "ms-vscode.cpptools-extension-pack",
+        // https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers
+        "ms-vscode-remote.remote-containers",
+        // https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml
+        "tamasfe.even-better-toml",
+        // https://marketplace.visualstudio.com/items?itemName=ms-python.vscode-pylance
+        "ms-python.vscode-pylance",
+        // https://marketplace.visualstudio.com/items?itemName=ms-python.python
+        "ms-python.python",
+        // https://marketplace.visualstudio.com/items?itemName=ms-python.debugpy
+        "ms-python.debugpy",
+        // https://marketplace.visualstudio.com/items?itemName=ms-python.vscode-python-envs
+        "ms-python.vscode-python-envs",
+        // https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff
+        "charliermarsh.ruff",
+        // https://marketplace.visualstudio.com/items?itemName=astral-sh.ty
+        "astral-sh.ty",
+        // https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml
+        "redhat.vscode-yaml"
+      ]
+    }
+  },
+  "postCreateCommand": "./scripts/devcontainer/linux/init.sh"
+}

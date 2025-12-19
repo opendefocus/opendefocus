@@ -1,0 +1,11 @@
+[book]
+title = "OpenDefocus"
+authors = ["olivebowl"]
+language = "en"
+
+[output.html]
+preferred-dark-theme = "navy"
+no-section-label = false
+git-repository-url = "https://codeberg.org/opendefocus/opendefocus"
+git-repository-icon = "fab-git-alt"
+edit-url-template = "https://codeberg.org/opendefocus/opendefocus/_edit/main/crates/opendefocus/docs/{path}"

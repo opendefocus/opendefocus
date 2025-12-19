@@ -1,0 +1,19 @@
+[project]
+name = "opendefocus"
+description = "An advanced open-source convolution library for image post-processing"
+readme = "README.md"
+requires-python = ">=3.10.14"
+dependencies = ["nuketesting"]
+dynamic = ["version"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ty.rules]
+index-out-of-bounds = "ignore"
+
+[dependency-groups]
+dev = ["pytest>=8.3.4"]
