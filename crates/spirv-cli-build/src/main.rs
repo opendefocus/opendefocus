@@ -28,6 +28,7 @@ fn main() -> Result<()> {
     let mut build = SpirvBuilder::new(args.crate_path, "spirv-unknown-vulkan1.4")
         .target_dir_path(args.output)
         .print_metadata(spirv_builder::MetadataPrintout::Full)
+        .spirv_metadata(spirv_builder::SpirvMetadata::Full)
         .shader_crate_default_features(false)
         .capability(spirv_builder::Capability::Int8)
         .shader_crate_features(["libm".to_string(), "spirv".to_string()]);

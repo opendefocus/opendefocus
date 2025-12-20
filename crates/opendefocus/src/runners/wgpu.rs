@@ -5,7 +5,7 @@ use crate::{renders::resize::MipmapBuffer, runners::runner::ConvolveRunner};
 use ndarray::{Array3};
 use opendefocus_shared::{ConvolveSettings, GlobalFlags};
 use wgpu::{DeviceType, util::DeviceExt};
-use wgpu::{ExperimentalFeatures, Limits, include_spirv};
+use wgpu::{ExperimentalFeatures, Limits, include_wgsl};
 
 #[derive(Debug, Clone)]
 pub struct WgpuRunner {
@@ -84,11 +84,9 @@ impl WgpuRunner {
     fn create_convolve_pipeline(
         device: &wgpu::Device,
     ) -> (Option<wgpu::ComputePipeline>, Option<wgpu::BindGroupLayout>) {
-        let spirv_data = include_spirv!(
-            "../../../../target/spirv-unknown-vulkan1.4/release/deps/opendefocus_kernel.spv"
-        );
+        let wgsl = include_wgsl!("../../../../shaders/opendefocus-kernel.wgsl");
         let shader_module = unsafe {
-            device.create_shader_module_trusted(spirv_data, wgpu::ShaderRuntimeChecks::unchecked())
+            device.create_shader_module_trusted(wgsl, wgpu::ShaderRuntimeChecks::unchecked())
         };
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
