@@ -40,3 +40,28 @@ jobs:
           name: nuke-linux
           path: target/nuke/builds
 
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup required tools
+        run: brew install protobuf
+
+      - name: Cache Nuke
+        id: cache-macos-nuke-15-16
+        uses: actions/cache@v5
+        with:
+          path: target/nuke/deps
+          key: cache-macos-nuke-15-16
+
+      - name: Build Nuke
+        run: cargo xtask --compile --nuke-versions 15.2,16.0 --target-platform macos-aarch64
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuke-macos-aarch64
+          path: target/nuke/builds
+
+
