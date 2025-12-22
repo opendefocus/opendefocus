@@ -73,6 +73,7 @@ exclude = ["test/test_package"]
 [dependency-groups]
 dev = [
     "nuketesting",
+    "pytest>=8.3.5",
 ]
 
 
