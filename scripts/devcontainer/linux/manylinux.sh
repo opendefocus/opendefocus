@@ -13,6 +13,4 @@ dnf update
 dnf install protobuf-compiler openssl-devel -y
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-cargo xtask
-cd crates/spirv-cli-build && rustup toolchain install
 cargo install --locked cargo-zigbuild
