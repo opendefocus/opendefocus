@@ -30,8 +30,9 @@ jobs:
           key: cache-linux-nuke-15-16
 
       - name: Build Nuke
+        shell: bash
         run: |
-          . "$HOME/.cargo/env"
+          source ~/.bashrc
           cargo xtask --compile --nuke-versions 15.2,16.0 --limit-threads --target-platform linux
 
       - name: Upload wheels
