@@ -1,14 +1,26 @@
 use anyhow::{Error, Result};
 use duct::cmd;
 use naga::{back::wgsl::WriterFlags, front::spv::Options};
+use toml::Table;
 
 use crate::util::crate_root;
 
 pub async fn compile_spirv() -> Result<()> {
     log::info!("Starting spirv build");
+    let toolchain = tokio::fs::read_to_string(
+        crate_root()
+            .join("crates")
+            .join("spirv-cli-build")
+            .join("rust-toolchain.toml"),
+    )
+    .await?;
+    let toolchain = toolchain.parse::<Table>()?;
+    let channel = toolchain["toolchain"]["channel"]
+        .as_str()
+        .ok_or_else(|| Error::msg("Channel not found in toolchain"))?;
     let spirv_path = cmd!(
         "cargo",
-        "+nightly-2025-06-30",
+        format!("+{channel}"),
         "run",
         "--manifest-path",
         crate_root()

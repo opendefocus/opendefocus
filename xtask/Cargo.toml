@@ -26,6 +26,7 @@ astral-tokio-tar = "0.5.6"
 zip = { version = "6.0.0", default-features = false, features = ["deflate"] }
 html-to-markdown-rs = "2.15.0"
 naga = { version = "28.0", features = ["spv-in", "wgsl-out"] }
+toml = "0.9.10"
 
 [lints]
 workspace = true
