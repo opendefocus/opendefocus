@@ -14,5 +14,8 @@ pub fn target_directory() -> PathBuf {
 
 /// Just some simple wrapper to handle the unwrap with result
 pub fn path_to_string(path: &Path) -> Result<String> {
-    Ok(path.to_str().context("Could not convert path to String")?.to_string())
+    Ok(path
+        .to_str()
+        .context("Could not convert path to String")?
+        .to_string())
 }

@@ -397,7 +397,10 @@ async fn patch_headers(directory: &PathBuf) -> Result<()> {
         .join("STLAllocator.h");
     if allocator.is_file() {
         let header = tokio::fs::read_to_string(&allocator).await?;
-        let header = header.replace("STLInstanceClassName(const STLInstanceClassName& other)", "STLInstanceClassName(STLInstanceClassName& other)");
+        let header = header.replace(
+            "STLInstanceClassName(const STLInstanceClassName& other)",
+            "STLInstanceClassName(STLInstanceClassName& other)",
+        );
         tokio::fs::write(allocator, header).await?;
     };
     Ok(())

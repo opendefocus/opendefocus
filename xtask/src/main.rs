@@ -1,21 +1,25 @@
+mod compile;
 mod license;
 mod nuke;
 mod precommit;
+mod release;
 mod test;
+mod consts;
 mod util;
+
 use core::fmt;
 use std::path::PathBuf;
-mod compile;
 
 use crate::{
     compile::compile_spirv,
     license::fetch_licenses,
     nuke::{compile_nuke, create_package},
     precommit::precommit,
+    release::{release_docs, release_package},
     test::{test_crates, test_nuke_plugin_package},
     util::crate_root,
 };
-use anyhow::{Result};
+use anyhow::Result;
 use clap::{ArgAction, Parser};
 use duct::cmd;
 
@@ -49,6 +53,17 @@ struct Args {
 
     #[clap(short, long)]
     target_platform: Option<TargetPlatform>,
+
+    /// Ship the package folder to a public release
+    #[clap(long, action=ArgAction::SetTrue)]
+    release_package: bool,
+
+    #[clap(long)]
+    target_package_path: Option<PathBuf>,
+
+    /// Release the docs onto the repository
+    #[clap(long, action=ArgAction::SetTrue)]
+    release_docs: bool,
 
     #[clap(short, long, value_delimiter = ',')]
     nuke_versions: Vec<String>,
@@ -127,5 +142,14 @@ async fn main() -> Result<()> {
         cmd!("mdbook", "serve", crate_root().join("docs")).run()?;
     }
 
+    if args.release_package {
+        release_package(args.target_package_path).await?;
+    }
+
+    if args.release_docs {
+        release_docs().await?;
+    }
+
     Ok(())
 }
+
