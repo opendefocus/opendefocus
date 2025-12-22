@@ -37,7 +37,7 @@ pub async fn compile_nuke(versions: Vec<String>, target: TargetPlatform, limit_t
                 compile_macos_zig(&version, &target).await?
             }
         } else if target == TargetPlatform::Linux {
-            compile_linux_zig(&version, &target).await?
+            compile_linux(&version, &target).await?
         } else if target == TargetPlatform::Windows {
             todo!()
         }
@@ -139,9 +139,7 @@ async fn compile_macos_native(version: &str, target: &TargetPlatform) -> Result<
     Ok(())
 }
 
-async fn compile_linux_zig(version: &str, target: &TargetPlatform) -> Result<(), anyhow::Error> {
-    let glibc = "2.17";
-    let zigbuild_target = "x86_64-unknown-linux-gnu";
+async fn compile_linux(version: &str, target: &TargetPlatform) -> Result<(), anyhow::Error> {
     let sources_directory = nuke_source_directory(version);
     let crates_path = path_to_string(
         &crate_root()
@@ -151,12 +149,10 @@ async fn compile_linux_zig(version: &str, target: &TargetPlatform) -> Result<(),
     )?;
     cmd!(
         "cargo",
-        "zigbuild",
+        "build",
         "--manifest-path",
         &crates_path,
         "--release",
-        "--target",
-        format!("{zigbuild_target}.{glibc}"),
     )
     .env("NUKE_SOURCE_PATH", &sources_directory)
     .run()?;
@@ -177,7 +173,6 @@ async fn compile_linux_zig(version: &str, target: &TargetPlatform) -> Result<(),
     let output_dylib = out_dir.join(format!("OpenDefocus.{}", dll_suffix(*target)));
     let build_staticlib = path_to_string(
         &target_directory()
-            .join(zigbuild_target)
             .join("release")
             .join(format!(
                 "{}opendefocus_nuke.{staticlib}",
@@ -195,7 +190,7 @@ async fn compile_linux_zig(version: &str, target: &TargetPlatform) -> Result<(),
         format!("-I{}", path_to_string(&sources_directory.join("include"))?),
         format!("-I{}crates", path_to_string(&crate_root())?),
         format!(
-            "-I{}{zigbuild_target}/cxxbridge",
+            "-I{}cxxbridge",
             path_to_string(&target_directory())?
         ),
         format!("-std=c++{}", get_cpp_version(version)?),
