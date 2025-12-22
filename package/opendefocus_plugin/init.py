@@ -1,7 +1,9 @@
+"""Main entry point for OpenDefocus Nuke plugin."""
+
 import logging
 
-from opendefocus.worker.node_setup import setup_knob_changed
-from opendefocus.worker.plugin_loader import (
+from opendefocus_plugin._node_setup import setup_knob_changed
+from opendefocus_plugin._plugin_loader import (
     add_plugin_path_safe,
 )
 

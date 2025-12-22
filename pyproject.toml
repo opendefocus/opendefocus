@@ -1,11 +1,63 @@
+[build-system]
+requires = ["hatchling", "hatch-build-scripts"]
+build-backend = "hatchling.build"
+
 [project]
 name = "opendefocus"
+requires-python = ">=3.8"
+classifiers = [
+    'License :: OSI Approved :: European Union Public Licence 1.2 (EUPL 1.2)',
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
+    "Topic :: Scientific/Engineering",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+dynamic = ["version"]
 description = "An advanced open-source convolution library for image post-processing"
 readme = "README.md"
-requires-python = ">=3.10.14"
-dependencies = ["nuketesting"]
-dynamic = ["version"]
+license = "EUPL-1.2"
+authors = [{ name = "olivebowl", email = "olivebowl@noreply.codeberg.org" }]
+maintainers = [
+    { name = "olivebowl", email = "olivebowl@noreply.codeberg.org" },
+]
+# dependencies = ["protobuf==6.33.0"]
 
+
+[tool.hatch.version]
+path = "Cargo.toml"
+pattern = "version = \"(?P<version>\\d+\\.\\d+\\.\\d+)"
+[tool.hatch.build.targets.wheel]
+packages = ["python/src/opendefocus"]
+
+[tool.uv]
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "Cargo.toml" },
+    { file = "**/*.rs" },
+    { file = "**/*.proto" },
+
+]
+
+[tool.uv.sources]
+nuketesting = { git = "https://github.com/cglukas/NukeTesting.git", rev = "main" }
+
+[tool.ruff]
+target-version = "py37"
+exclude = ["test", "package/init.py"]
 [tool.ruff.lint]
 select = ["ALL"]
 
@@ -15,5 +67,12 @@ convention = "google"
 [tool.ty.rules]
 index-out-of-bounds = "ignore"
 
+[tool.ty.src]
+exclude = ["test/test_package"]
+
 [dependency-groups]
-dev = ["pytest>=8.3.4"]
+dev = [
+    "nuketesting",
+]
+
+

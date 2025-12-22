@@ -6,40 +6,39 @@ use duct::cmd;
 use crate::{
     TargetPlatform,
     nuke::sources::{dll_prefix, dll_suffix, get_sources, nuke_source_directory},
+    util::{crate_root, path_to_string, target_directory},
 };
 
 fn build_dir(version: &str, target: &TargetPlatform) -> PathBuf {
-    PathBuf::from(env!("BUILD_DIR"))
+    target_directory()
         .join("nuke")
         .join(version)
         .join(format!("{}", target))
 }
 
-pub async fn compile_nuke(versions: Vec<String>, targets: Vec<TargetPlatform>) -> Result<()> {
-    get_sources(targets.clone(), versions.clone()).await?;
-    let xwin_path = PathBuf::from(env!("WORKSPACE")).join("target").join("xwin");
-    if targets.contains(&TargetPlatform::Windows) && !xwin_path.exists() {
+pub async fn compile_nuke(versions: Vec<String>, target: TargetPlatform) -> Result<()> {
+    get_sources(vec![target], versions.clone()).await?;
+    let xwin_path = target_directory().join("xwin");
+    if target == TargetPlatform::Windows && !xwin_path.exists() {
         cmd!("xwin", "--accept-license", "splat", "--output", xwin_path).run()?;
     };
 
     for version in versions {
         let cpp_version = get_cpp_version(&version)?;
         println!("cargo:rustc-env=CPP_VERSION={}", cpp_version);
-        for target in &targets {
-            if target == &TargetPlatform::MacosAarch64 || target == &TargetPlatform::MacosX86_64 {
-                if std::env::consts::ARCH == "aarch64"
-                    && target == &TargetPlatform::MacosAarch64
-                    && std::env::consts::OS == "macos"
-                {
-                    compile_macos_native(&version, target).await?
-                } else {
-                    compile_macos_zig(&version, &target).await?
-                }
-            } else if target == &TargetPlatform::Linux {
-                compile_linux_zig(&version, &target).await?
-            } else if target == &TargetPlatform::Windows {
-                todo!()
+        if target == TargetPlatform::MacosAarch64 || target == TargetPlatform::MacosX86_64 {
+            if std::env::consts::ARCH == "aarch64"
+                && target == TargetPlatform::MacosAarch64
+                && std::env::consts::OS == "macos"
+            {
+                compile_macos_native(&version, &target).await?
+            } else {
+                compile_macos_zig(&version, &target).await?
             }
+        } else if target == TargetPlatform::Linux {
+            compile_linux_zig(&version, &target).await?
+        } else if target == TargetPlatform::Windows {
+            todo!()
         }
     }
 
@@ -62,13 +61,12 @@ async fn compile_macos_native(version: &str, target: &TargetPlatform) -> Result<
         std::env::set_var("MACOSX_DEPLOYMENT_TARGET", "11.0");
     }
     let sources_directory = nuke_source_directory(version);
-    let crates_path = PathBuf::from(env!("WORKSPACE"))
-        .join("crates")
-        .join("opendefocus-nuke")
-        .join("Cargo.toml")
-        .to_str()
-        .unwrap()
-        .to_owned();
+    let crates_path = path_to_string(
+        &crate_root()
+            .join("crates")
+            .join("opendefocus-nuke")
+            .join("Cargo.toml"),
+    )?;
     cmd!(
         "cargo",
         "build",
@@ -80,10 +78,10 @@ async fn compile_macos_native(version: &str, target: &TargetPlatform) -> Result<
     .run()?;
     println!(
         "cargo:rustc-env=NUKE_SOURCE_PATH={}",
-        sources_directory.to_str().unwrap()
+        path_to_string(&sources_directory)?
     );
     let staticlib = static_file_extension(target);
-    let src = PathBuf::from(env!("WORKSPACE"))
+    let src = crate_root()
         .join("crates")
         .join("opendefocus-nuke")
         .join("src")
@@ -96,32 +94,17 @@ async fn compile_macos_native(version: &str, target: &TargetPlatform) -> Result<
         "OpenDefocus.{}",
         dll_suffix(TargetPlatform::MacosAarch64)
     ));
-    let build_staticlib = PathBuf::from(env!("WORKSPACE"))
-        .join("target")
-        .join("release")
-        .join(format!(
-            "{}opendefocus_nuke.{staticlib}",
-            dll_prefix(TargetPlatform::MacosAarch64)
-        ))
-        .to_str()
-        .unwrap()
-        .to_string();
+    let build_staticlib = path_to_string(&&target_directory().join("release").join(format!(
+        "{}opendefocus_nuke.{staticlib}",
+        dll_prefix(TargetPlatform::MacosAarch64)
+    )))?;
     cmd!(
         "clang++",
         "-c",
         "-Wno-ignored-qualifiers",
-        format!("-I{}", sources_directory.join("include").to_str().unwrap()),
-        format!(
-            "-I{}",
-            sources_directory
-                .parent()
-                .unwrap()
-                .join("include")
-                .to_str()
-                .unwrap()
-        ),
-        format!("-I/{}crates", env!("WORKSPACE")),
-        format!("-I/{}target/cxxbridge", env!("WORKSPACE")),
+        format!("-I{}", path_to_string(&sources_directory.join("include"))?),
+        format!("-I{}crates", path_to_string(&crate_root())?),
+        format!("-I{}cxxbridge", path_to_string(&target_directory())?),
         format!("-std=c++{}", get_cpp_version(version)?),
         "-fPIC",
         "-o",
@@ -134,7 +117,7 @@ async fn compile_macos_native(version: &str, target: &TargetPlatform) -> Result<
     .run()?;
     cmd!(
         "clang++",
-        format!("-L{}", sources_directory.to_str().unwrap()),
+        format!("-L{}", path_to_string(&sources_directory)?),
         "-lDDImage",
         "-framework",
         "Foundation",
@@ -159,13 +142,12 @@ async fn compile_linux_zig(version: &str, target: &TargetPlatform) -> Result<(),
     let glibc = "2.17";
     let zigbuild_target = "x86_64-unknown-linux-gnu";
     let sources_directory = nuke_source_directory(version);
-    let crates_path = PathBuf::from(env!("WORKSPACE"))
-        .join("crates")
-        .join("opendefocus-nuke")
-        .join("Cargo.toml")
-        .to_str()
-        .unwrap()
-        .to_owned();
+    let crates_path = path_to_string(
+        &crate_root()
+            .join("crates")
+            .join("opendefocus-nuke")
+            .join("Cargo.toml"),
+    )?;
     cmd!(
         "cargo",
         "zigbuild",
@@ -179,10 +161,10 @@ async fn compile_linux_zig(version: &str, target: &TargetPlatform) -> Result<(),
     .run()?;
     println!(
         "cargo:rustc-env=NUKE_SOURCE_PATH={}",
-        sources_directory.to_str().unwrap()
+        path_to_string(&sources_directory)?
     );
     let staticlib = static_file_extension(target);
-    let src = PathBuf::from(env!("WORKSPACE"))
+    let src = crate_root()
         .join("crates")
         .join("opendefocus-nuke")
         .join("src")
@@ -192,17 +174,15 @@ async fn compile_linux_zig(version: &str, target: &TargetPlatform) -> Result<(),
         tokio::fs::create_dir_all(&out_dir).await?;
     }
     let output_dylib = out_dir.join(format!("OpenDefocus.{}", dll_suffix(*target)));
-    let build_staticlib = PathBuf::from(env!("WORKSPACE"))
-        .join("target")
-        .join(zigbuild_target)
-        .join("release")
-        .join(format!(
-            "{}opendefocus_nuke.{staticlib}",
-            dll_prefix(*target)
-        ))
-        .to_str()
-        .unwrap()
-        .to_string();
+    let build_staticlib = path_to_string(
+        &target_directory()
+            .join(zigbuild_target)
+            .join("release")
+            .join(format!(
+                "{}opendefocus_nuke.{staticlib}",
+                dll_prefix(*target)
+            )),
+    )?;
     cmd!(
         "g++",
         "-c",
@@ -211,9 +191,12 @@ async fn compile_linux_zig(version: &str, target: &TargetPlatform) -> Result<(),
         "-Wno-date-time",
         "-Wno-unused-parameter",
         "-D_GLIBCXX_USE_CXX11_ABI=1",
-        format!("-I{}", sources_directory.join("include").to_str().unwrap()),
-        format!("-I/{}crates", env!("WORKSPACE")),
-        format!("-I/{}target/{zigbuild_target}/cxxbridge", env!("WORKSPACE")),
+        format!("-I{}", path_to_string(&sources_directory.join("include"))?),
+        format!("-I{}crates", path_to_string(&crate_root())?),
+        format!(
+            "-I{}{zigbuild_target}/cxxbridge",
+            path_to_string(&target_directory())?
+        ),
         format!("-std=c++{}", get_cpp_version(version)?),
         "-fPIC",
         "-o",
@@ -226,7 +209,7 @@ async fn compile_linux_zig(version: &str, target: &TargetPlatform) -> Result<(),
     .run()?;
     cmd!(
         "g++",
-        format!("-L{}", sources_directory.to_str().unwrap()),
+        format!("-L{}", path_to_string(&sources_directory)?),
         "-lDDImage",
         "-D_GLIBCXX_USE_CXX11_ABI=1",
         "-shared",
@@ -248,13 +231,12 @@ async fn compile_macos_zig(version: &str, target: &TargetPlatform) -> Result<(),
         _ => ("x86_64-apple_darwin", "x86_64-macos"),
     };
     let sources_directory = nuke_source_directory(version);
-    let crates_path = PathBuf::from(env!("WORKSPACE"))
-        .join("crates")
-        .join("opendefocus-nuke")
-        .join("Cargo.toml")
-        .to_str()
-        .unwrap()
-        .to_owned();
+    let crates_path = path_to_string(
+        &crate_root()
+            .join("crates")
+            .join("opendefocus-nuke")
+            .join("Cargo.toml"),
+    )?;
     cmd!(
         "cargo",
         "zigbuild",
@@ -268,10 +250,10 @@ async fn compile_macos_zig(version: &str, target: &TargetPlatform) -> Result<(),
     .run()?;
     println!(
         "cargo:rustc-env=NUKE_SOURCE_PATH={}",
-        sources_directory.to_str().unwrap()
+        path_to_string(&sources_directory)?
     );
     let staticlib = static_file_extension(target);
-    let src = PathBuf::from(env!("WORKSPACE"))
+    let src = crate_root()
         .join("crates")
         .join("opendefocus-nuke")
         .join("src")
@@ -284,17 +266,15 @@ async fn compile_macos_zig(version: &str, target: &TargetPlatform) -> Result<(),
         "OpenDefocus.{}",
         dll_suffix(TargetPlatform::MacosAarch64)
     ));
-    let build_staticlib = PathBuf::from(env!("WORKSPACE"))
-        .join("target")
-        .join(zigbuild_target)
-        .join("release")
-        .join(format!(
-            "{}opendefocus_nuke.{staticlib}",
-            dll_prefix(TargetPlatform::MacosAarch64)
-        ))
-        .to_str()
-        .unwrap()
-        .to_string();
+    let build_staticlib = path_to_string(
+        &target_directory()
+            .join(zigbuild_target)
+            .join("release")
+            .join(format!(
+                "{}opendefocus_nuke.{staticlib}",
+                dll_prefix(TargetPlatform::MacosAarch64)
+            )),
+    )?;
     cmd!(
         "zig",
         "c++",
@@ -302,18 +282,12 @@ async fn compile_macos_zig(version: &str, target: &TargetPlatform) -> Result<(),
         zig_target,
         "-c",
         "-Wno-ignored-qualifiers",
-        format!("-I{}", sources_directory.join("include").to_str().unwrap()),
+        format!("-I{}", path_to_string(&sources_directory.join("include"))?),
+        format!("-I{}crates", path_to_string(&crate_root())?),
         format!(
-            "-I{}",
-            sources_directory
-                .parent()
-                .unwrap()
-                .join("include")
-                .to_str()
-                .unwrap()
+            "-I{}{zigbuild_target}/cxxbridge",
+            path_to_string(&target_directory())?
         ),
-        format!("-I/{}crates", env!("WORKSPACE")),
-        format!("-I/{}target/{zigbuild_target}/cxxbridge", env!("WORKSPACE")),
         format!("-std=c++{}", get_cpp_version(version)?),
         "-fPIC",
         "-o",
@@ -329,17 +303,17 @@ async fn compile_macos_zig(version: &str, target: &TargetPlatform) -> Result<(),
         "c++",
         "-target",
         zig_target,
-        format!("-L{}", sources_directory.to_str().unwrap()),
+        format!("-L{}", path_to_string(&sources_directory)?),
         "--sysroot",
         std::env::var("SDKROOT").unwrap_or_default(),
         format!(
             "-F{}",
-            PathBuf::from(std::env::var("SDKROOT").unwrap_or_default())
-                .join("System")
-                .join("Library")
-                .join("Frameworks")
-                .to_str()
-                .unwrap()
+            path_to_string(
+                &PathBuf::from(std::env::var("SDKROOT").unwrap_or_default())
+                    .join("System")
+                    .join("Library")
+                    .join("Frameworks")
+            )?
         ),
         "-lDDImage",
         "-framework",

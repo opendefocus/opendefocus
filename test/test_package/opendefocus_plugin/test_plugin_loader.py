@@ -4,12 +4,12 @@ import sys
 try:
     from unittest.mock import MagicMock, patch
 except ImportError:
-    from mock import patch, MagicMock
+    from unittest.mock import MagicMock, patch
 import pytest
 
 sys.modules["nuke"] = MagicMock()
 
-from opendefocus.worker.plugin_loader import (
+from opendefocus_plugin._plugin_loader import (
     PluginNotFoundError,
     UnsupportedSystemError,
     _build_plugin_path,
@@ -32,12 +32,11 @@ from opendefocus.worker.plugin_loader import (
 def test_nuke_version_format(major, minor, expected):
     # type: (int, int, int) -> None
     """Test the nuke version to return an expected string."""
-
     nuke_mock = MagicMock()
     nuke_mock.NUKE_VERSION_MAJOR = major
     nuke_mock.NUKE_VERSION_MINOR = minor
 
-    with patch("opendefocus.worker.plugin_loader.nuke", nuke_mock):
+    with patch("opendefocus_plugin._plugin_loader.nuke", nuke_mock):
         version = _get_nuke_version()
 
     assert version == expected
@@ -54,11 +53,10 @@ def test_nuke_version_format(major, minor, expected):
 def test_get_operating_system_name(platform, expected):
     # type: (str, str) -> None
     """Test the operating system retrieval to match to the current system."""
-
     platform_mock = MagicMock()
     platform_mock.system.return_value = platform
 
-    with patch("opendefocus.worker.plugin_loader.platform", platform_mock):
+    with patch("opendefocus_plugin._plugin_loader.platform", platform_mock):
         result = _get_operating_system_name()
 
     assert result == expected
@@ -72,10 +70,12 @@ def test_unsupported_system_error():
     platform_mock = MagicMock()
     platform_mock.system.return_value = "SciFiOS"
 
-    with patch("opendefocus.worker.plugin_loader.nuke", nuke_mock), patch(
-        "opendefocus.worker.plugin_loader.platform", platform_mock
+    with patch("opendefocus_plugin._plugin_loader.nuke", nuke_mock), patch(
+        "opendefocus_plugin._plugin_loader.platform",
+        platform_mock,
     ), pytest.raises(
-        UnsupportedSystemError, match="System 'scifios' is not supported."
+        UnsupportedSystemError,
+        match="System 'scifios' is not supported.",
     ):
         _get_operating_system_name()
 
@@ -99,8 +99,9 @@ def test_get_arch(processor, major, system, expected):
     platform_mock.processor.return_value = processor
     platform_mock.system.return_value = system
 
-    with patch("opendefocus.worker.plugin_loader.nuke", nuke_mock), patch(
-        "opendefocus.worker.plugin_loader.platform", platform_mock
+    with patch("opendefocus_plugin._plugin_loader.nuke", nuke_mock), patch(
+        "opendefocus_plugin._plugin_loader.platform",
+        platform_mock,
     ):
         result = _get_arch()
     assert result == expected
@@ -115,10 +116,11 @@ def test_unsupported_arch_system_error():
     platform_mock.processor.return_value = "x28"
     platform_mock.system.return_value = "Darwin"
 
-    with patch("opendefocus.worker.plugin_loader.nuke", nuke_mock), patch(
-        "opendefocus.worker.plugin_loader.platform", platform_mock
+    with patch("opendefocus_plugin._plugin_loader.nuke", nuke_mock), patch(
+        "opendefocus_plugin._plugin_loader.platform", platform_mock
     ), pytest.raises(
-        UnsupportedSystemError, match="Architecture 'x28' is not supported."
+        UnsupportedSystemError,
+        match="Architecture 'x28' is not supported.",
     ):
         _get_arch()
 
@@ -130,20 +132,24 @@ def test_build_plugin_path():
     test_arch = "test_arch"
     test_nuke_version = "15.0"
     expected_path = os.path.join(
-        test_installation_path, "bin", test_nuke_version, test_system, test_arch
+        test_installation_path,
+        "bin",
+        test_nuke_version,
+        test_system,
+        test_arch,
     ).replace(os.sep, "/")
 
     with patch(
-        "opendefocus.worker.plugin_loader._get_operating_system_name",
+        "opendefocus_plugin._plugin_loader._get_operating_system_name",
         return_value=test_system,
     ), patch(
-        "opendefocus.worker.plugin_loader._get_nuke_version",
+        "opendefocus_plugin._plugin_loader._get_nuke_version",
         return_value=test_nuke_version,
     ), patch(
-        "opendefocus.worker.plugin_loader._get_arch",
+        "opendefocus_plugin._plugin_loader._get_arch",
         return_value=test_arch,
     ), patch(
-        "opendefocus.worker.plugin_loader.INSTALLATION_PATH",
+        "opendefocus_plugin._plugin_loader.INSTALLATION_PATH",
         test_installation_path,
     ):
         result = _build_plugin_path()
@@ -159,10 +165,13 @@ def test_add_plugin_path_adds_plugin_path(test_path):
     os_path_mock = MagicMock()
     os_path_mock.isdir.return_value = True
 
-    with patch("opendefocus.worker.plugin_loader.nuke", nuke_mock), patch(
-        "opendefocus.worker.plugin_loader._build_plugin_path",
+    with patch("opendefocus_plugin._plugin_loader.nuke", nuke_mock), patch(
+        "opendefocus_plugin._plugin_loader._build_plugin_path",
         return_value=plugin_path,
-    ), patch("opendefocus.worker.plugin_loader.os.path.isdir", os_path_mock.isdir):
+    ), patch(
+        "opendefocus_plugin._plugin_loader.os.path.isdir",
+        os_path_mock.isdir,
+    ):
         add_plugin_path()
 
     nuke_mock.pluginAppendPath.assert_called_once_with(test_path)
@@ -182,10 +191,13 @@ def test_add_plugin_path_with_nonexisting_path():
         "is not supported in this release. "
         "Please make sure to update to the latest version "
         "of OpenDefocus.",
-    ), patch("opendefocus.worker.plugin_loader.nuke", nuke_mock), patch(
-        "opendefocus.worker.plugin_loader._build_plugin_path",
+    ), patch("opendefocus_plugin._plugin_loader.nuke", nuke_mock), patch(
+        "opendefocus_plugin._plugin_loader._build_plugin_path",
         return_value="some/path",
-    ), patch("opendefocus.worker.plugin_loader.os.path.isdir", os_path_mock.isdir):
+    ), patch(
+        "opendefocus_plugin._plugin_loader.os.path.isdir",
+        os_path_mock.isdir,
+    ):
         add_plugin_path()
 
     nuke_mock.pluginAddPath.assert_not_called()
@@ -200,19 +212,14 @@ def test_add_plugin_path_safe():
     os_path_mock.isdir.return_value = False
     logger_mock = MagicMock()
 
-    with patch("opendefocus.worker.plugin_loader.nuke", nuke_mock), patch(
-        "opendefocus.worker.plugin_loader._build_plugin_path",
+    with patch("opendefocus_plugin._plugin_loader.nuke", nuke_mock), patch(
+        "opendefocus_plugin._plugin_loader._build_plugin_path",
         return_value="test/path",
-    ), patch("opendefocus.worker.plugin_loader.logger", logger_mock), patch(
-        "opendefocus.worker.plugin_loader.os.path.isdir", os_path_mock.isdir
+    ), patch("opendefocus_plugin._plugin_loader.logger", logger_mock), patch(
+        "opendefocus_plugin._plugin_loader.os.path.isdir",
+        os_path_mock.isdir,
     ):
         add_plugin_path_safe()
 
-    logger_mock.error.assert_called_once_with(
-        "OpenDefocus is installed, "
-        "however this version of Nuke: 'test_version' "
-        "is not supported in this release. "
-        "Please make sure to update to the latest version "
-        "of OpenDefocus."
-    )
+    logger_mock.exception.assert_called_once_with("Plugin loading failed.")
     assert os.getenv("OPENDEFOCUS_LOADED") == "0"
