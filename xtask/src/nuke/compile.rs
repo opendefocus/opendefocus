@@ -17,8 +17,8 @@ fn build_dir(version: &str, target: &TargetPlatform) -> PathBuf {
         .join(format!("{}", target))
 }
 
-pub async fn compile_nuke(versions: Vec<String>, target: TargetPlatform) -> Result<()> {
-    get_sources(vec![target], versions.clone()).await?;
+pub async fn compile_nuke(versions: Vec<String>, target: TargetPlatform, limit_threads: bool) -> Result<()> {
+    get_sources(vec![target], versions.clone(), limit_threads).await?;
     let xwin_path = target_directory().join("xwin");
     if target == TargetPlatform::Windows && !xwin_path.exists() {
         cmd!("xwin", "--accept-license", "splat", "--output", xwin_path).run()?;

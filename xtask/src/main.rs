@@ -89,6 +89,9 @@ struct Args {
     #[clap(long, action=ArgAction::SetTrue)]
     precommit: bool,
 
+    #[clap(long, action=ArgAction::SetTrue)]
+    limit_threads: bool,
+
     #[arg(long)]
     args: bool,
 
@@ -125,7 +128,7 @@ async fn main() -> Result<()> {
         if !args.nuke_versions.is_empty()
             && let Some(target_platform) = args.target_platform
         {
-            compile_nuke(args.nuke_versions.clone(), target_platform).await?;
+            compile_nuke(args.nuke_versions.clone(), target_platform, args.limit_threads).await?;
         }
     }
     if args.output_to_package
