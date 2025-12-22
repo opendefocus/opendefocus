@@ -1,0 +1,18 @@
+when:
+  event: [push, manual]
+  path:
+    include:
+      - '**/*.rs'
+      - '**/*.toml'
+      - '**/*.yaml'
+      - '**/*.py'
+      - '**/*.proto'
+
+
+steps:
+  test:
+    image: rust:trixie
+    commands:
+      - apt update && apt install -y protobuf-compiler
+      - cargo xtask --test-crates
+      - cargo xtask --pytest --test-nuke-plugin-package
