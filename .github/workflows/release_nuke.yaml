@@ -33,6 +33,7 @@ jobs:
         shell: bash
         run: |
           source ~/.bashrc
+          . "$HOME/.cargo/env"
           cargo xtask --compile --nuke-versions 15.2,16.0 --limit-threads --target-platform linux
 
       - name: Upload wheels

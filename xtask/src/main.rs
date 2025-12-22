@@ -89,6 +89,7 @@ struct Args {
     #[clap(long, action=ArgAction::SetTrue)]
     precommit: bool,
 
+    /// This will prevent concurrent downlodas to keep the used storage on the system low (for ci)
     #[clap(long, action=ArgAction::SetTrue)]
     limit_threads: bool,
 
