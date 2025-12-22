@@ -3,8 +3,13 @@
 use anyhow::Result;
 use duct::cmd;
 
-pub fn precommit() -> Result<()> {
+use crate::compile::compile_spirv;
+
+pub async fn precommit(args: Vec<String>) -> Result<()> {
     run_ty_typechecking()?;
+    if args.iter().any(|arg| arg.contains("kernel")) {
+        compile_spirv().await?;
+    }
     Ok(())
 }
 
