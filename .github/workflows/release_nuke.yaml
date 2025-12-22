@@ -31,7 +31,7 @@ jobs:
 
       - name: Build Nuke
         run: |
-          source "$HOME/.cargo/env
+          . "$HOME/.cargo/env"
           cargo xtask --compile --nuke-versions 15.2,16.0 --target-platform linux
 
       - name: Upload wheels
