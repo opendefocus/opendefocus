@@ -75,10 +75,6 @@ def test__add_menu_dependancies_to_plugin_path():
         os.sep,
         "/",
     )
-    python_packages_path = os.path.join(
-        installation_path_mock,
-        "python_packages",
-    ).replace(os.sep, "/")
 
-    expected_calls = [call(str(resources_path)), call(str(python_packages_path))]
+    expected_calls = [call(str(resources_path))]
     nuke_mock.pluginAppendPath.assert_has_calls(expected_calls, any_order=False)

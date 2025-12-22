@@ -33,9 +33,6 @@ def _add_menu_dependancies_to_plugin_path():
     nuke.pluginAppendPath(
         os.path.join(INSTALLATION_PATH, "resources").replace(os.sep, "/"),
     )
-    nuke.pluginAppendPath(
-        os.path.join(INSTALLATION_PATH, "python_packages").replace(os.sep, "/"),
-    )
 
 
 def _set_installation_directory():
