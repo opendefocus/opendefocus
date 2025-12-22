@@ -12,6 +12,7 @@ use crate::{
 fn build_dir(version: &str, target: &TargetPlatform) -> PathBuf {
     target_directory()
         .join("nuke")
+        .join("builds")
         .join(version)
         .join(format!("{}", target))
 }

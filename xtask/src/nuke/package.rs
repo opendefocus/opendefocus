@@ -26,6 +26,7 @@ pub async fn create_package(target: TargetPlatform, versions: Vec<String>) -> Re
         let filename = format!("OpenDefocus.{}", dll_suffix(target));
         let source_binary_path = target_directory()
             .join("nuke")
+            .join("builds")
             .join(version)
             .join(format!("{arch_name}-{os_name}"))
             .join(&filename);

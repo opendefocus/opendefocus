@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    # branches:
+    #   - main
+    # tags:
+    #   - '*'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ${{ matrix.platform.runner }}
+    container:
+      image: quay.io/pypa/manylinux_2_28
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup required tools
+        run: ./scripts/devcontainer/manylinux.sh
+
+      - name: Cache Nuke
+        id: cache-linux-nuke-15-16
+        uses: actions/cache@v4
+        with:
+          path: target/nuke/deps
+          key: cache-linux-nuke-15-16
+
+      - name: Build Nuke
+        run: cargo xtask --compile --nuke-versions 15.2,16.0 --target-platform linux
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuke-linux
+          path: target/nuke/builds
+
