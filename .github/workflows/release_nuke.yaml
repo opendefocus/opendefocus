@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   linux:
-    runs-on: ${{ matrix.platform.runner }}
+    runs-on: ubuntu-latest
     container:
       image: quay.io/pypa/manylinux_2_28
     steps:
