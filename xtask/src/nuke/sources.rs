@@ -53,8 +53,11 @@ pub async fn get_sources(
     progressbar.println("Starting downloads... This can take a while.")?;
     let mut tasks = Vec::with_capacity(targets.len());
     if limit_threads {
-        for task in tasks {
-            task.await??;
+        for (i, target) in targets.into_iter().enumerate() {
+            fetch_nuke_source(
+                target,
+                progressbars[i].clone(),
+            ).await?;
         }
     } else {
         for (i, target) in targets.into_iter().enumerate() {
