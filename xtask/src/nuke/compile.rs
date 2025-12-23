@@ -28,14 +28,7 @@ pub async fn compile_nuke(versions: Vec<String>, target: TargetPlatform, limit_t
         let cpp_version = get_cpp_version(&version)?;
         println!("cargo:rustc-env=CPP_VERSION={}", cpp_version);
         if target == TargetPlatform::MacosAarch64 || target == TargetPlatform::MacosX86_64 {
-            if std::env::consts::ARCH == "aarch64"
-                && target == TargetPlatform::MacosAarch64
-                && std::env::consts::OS == "macos"
-            {
-                compile_macos_native(&version, &target).await?
-            } else {
-                compile_macos_zig(&version, &target).await?
-            }
+            compile_macos_native(&version, &target).await?
         } else if target == TargetPlatform::Linux {
             compile_linux(&version, &target).await?
         } else if target == TargetPlatform::Windows {
