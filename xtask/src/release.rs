@@ -26,7 +26,7 @@ pub async fn release_package(target_archive_path: Option<PathBuf>) -> Result<()>
     let package_path = crate_root().join("package");
 
     create_archive(&target_file, &package_path).await?;
-    upload_github_release(&target_file, "latest").await?;
+    // upload_github_release(&target_file, "latest").await?;
     Ok(())
 }
 
