@@ -389,9 +389,7 @@ async fn keep_required_files(
 }
 
 fn sources_directory() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../")
-        .join("target")
+    PathBuf::from(env!("TARGET_DIRECTORY"))
         .join("nuke")
         .join("deps")
 }
