@@ -79,7 +79,7 @@ jobs:
           key: cache-macos-nuke-15-16
 
       - name: Build Nuke
-        run: cargo xtask --compile --nuke-versions 14.0,14.1,15.0,15.1,15.2,16.0 --limit-threads --target-platform macos-x86_64
+        run: cargo xtask --compile --nuke-versions 14.0,14.1,15.0,15.1,15.2,16.0 --limit-threads --target-platform macos-x86-64
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
