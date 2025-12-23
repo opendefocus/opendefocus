@@ -37,8 +37,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          apt update
-          apt install msitools -y
+          sudo apt update
+          sudo apt install msitools -y
 
       - name: Fetch sources
         run: |
