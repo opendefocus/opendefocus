@@ -42,8 +42,8 @@ jobs:
 
       - name: Fetch sources
         run: |
-          cargo xtask --nuke-versions 14.0,14.1,15.0,15.1,15.2,16.0 --fetch-nuke --limit-threads --target-platform linux
-          cargo xtask --nuke-versions 14.0,14.1,15.0,15.1,15.2,16.0 --fetch-nuke --limit-threads --target-platform windows
+          cargo xtask --nuke-versions 14.0,14.1,15.0,15.1,15.2,16.0 --fetch-nuke --target-platform linux
+          cargo xtask --nuke-versions 14.0,14.1,15.0,15.1,15.2,16.0 --fetch-nuke --target-platform windows
 
   linux:
     runs-on: ubuntu-latest
