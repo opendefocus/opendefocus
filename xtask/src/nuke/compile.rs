@@ -17,7 +17,11 @@ fn build_dir(version: &str, target: &TargetPlatform) -> PathBuf {
         .join(format!("{}", target))
 }
 
-pub async fn compile_nuke(versions: Vec<String>, target: TargetPlatform, limit_threads: bool) -> Result<()> {
+pub async fn compile_nuke(
+    versions: Vec<String>,
+    target: TargetPlatform,
+    limit_threads: bool,
+) -> Result<()> {
     get_sources(vec![target], versions.clone(), limit_threads).await?;
     let xwin_path = target_directory().join("xwin");
     if target == TargetPlatform::Windows && !xwin_path.exists() {
@@ -164,14 +168,10 @@ async fn compile_linux(version: &str, target: &TargetPlatform) -> Result<(), any
         tokio::fs::create_dir_all(&out_dir).await?;
     }
     let output_dylib = out_dir.join(format!("OpenDefocus.{}", dll_suffix(*target)));
-    let build_staticlib = path_to_string(
-        &target_directory()
-            .join("release")
-            .join(format!(
-                "{}opendefocus_nuke.{staticlib}",
-                dll_prefix(*target)
-            )),
-    )?;
+    let build_staticlib = path_to_string(&target_directory().join("release").join(format!(
+        "{}opendefocus_nuke.{staticlib}",
+        dll_prefix(*target)
+    )))?;
     cmd!(
         "g++",
         "-c",
@@ -182,10 +182,7 @@ async fn compile_linux(version: &str, target: &TargetPlatform) -> Result<(), any
         "-D_GLIBCXX_USE_CXX11_ABI=1",
         format!("-I{}", path_to_string(&sources_directory.join("include"))?),
         format!("-I{}crates", path_to_string(&crate_root())?),
-        format!(
-            "-I{}cxxbridge",
-            path_to_string(&target_directory())?
-        ),
+        format!("-I{}cxxbridge", path_to_string(&target_directory())?),
         format!("-std=c++{}", get_cpp_version(version)?),
         "-fPIC",
         "-o",
@@ -205,119 +202,6 @@ async fn compile_linux(version: &str, target: &TargetPlatform) -> Result<(), any
         "-o",
         output_dylib,
         &out_dir.join(format!("{}opendefocus.o", dll_prefix(*target))),
-        build_staticlib,
-    )
-    .run()?;
-    Ok(())
-}
-
-async fn compile_macos_zig(version: &str, target: &TargetPlatform) -> Result<(), anyhow::Error> {
-    unsafe {
-        std::env::set_var("MACOSX_DEPLOYMENT_TARGET", "11.0");
-    }
-    let (zigbuild_target, zig_target) = match target {
-        TargetPlatform::MacosAarch64 => ("aarch64-apple_darwin", "aarch64-macos"),
-        _ => ("x86_64-apple_darwin", "x86_64-macos"),
-    };
-    let sources_directory = nuke_source_directory(version);
-    let crates_path = path_to_string(
-        &crate_root()
-            .join("crates")
-            .join("opendefocus-nuke")
-            .join("Cargo.toml"),
-    )?;
-    cmd!(
-        "cargo",
-        "zigbuild",
-        "--manifest-path",
-        &crates_path,
-        "--release",
-        "--target",
-        zigbuild_target,
-    )
-    .env("NUKE_SOURCE_PATH", &sources_directory)
-    .run()?;
-    println!(
-        "cargo:rustc-env=NUKE_SOURCE_PATH={}",
-        path_to_string(&sources_directory)?
-    );
-    let staticlib = static_file_extension(target);
-    let src = crate_root()
-        .join("crates")
-        .join("opendefocus-nuke")
-        .join("src")
-        .join("opendefocus.cpp");
-    let out_dir = build_dir(version, target);
-    if !out_dir.is_dir() {
-        tokio::fs::create_dir_all(&out_dir).await?;
-    }
-    let output_dylib = out_dir.join(format!(
-        "OpenDefocus.{}",
-        dll_suffix(TargetPlatform::MacosAarch64)
-    ));
-    let build_staticlib = path_to_string(
-        &target_directory()
-            .join(zigbuild_target)
-            .join("release")
-            .join(format!(
-                "{}opendefocus_nuke.{staticlib}",
-                dll_prefix(TargetPlatform::MacosAarch64)
-            )),
-    )?;
-    cmd!(
-        "zig",
-        "c++",
-        "-target",
-        zig_target,
-        "-c",
-        "-Wno-ignored-qualifiers",
-        format!("-I{}", path_to_string(&sources_directory.join("include"))?),
-        format!("-I{}crates", path_to_string(&crate_root())?),
-        format!(
-            "-I{}{zigbuild_target}/cxxbridge",
-            path_to_string(&target_directory())?
-        ),
-        format!("-std=c++{}", get_cpp_version(version)?),
-        "-fPIC",
-        "-o",
-        &out_dir.join(format!(
-            "{}opendefocus.o",
-            dll_prefix(TargetPlatform::MacosAarch64)
-        )),
-        src,
-    )
-    .run()?;
-    cmd!(
-        "zig",
-        "c++",
-        "-target",
-        zig_target,
-        format!("-L{}", path_to_string(&sources_directory)?),
-        "--sysroot",
-        std::env::var("SDKROOT").unwrap_or_default(),
-        format!(
-            "-F{}",
-            path_to_string(
-                &PathBuf::from(std::env::var("SDKROOT").unwrap_or_default())
-                    .join("System")
-                    .join("Library")
-                    .join("Frameworks")
-            )?
-        ),
-        "-lDDImage",
-        "-framework",
-        "Foundation",
-        "-framework",
-        "Metal",
-        "-framework",
-        "MetalKit",
-        "-shared",
-        "-o",
-        output_dylib,
-        &out_dir.join(format!(
-            "{}opendefocus.o",
-            dll_prefix(TargetPlatform::MacosAarch64)
-        )),
         build_staticlib,
     )
     .run()?;

@@ -1,10 +1,10 @@
 mod compile;
+mod consts;
 mod license;
 mod nuke;
 mod precommit;
 mod release;
 mod test;
-mod consts;
 mod util;
 
 use core::fmt;
@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use crate::{
     compile::compile_spirv,
     license::fetch_licenses,
-    nuke::{compile_nuke, create_package},
+    nuke::{compile_nuke, create_package, get_sources},
     precommit::precommit,
     release::{release_docs, release_package},
     test::{test_crates, test_nuke_plugin_package},
@@ -67,6 +67,9 @@ struct Args {
 
     #[clap(short, long, value_delimiter = ',')]
     nuke_versions: Vec<String>,
+
+    #[clap(short, long, action=ArgAction::SetTrue)]
+    fetch_nuke: bool,
 
     #[clap(long, action=ArgAction::SetTrue)]
     output_to_package: bool,
@@ -122,6 +125,16 @@ async fn main() -> Result<()> {
         precommit(args.remaining).await?;
     }
 
+    if args.fetch_nuke
+        && let Some(target_platform) = args.target_platform
+    {
+        get_sources(
+            vec![target_platform],
+            args.nuke_versions.clone(),
+            args.limit_threads,
+        )
+        .await?;
+    }
     if args.compile {
         if args.gpu {
             compile_spirv().await?;
@@ -129,13 +142,18 @@ async fn main() -> Result<()> {
         if !args.nuke_versions.is_empty()
             && let Some(target_platform) = args.target_platform
         {
-            compile_nuke(args.nuke_versions.clone(), target_platform, args.limit_threads).await?;
+            compile_nuke(
+                args.nuke_versions.clone(),
+                target_platform,
+                args.limit_threads,
+            )
+            .await?;
         }
     }
     if args.output_to_package
         && let Some(target_platform) = args.target_platform
     {
-        create_package(target_platform, args.nuke_versions).await?;
+        create_package(target_platform, args.nuke_versions.clone()).await?;
     }
 
     if let Some(licenses_path) = args.create_licenses {
@@ -156,4 +174,3 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
-
