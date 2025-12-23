@@ -42,8 +42,8 @@ jobs:
 
       - name: Fetch sources
         run: |
-          cargo xtask --nuke-versions 16.0 --fetch-nuke --target-platform linux
-          cargo xtask --nuke-versions 16.0 --fetch-nuke --target-platform windows
+          cargo xtask --nuke-versions 16.0 --fetch-nuke --limit-threads --target-platform linux
+          cargo xtask --nuke-versions 16.0 --fetch-nuke --limit-threads --target-platform windows
 
   linux:
     runs-on: ubuntu-latest
@@ -66,7 +66,7 @@ jobs:
         run: |
           source ~/.bashrc
           . "$HOME/.cargo/env"
-          cargo xtask --compile --nuke-versions 15.0 --limit-threads --target-platform linux --output-to-package
+          cargo xtask --compile --nuke-versions 16.0 --limit-threads --target-platform linux --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
@@ -115,7 +115,7 @@ jobs:
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: nuke-macos-aarch64
+          name: nuke-macos-x86_64
           path: package
 
   release:
