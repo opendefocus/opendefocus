@@ -33,13 +33,13 @@ jobs:
         run: |
           source ~/.bashrc
           . "$HOME/.cargo/env"
-          cargo xtask --compile --nuke-versions 15.0 --limit-threads --target-platform linux
+          cargo xtask --compile --nuke-versions 15.0 --limit-threads --target-platform linux --output-to-package
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
           name: nuke-linux
-          path: target/nuke/builds
+          path: package
 
 
   macos_aarch64:
@@ -53,16 +53,16 @@ jobs:
         uses: actions/cache@v5
         with:
           path: target/nuke/deps
-          key: cache-macos-nuke-15-16
+          key: cache-macos-nuke-15-16-aarch64
 
       - name: Build Nuke
-        run: cargo xtask --compile --nuke-versions 15.0,15.1,15.2,16.0 --limit-threads --target-platform macos-aarch64
+        run: cargo xtask --compile --nuke-versions 15.0,15.1,15.2,16.0 --limit-threads --target-platform macos-aarch64 --output-to-package
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
           name: nuke-macos-aarch64
-          path: target/nuke/builds
+          path: package
 
 
   macos_x86_64:
@@ -76,13 +76,13 @@ jobs:
         uses: actions/cache@v5
         with:
           path: target/nuke/deps
-          key: cache-macos-nuke-15-16
+          key: cache-macos-nuke-14-15-16-x86_64
 
       - name: Build Nuke
-        run: cargo xtask --compile --nuke-versions 14.0,14.1,15.0,15.1,15.2,16.0 --limit-threads --target-platform macos-x86-64
+        run: cargo xtask --compile --nuke-versions 14.0,14.1,15.0,15.1,15.2,16.0 --limit-threads --target-platform macos-x86-64 --output-to-package
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
           name: nuke-macos-aarch64
-          path: target/nuke/builds
+          path: package

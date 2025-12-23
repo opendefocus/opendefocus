@@ -5,10 +5,10 @@ use duct::cmd;
 use futures_util::TryStreamExt;
 use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
 use serde_json::Value;
-use std::{fmt::Write, path::PathBuf};
+use std::{fmt::Write, io::Cursor, path::{Path, PathBuf}};
 use tokio::{
     fs::File,
-    io::{AsyncBufReadExt, AsyncWriteExt as _, BufReader},
+    io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt as _, BufReader},
 };
 use tokio_tar::Archive;
 use url::Url;
@@ -54,10 +54,7 @@ pub async fn get_sources(
     let mut tasks = Vec::with_capacity(targets.len());
     if limit_threads {
         for (i, target) in targets.into_iter().enumerate() {
-            fetch_nuke_source(
-                target,
-                progressbars[i].clone(),
-            ).await?;
+            fetch_nuke_source(target, progressbars[i].clone()).await?;
         }
     } else {
         for (i, target) in targets.into_iter().enumerate() {
@@ -289,18 +286,7 @@ async fn install_required_files(
     tokio::fs::create_dir_all(&install_path).await?;
     match platform {
         TargetPlatform::Windows => install_windows(major, installer, file, &install_path).await?,
-        TargetPlatform::Linux => {
-            install_linux(
-                major,
-                tokio::fs::OpenOptions::new()
-                    .read(true)
-                    .write(true)
-                    .open(installer)
-                    .await?,
-                &install_path,
-            )
-            .await?
-        }
+        TargetPlatform::Linux => install_linux(major, installer, &install_path).await?,
         _ => install_macos(installer, &install_path).await?,
     };
     keep_required_files(&install_path, target_filepath, platform).await?;
@@ -343,12 +329,25 @@ async fn install_macos(installer: &PathBuf, install_path: &PathBuf) -> Result<()
     Ok(())
 }
 
-async fn install_linux(major: usize, file: File, install_path: &PathBuf) -> Result<(), Error> {
+async fn install_linux(
+    major: usize,
+    installer: &Path,
+    install_path: &PathBuf,
+) -> Result<(), Error> {
+    let mut file = tokio::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(installer)
+        .await?;
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).await?; // As we need to work with low size disks, we need to put it in memory
+    tokio::fs::remove_file(installer).await?;
     if major < 12 {
-        let mut archive = ZipArchive::new(file.try_into_std().unwrap())?;
+        let cursor = Cursor::new(buffer);
+        let mut archive = ZipArchive::new(cursor)?;
         archive.extract(install_path)?;
     } else {
-        let reader = BufReader::new(file);
+        let reader = BufReader::new(&buffer[..]);
         let mut lines = reader.lines();
         let mut continue_collection = true;
         while let Some(line) = lines.next_line().await?
