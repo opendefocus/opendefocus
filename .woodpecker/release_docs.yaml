@@ -1,0 +1,12 @@
+when:
+  event: [push, manual]
+
+
+steps:
+  test:
+    image: rust:trixie
+    commands:
+      - cargo xtask --release-docs
+    environment:
+      PUSH_TOKEN:
+        from_secret: docs_push_token
