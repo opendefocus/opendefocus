@@ -106,9 +106,8 @@ Example to compile Nuke 15:
 ```bash
 cargo xtask \
   --compile \
-  --gpu \
   --nuke-versions 15.1,15.2 \
-  --target-platforms linux \
+  --target-platform linux \
   --output-to-package
 ```
 
