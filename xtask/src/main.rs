@@ -47,6 +47,11 @@ impl fmt::Display for TargetPlatform {
 struct Args {
     #[clap(short, long, action=ArgAction::SetTrue)]
     compile: bool,
+
+    /// Compile using zig
+    #[clap(long, action=ArgAction::SetTrue)]
+    use_zig: bool,
+
     /// If compilation of spirv is needed
     #[clap(short, long, action=ArgAction::SetTrue)]
     gpu: bool,
@@ -146,6 +151,7 @@ async fn main() -> Result<()> {
                 args.nuke_versions.clone(),
                 target_platform,
                 args.limit_threads,
+                args.use_zig,
             )
             .await?;
         }

@@ -325,7 +325,7 @@ mod tests {
     #[rstest]
     #[case(1.0, 0.0, 1.5707964)]
     #[case(0.0, 1.0, 0.0)]
-    #[case(1.0, 1.0, 0.7853982)]
+    #[case(1.0, 1.0, core::f32::consts::FRAC_PI_4)]
     fn test_atan2(#[case] a: f32, #[case] b: f32, #[case] expected: f32) {
         let result = atan2f(a, b);
         println!("result: '{result}', expected: '{expected}'");

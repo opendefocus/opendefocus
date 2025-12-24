@@ -17,7 +17,7 @@ pub async fn create_package(target: TargetPlatform, versions: Vec<String>) -> Re
         };
 
         let target_binary_path = target_path
-            .join("opendefocus")
+            .join("opendefocus_plugin")
             .join("bin")
             .join(version)
             .join(os_name)

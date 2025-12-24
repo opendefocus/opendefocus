@@ -182,6 +182,14 @@ mod ffi {
         fn height(self: Pin<&mut Format>, height: i32);
     }
 
+
+    // unsafe extern "C++" {
+    //     include!("opendefocus-nuke/include/opendefocus.hpp");
+    //     type OpenDefocus;
+
+    // }
+
+
     #[namespace = "DD::Image"]
     unsafe extern "C++" {
         include!("DDImage/ChannelSet.h");
@@ -250,7 +258,7 @@ mod ffi {
     }
 
     unsafe extern "C++" {
-        include!("opendefocus-nuke/include/bridge.hpp");
+        include!("opendefocus-nuke/include/opendefocus.hpp");
 
         unsafe fn create_float_knob(
             callback: &Knob_Callback,

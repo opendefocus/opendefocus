@@ -160,9 +160,9 @@ async fn fetch_nuke_source(target: NukeTarget, progressbar: ProgressBar) -> Resu
     let file = tokio::fs::File::open(&compressed_installer).await?;
     let installer = match compressed_installer.extension() {
         Some(extension) => match extension.to_str().unwrap() {
-            "tgz" => extract_tar(file, &installer_directory).await?,
-            "zip" => extract_zip(file, &installer_directory).await?,
-            "dmg" => extract_dmg(&compressed_installer, &installer_directory).await?,
+            "tgz" => extract_tar(file, &installer_directory, &progressbar).await?,
+            "zip" => extract_zip(file, &installer_directory, &progressbar).await?,
+            "dmg" => extract_dmg(&compressed_installer, &installer_directory, &progressbar).await?,
             _ => {
                 return Err(Error::msg(
                     "Compressed installer does not have a valid extension",
@@ -176,10 +176,11 @@ async fn fetch_nuke_source(target: NukeTarget, progressbar: ProgressBar) -> Resu
     progressbar.set_message("Installing required files...");
     let major = target.version.split_once(".").unwrap().0;
     let major = major.parse::<usize>()?;
-    install_required_files(major, &installer, &sources_directory, target.platform).await?;
+    install_required_files(major, &installer, &sources_directory, target.platform, &progressbar).await?;
     tokio::fs::remove_dir_all(installer_directory).await?;
-    progressbar.finish_with_message(format!("Finished collection for '{}'", &target.version));
+    progressbar.set_message("Patching headers...");
     patch_headers(&sources_directory).await?;
+    progressbar.finish_with_message(format!("Finished collection for '{}'", &target.version));
 
     Ok(())
 }
@@ -201,12 +202,16 @@ pub fn dll_suffix(platform: TargetPlatform) -> String {
     .to_owned()
 }
 
-async fn extract_tar(compressed_installer: File, installer_directory: &PathBuf) -> Result<PathBuf> {
+async fn extract_tar(compressed_installer: File, installer_directory: &PathBuf, progressbar: &ProgressBar) -> Result<PathBuf> {
     let buffer = BufReader::new(compressed_installer);
+    progressbar.set_message("Decoding archive...");
     let decoder = GzipDecoder::new(buffer);
     let mut archive = Archive::new(decoder);
+    progressbar.set_message("Reading archive...");
     archive.unpack(installer_directory).await?;
+    progressbar.set_message("Archive extracted");
     let mut entries = tokio::fs::read_dir(installer_directory).await?;
+    progressbar.set_message("Scanning archive for installer");
 
     while let Some(entry) = entries.next_entry().await? {
         let filename = entry.file_name().into_string().unwrap();
@@ -224,11 +229,14 @@ async fn extract_tar(compressed_installer: File, installer_directory: &PathBuf) 
     Err(Error::msg("No installer found in tar"))
 }
 
-async fn extract_zip(compressed_installer: File, installer_directory: &PathBuf) -> Result<PathBuf> {
+async fn extract_zip(compressed_installer: File, installer_directory: &PathBuf, progressbar: &ProgressBar) -> Result<PathBuf> {
     let mut archive = ZipArchive::new(compressed_installer.try_into_std().unwrap())?;
+    progressbar.set_message("Reading archive...");
     archive.extract(installer_directory)?;
+    progressbar.set_message("Archive extracted");
 
     let mut entries = tokio::fs::read_dir(installer_directory).await?;
+    progressbar.set_message("Scanning archive for installer");
 
     while let Some(entry) = entries.next_entry().await? {
         let filename = entry.file_name().into_string().unwrap();
@@ -249,6 +257,7 @@ async fn extract_zip(compressed_installer: File, installer_directory: &PathBuf) 
 async fn extract_dmg(
     compressed_installer: &PathBuf,
     installer_directory: &PathBuf,
+    progressbar: &ProgressBar,
 ) -> Result<PathBuf> {
     let _ = cmd!(
         "7z",
@@ -259,6 +268,8 @@ async fn extract_dmg(
     )
     .stdout_null()
     .run();
+    progressbar.set_message("Archive extracted...");
+
     let filename = compressed_installer
         .file_name()
         .unwrap()
@@ -272,6 +283,7 @@ async fn extract_dmg(
         .join(format!("{version_name}.app"))
         .join("Contents")
         .join("MacOS");
+
     if filepath.is_dir() {
         return Ok(filepath);
     }
@@ -283,6 +295,7 @@ async fn install_required_files(
     installer: &PathBuf,
     target_filepath: &PathBuf,
     platform: TargetPlatform,
+    progressbar: &ProgressBar,
 ) -> Result<()> {
     let file = tokio::fs::File::open(installer).await?;
     let install_path = target_filepath.join("extracted");
@@ -303,7 +316,9 @@ async fn install_required_files(
         }
         _ => install_macos(installer, &install_path).await?,
     };
+    progressbar.set_message("Installed to extraction location, cleaning files...");
     keep_required_files(&install_path, target_filepath, platform).await?;
+    progressbar.set_message("Cleanup done, removing installer...");
     tokio::fs::remove_dir_all(install_path).await?;
     Ok(())
 }

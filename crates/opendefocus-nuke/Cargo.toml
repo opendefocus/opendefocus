@@ -12,9 +12,6 @@ publish = false
 name = "opendefocus_nuke"
 crate-type = ["cdylib"]
 
-[profile.release]
-lto = false
-opt-level = 0
 [dependencies]
 cxx = { version = "1.0" }
 opendefocus = { path = "../opendefocus", features = ["documented", "wgpu"] }
