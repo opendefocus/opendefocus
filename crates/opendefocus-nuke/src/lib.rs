@@ -52,8 +52,8 @@ mod ffi {
         f_stop: f32,
         focal_point: f32,
         filmback: [f32; 2],
-        near: f32,
-        far: f32,
+        _near: f32, // for msvc we need an underscore to avoid name clashes
+        _far: f32,
     }
 
     #[derive(Default)]
@@ -213,8 +213,8 @@ mod ffi {
             f_stop: f32,
             focal_point: f32,
             filmback: [f32; 2],
-            near: f32,
-            far: f32,
+            _near: f32,
+            _far: f32,
         ) -> NukeCameraData;
 
         type OpenDefocusNukeInstance;
@@ -342,16 +342,16 @@ impl NukeCameraData {
         f_stop: f32,
         focal_point: f32,
         filmback: [f32; 2],
-        near: f32,
-        far: f32,
+        _near: f32,
+        _far: f32,
     ) -> Self {
         Self {
             focal_length,
             f_stop,
             focal_point,
             filmback,
-            near,
-            far,
+            _near,
+            _far,
         }
     }
 }
@@ -593,8 +593,8 @@ impl OpenDefocusNukeInstance {
                 width: value.filmback[0],
                 height: value.filmback[1],
             },
-            far_field: value.far,
-            near_field: value.near,
+            far_field: value._far,
+            near_field: value._near,
             world_unit: self.nuke_settings.world_unit,
             ..Default::default()
         });

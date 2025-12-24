@@ -13,8 +13,11 @@ permissions:
   contents: read
 
 jobs:
-  fetch_nuke_sources:
+  linux:
     runs-on: ubuntu-latest
+    needs: [fetch_nuke_sources]
+    container:
+      image: quay.io/pypa/manylinux_2_28
     steps:
       - name: Maximize build space
         uses: easimon/maximize-build-space@master
@@ -27,46 +30,27 @@ jobs:
           remove-codeql: "true"
           remove-haskell: "true"
 
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - uses: actions/checkout@v6
 
       - name: Cache Nuke
         uses: actions/cache@v4
         with:
           path: target/nuke/deps
-          key: cache-nuke-16
-
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install msitools -y
-
-      - name: Fetch sources
-        run: |
-          cargo xtask --nuke-versions 16.0 --fetch-nuke --limit-threads --target-platform linux
-          cargo xtask --nuke-versions 16.0 --fetch-nuke --limit-threads --target-platform windows
-
-  linux:
-    runs-on: ubuntu-latest
-    needs: [fetch_nuke_sources]
-    container:
-      image: quay.io/pypa/manylinux_2_28
-    steps:
-      - uses: actions/checkout@v6
-      - name: Setup required tools
-        run: ./scripts/devcontainer/linux/manylinux.sh
-
-      - name: Cache Nuke
-        uses: actions/cache@v4
-        with:
-          path: target/nuke/deps
-          key: cache-nuke-16
+          key: cache-linux-nuke-16
 
       - name: Build Nuke
-        shell: bash
-        run: |
-          source ~/.bashrc
-          . "$HOME/.cargo/env"
-          cargo xtask --compile --nuke-versions 16.0 --limit-threads --target-platform linux --output-to-package
+        run: cargo xtask --compile --nuke-versions 16.0 --limit-threads --target-platform linux --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
@@ -96,7 +80,11 @@ jobs:
           name: nuke-macos-aarch64
           path: package
 
-  macos_x86_64:
+  macos:
+    # matrix:
+    #   matrix:
+    #     version: [10, 12, 14]
+    #     os: [ubuntu-latest, windows-latest]
     runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v6
@@ -107,7 +95,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: target/nuke/deps
-          key: cache-macos-nuke-14-15-16-x86_64
+          key: cache-macos-x86_64-nuke-14-15-16
 
       - name: Build Nuke
         run: cargo xtask --compile --nuke-versions 14.0,14.1,15.0,15.1,15.2,16.0 --limit-threads --target-platform macos-x86-64 --output-to-package

@@ -54,10 +54,7 @@ pub async fn get_sources(
     let mut tasks = Vec::with_capacity(targets.len());
     if limit_threads {
         for (i, target) in targets.into_iter().enumerate() {
-            fetch_nuke_source(
-                target,
-                progressbars[i].clone(),
-            ).await?;
+            fetch_nuke_source(target, progressbars[i].clone()).await?;
         }
     } else {
         for (i, target) in targets.into_iter().enumerate() {
@@ -176,7 +173,14 @@ async fn fetch_nuke_source(target: NukeTarget, progressbar: ProgressBar) -> Resu
     progressbar.set_message("Installing required files...");
     let major = target.version.split_once(".").unwrap().0;
     let major = major.parse::<usize>()?;
-    install_required_files(major, &installer, &sources_directory, target.platform, &progressbar).await?;
+    install_required_files(
+        major,
+        &installer,
+        &sources_directory,
+        target.platform,
+        &progressbar,
+    )
+    .await?;
     tokio::fs::remove_dir_all(installer_directory).await?;
     progressbar.set_message("Patching headers...");
     patch_headers(&sources_directory).await?;
@@ -202,7 +206,11 @@ pub fn dll_suffix(platform: TargetPlatform) -> String {
     .to_owned()
 }
 
-async fn extract_tar(compressed_installer: File, installer_directory: &PathBuf, progressbar: &ProgressBar) -> Result<PathBuf> {
+async fn extract_tar(
+    compressed_installer: File,
+    installer_directory: &PathBuf,
+    progressbar: &ProgressBar,
+) -> Result<PathBuf> {
     let buffer = BufReader::new(compressed_installer);
     progressbar.set_message("Decoding archive...");
     let decoder = GzipDecoder::new(buffer);
@@ -229,7 +237,11 @@ async fn extract_tar(compressed_installer: File, installer_directory: &PathBuf, 
     Err(Error::msg("No installer found in tar"))
 }
 
-async fn extract_zip(compressed_installer: File, installer_directory: &PathBuf, progressbar: &ProgressBar) -> Result<PathBuf> {
+async fn extract_zip(
+    compressed_installer: File,
+    installer_directory: &PathBuf,
+    progressbar: &ProgressBar,
+) -> Result<PathBuf> {
     let mut archive = ZipArchive::new(compressed_installer.try_into_std().unwrap())?;
     progressbar.set_message("Reading archive...");
     archive.extract(installer_directory)?;
@@ -332,6 +344,7 @@ async fn install_windows(
     if install_path.is_dir() {
         tokio::fs::remove_dir_all(&install_path).await?;
     }
+    tokio::fs::create_dir_all(&install_path).await?;
     if major < 14 {
         let mut archive = ZipArchive::new(file.try_into_std().unwrap())?;
         archive.extract(install_path)?;
@@ -344,10 +357,33 @@ async fn install_windows(
             .split_once("-")
             .unwrap()
             .0;
+        #[cfg(not(target_os = "windows"))]
         let install_directory = installer.parent().unwrap().join(installer_name);
         cmd!("msiextract", installer, "-C", installer.parent().unwrap())
             .stdout_null()
             .run()?;
+        #[cfg(target_os = "windows")]
+        {
+            let target_filepath = format!(
+                r"{}",
+                installer
+                    .parent()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string()
+                    .replace("/", "\\")
+            ); // windows paths are great
+            let install_directory = installer
+                .parent()
+                .unwrap()
+                .join("SourceDir")
+                .join(installer_name);
+            cmd!("lessmsi", "x", installer, target_filepath)
+                .stdout_null()
+                .run()?;
+            tokio::fs::rename(install_directory, install_path).await?;
+        }
         tokio::fs::rename(install_directory, install_path).await?;
     };
     Ok(())
