@@ -1,6 +1,14 @@
-import nuke
+"""Node setup initializer.
 
-from opendefocus.datamodel import NODE_CLASS_NAME
+This script binds the knob changed callbacks.
+
+It is not entirely necessary, but it improves the user experience a bit.
+"""
+# ruff: noqa: ANN202
+
+import nuke  # ty:ignore[unresolved-import]
+
+from opendefocus_plugin._consts import NODE_CLASS_NAME
 
 
 def setup_knob_changed():

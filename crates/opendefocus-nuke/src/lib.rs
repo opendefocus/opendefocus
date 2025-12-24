@@ -52,8 +52,8 @@ mod ffi {
         f_stop: f32,
         focal_point: f32,
         filmback: [f32; 2],
-        near: f32,
-        far: f32,
+        _near: f32, // for msvc we need an underscore to avoid name clashes
+        _far: f32,
     }
 
     #[derive(Default)]
@@ -182,6 +182,14 @@ mod ffi {
         fn height(self: Pin<&mut Format>, height: i32);
     }
 
+
+    // unsafe extern "C++" {
+    //     include!("opendefocus-nuke/include/opendefocus.hpp");
+    //     type OpenDefocus;
+
+    // }
+
+
     #[namespace = "DD::Image"]
     unsafe extern "C++" {
         include!("DDImage/ChannelSet.h");
@@ -205,8 +213,8 @@ mod ffi {
             f_stop: f32,
             focal_point: f32,
             filmback: [f32; 2],
-            near: f32,
-            far: f32,
+            _near: f32,
+            _far: f32,
         ) -> NukeCameraData;
 
         type OpenDefocusNukeInstance;
@@ -250,7 +258,7 @@ mod ffi {
     }
 
     unsafe extern "C++" {
-        include!("opendefocus-nuke/include/bridge.hpp");
+        include!("opendefocus-nuke/include/opendefocus.hpp");
 
         unsafe fn create_float_knob(
             callback: &Knob_Callback,
@@ -334,16 +342,16 @@ impl NukeCameraData {
         f_stop: f32,
         focal_point: f32,
         filmback: [f32; 2],
-        near: f32,
-        far: f32,
+        _near: f32,
+        _far: f32,
     ) -> Self {
         Self {
             focal_length,
             f_stop,
             focal_point,
             filmback,
-            near,
-            far,
+            _near,
+            _far,
         }
     }
 }
@@ -585,8 +593,8 @@ impl OpenDefocusNukeInstance {
                 width: value.filmback[0],
                 height: value.filmback[1],
             },
-            far_field: value.far,
-            near_field: value.near,
+            far_field: value._far,
+            near_field: value._near,
             world_unit: self.nuke_settings.world_unit,
             ..Default::default()
         });

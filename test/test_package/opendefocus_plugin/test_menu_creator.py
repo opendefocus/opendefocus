@@ -2,14 +2,18 @@ import os
 import sys
 
 try:
-    from unittest.mock import MagicMock, patch, call
+    from unittest.mock import MagicMock, call, patch
 except ImportError:
-    from mock import patch, MagicMock, call
+    from mock import (  # noqa: UP026  # ty:ignore[unresolved-import]
+        MagicMock,
+        call,
+        patch,
+    )
 import pytest
 
 sys.modules["nuke"] = MagicMock()
 
-from opendefocus.worker.menu_creator import (
+from opendefocus_plugin._menu_creator import (
     _add_menu_dependancies_to_plugin_path,
     _create_menu,
     add_menu,
@@ -23,9 +27,9 @@ def test_add_menu(plugin_loaded):
     os.environ["OPENDEFOCUS_LOADED"] = "1" if plugin_loaded else "0"
 
     with patch(
-        "opendefocus.worker.menu_creator._create_menu"
+        "opendefocus_plugin._menu_creator._create_menu",
     ) as create_menu_mock, patch(
-        "opendefocus.worker.menu_creator._add_menu_dependancies_to_plugin_path"
+        "opendefocus_plugin._menu_creator._add_menu_dependancies_to_plugin_path",
     ) as add_resources_mock:
         add_menu()
 
@@ -38,7 +42,7 @@ def test_add_menu(plugin_loaded):
 
 
 def test_create_menu():
-    """Test the menu creation"""
+    """Test the menu creation."""
     nuke_mock = MagicMock()
 
     toolbar_mock = MagicMock()
@@ -46,13 +50,14 @@ def test_create_menu():
     nuke_mock.menu.return_value = toolbar_mock
     toolbar_mock.addMenu.return_value = menu_mock
 
-    with patch("opendefocus.worker.menu_creator.nuke", nuke_mock):
+    with patch("opendefocus_plugin._menu_creator.nuke", nuke_mock):
         _create_menu()
 
     nuke_mock.menu.assert_called_once_with("Nodes")
     toolbar_mock.addMenu.assert_called_once_with("OpenDefocus", icon="OpenDefocus.png")
     menu_mock.addCommand.assert_called_once_with(
-        "OpenDefocus", "nuke.createNode('OpenDefocus')"
+        "OpenDefocus",
+        "nuke.createNode('OpenDefocus')",
     )
 
 
@@ -60,17 +65,16 @@ def test__add_menu_dependancies_to_plugin_path():
     """Test to add resources during menu loading."""
     nuke_mock = MagicMock()
     installation_path_mock = "test_path"
-    with patch("opendefocus.worker.menu_creator.nuke", nuke_mock), patch(
-        "opendefocus.worker.menu_creator.INSTALLATION_PATH", installation_path_mock
+    with patch("opendefocus_plugin._menu_creator.nuke", nuke_mock), patch(
+        "opendefocus_plugin._menu_creator.INSTALLATION_PATH",
+        installation_path_mock,
     ):
         _add_menu_dependancies_to_plugin_path()
 
     resources_path = os.path.join(installation_path_mock, "resources").replace(
-        os.sep, "/"
+        os.sep,
+        "/",
     )
-    python_packages_path = os.path.join(
-        installation_path_mock, "python_packages"
-    ).replace(os.sep, "/")
 
-    expected_calls = [call(str(resources_path)), call(str(python_packages_path))]
+    expected_calls = [call(str(resources_path))]
     nuke_mock.pluginAppendPath.assert_has_calls(expected_calls, any_order=False)

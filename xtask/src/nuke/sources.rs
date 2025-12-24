@@ -5,7 +5,10 @@ use duct::cmd;
 use futures_util::TryStreamExt;
 use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
 use serde_json::Value;
-use std::{fmt::Write, path::PathBuf};
+use std::{
+    fmt::Write,
+    path::{Path, PathBuf},
+};
 use tokio::{
     fs::File,
     io::{AsyncBufReadExt, AsyncWriteExt as _, BufReader},
@@ -14,7 +17,11 @@ use tokio_tar::Archive;
 use url::Url;
 use zip::ZipArchive;
 
-pub async fn get_sources(platforms: Vec<TargetPlatform>, versions: Vec<String>) -> Result<PathBuf> {
+pub async fn get_sources(
+    platforms: Vec<TargetPlatform>,
+    versions: Vec<String>,
+    limit_threads: bool,
+) -> Result<PathBuf> {
     log::info!(
         "Getting nuke sources for {:?} and versions: '{:?}'",
         platforms,
@@ -23,7 +30,9 @@ pub async fn get_sources(platforms: Vec<TargetPlatform>, versions: Vec<String>) 
     let mut targets = Vec::with_capacity(versions.len());
     for platform in platforms {
         for version in &versions {
-            targets.push(get_target(&version, platform).await?)
+            if let Ok(target) = get_target(&version, platform).await {
+                targets.push(target)
+            }
         }
     }
     let progressbar = MultiProgress::new();
@@ -48,20 +57,26 @@ pub async fn get_sources(platforms: Vec<TargetPlatform>, versions: Vec<String>) 
     }
     progressbar.println("Starting downloads... This can take a while.")?;
     let mut tasks = Vec::with_capacity(targets.len());
-    for (i, target) in targets.into_iter().enumerate() {
-        tasks.push(tokio::spawn(fetch_nuke_source(
-            target,
-            progressbars[i].clone(),
-        )));
+    if limit_threads {
+        for (i, target) in targets.into_iter().enumerate() {
+            fetch_nuke_source(target, progressbars[i].clone()).await?;
+        }
+    } else {
+        for (i, target) in targets.into_iter().enumerate() {
+            tasks.push(tokio::spawn(fetch_nuke_source(
+                target,
+                progressbars[i].clone(),
+            )));
+        }
+        let mut outputs = Vec::with_capacity(tasks.len());
+        for task in tasks {
+            outputs.push(task.await?);
+        }
+        for i in outputs {
+            i?;
+        }
     }
 
-    let mut outputs = Vec::with_capacity(tasks.len());
-    for task in tasks {
-        outputs.push(task.await?);
-    }
-    for i in outputs {
-        i?;
-    }
     Ok(sources_directory())
 }
 
@@ -89,10 +104,14 @@ async fn get_target(version: &str, platform: TargetPlatform) -> Result<NukeTarge
 
     for full_version in minor_versions.as_object().unwrap().keys() {
         if full_version.starts_with(version) {
-            let retrieved_url = minor_versions[full_version]["installer"][target_installer]
-                .as_str()
-                .unwrap()
-                .to_string();
+            let retrieved_url = if let Some(retrieved_url) =
+                minor_versions[full_version]["installer"][target_installer].as_str()
+            {
+                retrieved_url.to_string()
+            } else {
+                log::warn!("Skipping {version} for {platform} as it is not found.");
+                continue;
+            };
 
             let file_size = reqwest::get(&retrieved_url)
                 .await?
@@ -107,7 +126,6 @@ async fn get_target(version: &str, platform: TargetPlatform) -> Result<NukeTarge
             });
         }
     }
-    log::info!("Fetched url for version {version}");
     Err(Error::msg("Version not found"))
 }
 
@@ -147,9 +165,9 @@ async fn fetch_nuke_source(target: NukeTarget, progressbar: ProgressBar) -> Resu
     let file = tokio::fs::File::open(&compressed_installer).await?;
     let installer = match compressed_installer.extension() {
         Some(extension) => match extension.to_str().unwrap() {
-            "tgz" => extract_tar(file, &installer_directory).await?,
-            "zip" => extract_zip(file, &installer_directory).await?,
-            "dmg" => extract_dmg(&compressed_installer, &installer_directory).await?,
+            "tgz" => extract_tar(file, &installer_directory, &progressbar).await?,
+            "zip" => extract_zip(file, &installer_directory, &progressbar).await?,
+            "dmg" => extract_dmg(&compressed_installer, &installer_directory, &progressbar).await?,
             _ => {
                 return Err(Error::msg(
                     "Compressed installer does not have a valid extension",
@@ -159,14 +177,21 @@ async fn fetch_nuke_source(target: NukeTarget, progressbar: ProgressBar) -> Resu
         None => return Err(Error::msg("Compressed installer does not have a extension")),
     };
     tokio::fs::remove_file(&compressed_installer).await?;
-
     progressbar.set_message("Installing required files...");
     let major = target.version.split_once(".").unwrap().0;
     let major = major.parse::<usize>()?;
-    install_required_files(major, &installer, &sources_directory, target.platform).await?;
+    install_required_files(
+        major,
+        &installer,
+        &sources_directory,
+        target.platform,
+        &progressbar,
+    )
+    .await?;
     tokio::fs::remove_dir_all(installer_directory).await?;
-    progressbar.finish_with_message(format!("Finished collection for '{}'", &target.version));
+    progressbar.set_message("Patching headers...");
     patch_headers(&sources_directory).await?;
+    progressbar.finish_with_message(format!("Finished collection for '{}'", &target.version));
 
     Ok(())
 }
@@ -188,12 +213,20 @@ pub fn dll_suffix(platform: TargetPlatform) -> String {
     .to_owned()
 }
 
-async fn extract_tar(compressed_installer: File, installer_directory: &PathBuf) -> Result<PathBuf> {
+async fn extract_tar(
+    compressed_installer: File,
+    installer_directory: &Path,
+    progressbar: &ProgressBar,
+) -> Result<PathBuf> {
     let buffer = BufReader::new(compressed_installer);
+    progressbar.set_message("Decoding archive...");
     let decoder = GzipDecoder::new(buffer);
     let mut archive = Archive::new(decoder);
+    progressbar.set_message("Reading archive...");
     archive.unpack(installer_directory).await?;
+    progressbar.set_message("Archive extracted");
     let mut entries = tokio::fs::read_dir(installer_directory).await?;
+    progressbar.set_message("Scanning archive for installer");
 
     while let Some(entry) = entries.next_entry().await? {
         let filename = entry.file_name().into_string().unwrap();
@@ -211,11 +244,18 @@ async fn extract_tar(compressed_installer: File, installer_directory: &PathBuf) 
     Err(Error::msg("No installer found in tar"))
 }
 
-async fn extract_zip(compressed_installer: File, installer_directory: &PathBuf) -> Result<PathBuf> {
+async fn extract_zip(
+    compressed_installer: File,
+    installer_directory: &Path,
+    progressbar: &ProgressBar,
+) -> Result<PathBuf> {
     let mut archive = ZipArchive::new(compressed_installer.try_into_std().unwrap())?;
+    progressbar.set_message("Reading archive...");
     archive.extract(installer_directory)?;
+    progressbar.set_message("Archive extracted");
 
     let mut entries = tokio::fs::read_dir(installer_directory).await?;
+    progressbar.set_message("Scanning archive for installer");
 
     while let Some(entry) = entries.next_entry().await? {
         let filename = entry.file_name().into_string().unwrap();
@@ -234,8 +274,9 @@ async fn extract_zip(compressed_installer: File, installer_directory: &PathBuf) 
 }
 
 async fn extract_dmg(
-    compressed_installer: &PathBuf,
-    installer_directory: &PathBuf,
+    compressed_installer: &Path,
+    installer_directory: &Path,
+    progressbar: &ProgressBar,
 ) -> Result<PathBuf> {
     let _ = cmd!(
         "7z",
@@ -246,6 +287,8 @@ async fn extract_dmg(
     )
     .stdout_null()
     .run();
+    progressbar.set_message("Archive extracted...");
+
     let filename = compressed_installer
         .file_name()
         .unwrap()
@@ -259,6 +302,7 @@ async fn extract_dmg(
         .join(format!("{version_name}.app"))
         .join("Contents")
         .join("MacOS");
+
     if filepath.is_dir() {
         return Ok(filepath);
     }
@@ -267,9 +311,10 @@ async fn extract_dmg(
 
 async fn install_required_files(
     major: usize,
-    installer: &PathBuf,
-    target_filepath: &PathBuf,
+    installer: &Path,
+    target_filepath: &Path,
     platform: TargetPlatform,
+    progressbar: &ProgressBar,
 ) -> Result<()> {
     let file = tokio::fs::File::open(installer).await?;
     let install_path = target_filepath.join("extracted");
@@ -290,20 +335,23 @@ async fn install_required_files(
         }
         _ => install_macos(installer, &install_path).await?,
     };
+    progressbar.set_message("Installed to extraction location, cleaning files...");
     keep_required_files(&install_path, target_filepath, platform).await?;
+    progressbar.set_message("Cleanup done, removing installer...");
     tokio::fs::remove_dir_all(install_path).await?;
     Ok(())
 }
 
 async fn install_windows(
     major: usize,
-    installer: &PathBuf,
+    installer: &Path,
     file: File,
-    install_path: &PathBuf,
+    install_path: &Path,
 ) -> Result<(), Error> {
     if install_path.is_dir() {
         tokio::fs::remove_dir_all(&install_path).await?;
     }
+    tokio::fs::create_dir_all(&install_path).await?;
     if major < 14 {
         let mut archive = ZipArchive::new(file.try_into_std().unwrap())?;
         archive.extract(install_path)?;
@@ -316,21 +364,38 @@ async fn install_windows(
             .split_once("-")
             .unwrap()
             .0;
-        let install_directory = installer.parent().unwrap().join(installer_name);
-        cmd!("msiextract", installer, "-C", installer.parent().unwrap())
-            .stdout_null()
-            .run()?;
-        tokio::fs::rename(install_directory, install_path).await?;
+        #[cfg(not(target_os = "windows"))]
+        {
+            let install_directory = installer.parent().unwrap().join(installer_name);
+            cmd!("msiextract", installer, "-C", installer.parent().unwrap())
+                .stdout_null()
+                .run()?;
+            tokio::fs::rename(install_directory, install_path).await?;
+        }
+        #[cfg(target_os = "windows")]
+        {
+            let install_directory = installer
+                .parent()
+                .unwrap()
+                .join("extract")
+                .join("SourceDir")
+                .join(installer_name);
+            cmd!("lessmsi", "x", installer.file_name().unwrap(), r"extract\")
+                .stdout_null()
+                .dir(installer.parent().unwrap())
+                .run()?;
+            tokio::fs::rename(install_directory, install_path).await?;
+        }
     };
     Ok(())
 }
 
-async fn install_macos(installer: &PathBuf, install_path: &PathBuf) -> Result<(), Error> {
+async fn install_macos(installer: &Path, install_path: &Path) -> Result<(), Error> {
     tokio::fs::rename(installer, install_path).await?;
     Ok(())
 }
 
-async fn install_linux(major: usize, file: File, install_path: &PathBuf) -> Result<(), Error> {
+async fn install_linux(major: usize, file: File, install_path: &Path) -> Result<(), Error> {
     if major < 12 {
         let mut archive = ZipArchive::new(file.try_into_std().unwrap())?;
         archive.extract(install_path)?;
@@ -355,8 +420,8 @@ async fn install_linux(major: usize, file: File, install_path: &PathBuf) -> Resu
 }
 
 async fn keep_required_files(
-    installation_path: &PathBuf,
-    target_filepath: &PathBuf,
+    installation_path: &Path,
+    target_filepath: &Path,
     platform: TargetPlatform,
 ) -> Result<()> {
     if !target_filepath.join("include").exists() {
@@ -379,9 +444,7 @@ async fn keep_required_files(
 }
 
 fn sources_directory() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../")
-        .join("target")
+    PathBuf::from(env!("TARGET_DIRECTORY"))
         .join("nuke")
         .join("deps")
 }
@@ -390,14 +453,17 @@ pub fn nuke_source_directory(version: &str) -> PathBuf {
     sources_directory().join(version)
 }
 
-async fn patch_headers(directory: &PathBuf) -> Result<()> {
+async fn patch_headers(directory: &Path) -> Result<()> {
     let allocator = directory
         .join("include")
         .join("DDImage")
         .join("STLAllocator.h");
     if allocator.is_file() {
         let header = tokio::fs::read_to_string(&allocator).await?;
-        let header = header.replace("STLInstanceClassName(const STLInstanceClassName& other)", "STLInstanceClassName(STLInstanceClassName& other)");
+        let header = header.replace(
+            "STLInstanceClassName(const STLInstanceClassName& other)",
+            "STLInstanceClassName(STLInstanceClassName& other)",
+        );
         tokio::fs::write(allocator, header).await?;
     };
     Ok(())

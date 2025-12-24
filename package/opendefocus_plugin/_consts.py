@@ -1,3 +1,6 @@
+"""Constants for OpenDefocus Nuke plugin."""
+# ruff: noqa: PTH100, PTH120
+
 import os
 
 INSTALLATION_PATH = os.path.dirname(os.path.abspath(__file__))

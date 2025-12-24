@@ -1,10 +1,12 @@
 /// OpenDefocus Nuke plugin
 
 #pragma once
+
 #include "DDImage/Application.h"
 #include "DDImage/CameraOp.h"
 #include "DDImage/PlanarIop.h"
-#include "bridge.hpp"
+#include "DDImage/Knobs.h"
+#include "DDImage/Op.h"
 #include "opendefocus-nuke/src/lib.rs.h"
 #include "rust/cxx.h"
 
@@ -37,14 +39,7 @@ private:
   /// @param idx Input index.
   /// @return Pointer to the default input operation, or nullptr if not
   /// available.
-  DD::Image::Op *default_input(int idx) const
-  {
-    if (idx == CAMERA_INPUT)
-    {
-      return nullptr;
-    }
-    return DD::Image::PlanarIop::default_input(idx);
-  }
+  DD::Image::Op *default_input(int idx) const;
 
   DD::Image::FormatPair *get_bokeh_preview_format_pair();
   void update_bokeh_preview_format_pair();
@@ -76,7 +71,7 @@ public:
 
   void _validate(bool for_real);
 
-  Knob *get_knob(rust::string name);
+  DD::Image::Knob *get_knob(rust::string name);
 
   /// @brief Get the input label for a specific input.
   /// @param input Input index.
@@ -146,14 +141,40 @@ public:
   const char *displayName() const { return CLASS; }
   static const Iop::Description description;
 };
-static DD::Image::Iop *OpenDefocusCreate(Node *node)
-{
-  return new OpenDefocus(node);
-}
-
-const DD::Image::Iop::Description
-    OpenDefocus::description(CLASS, "Filter/OpenDefocus", OpenDefocusCreate);
-
-OpenDefocus::~OpenDefocus() {}
 
 size_t get_imageplane_size(DD::Image::ImagePlaneDescriptor descriptor);
+
+static DD::Image::Iop *OpenDefocusCreate(Node *node);
+
+void create_float_knob(DD::Image::Knob_Callback callback, float *value,
+                       KnobParameters parameters);
+void create_int_knob(DD::Image::Knob_Callback callback, int *value,
+                     KnobParameters parameters);
+void create_bool_knob(DD::Image::Knob_Callback callback, bool *value,
+                      KnobParameters parameters);
+void create_xy_knob(DD::Image::Knob_Callback callback, rust::Slice<float> value,
+                    KnobParameters parameters);
+void create_enumeration_knob(DD::Image::Knob_Callback callback, int *value,
+                             KnobParameters parameters);
+void create_inputchannelset_knob(DD::Image::Knob_Callback callback,
+                                 std::unique_ptr<DD::Image::ChannelSet> *channel,
+                                 KnobParameters parameters);
+void create_inputonlychannel_knob(DD::Image::Knob_Callback callback, DD::Image::Channel *channel,
+                                  KnobParameters parameters);
+void create_tab_knob(DD::Image::Knob_Callback callback, KnobParameters parameters);
+void create_newline_knob(DD::Image::Knob_Callback callback, KnobParameters parameters);
+void create_text_knob(DD::Image::Knob_Callback callback, KnobParameters parameters);
+void create_divider_knob(DD::Image::Knob_Callback callback);
+
+void set_knobchanged(DD::Image::Op const &node, rust::string name,
+                     KnobChanged knob_changed);
+
+bool input_connected(DD::Image::Op const &node, uint32_t input);
+
+float sample_channel(DD::Image::Op const &node, DD::Image::Channel channel,
+                     std::array<float, 2> coordinates);
+
+bool aborted(DD::Image::Op const &node);
+
+std::shared_ptr<DD::Image::ChannelSet> get_channelset(DD::Image::ChannelSetInit channels);
+std::shared_ptr<DD::Image::Format> create_format();
