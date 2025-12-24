@@ -2,7 +2,7 @@
   <br>
   <picture>
     <source media="(max-width: 768px)" srcset="./resources/header_mobile.png">
-    <img src="./resources/header.png" alt="OpenDefocus" style="width: 100%;">
+    <img src="./resources/header_christmas.png" alt="OpenDefocus" style="width: 100%;">
   </picture>
   <br></br>
   <p>Logo thanks to <a href="https://www.instagram.com/welmaakt/">Welmoed Boersma</a>!</p>
