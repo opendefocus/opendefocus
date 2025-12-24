@@ -30,7 +30,7 @@ pub async fn release_package(target_archive_path: Option<PathBuf>) -> Result<()>
     Ok(())
 }
 
-async fn upload_github_release(release_zip: &PathBuf, release_id: &str) -> Result<()> {
+async fn upload_github_release(release_zip: &Path, release_id: &str) -> Result<()> {
     let client = reqwest::Client::builder().build()?;
     let filename = release_zip.file_name().unwrap().to_str().unwrap();
     client.post(
@@ -138,7 +138,7 @@ fn find_last_commit(repo: &'_ git2::Repository) -> Result<git2::Commit<'_>> {
 }
 
 /// Remove every non git related item from the repository.
-async fn clean_directory(docs_target: &PathBuf) -> Result<()> {
+async fn clean_directory(docs_target: &Path) -> Result<()> {
     let mut dir = tokio::fs::read_dir(docs_target).await?;
 
     while let Some(entry) = dir.next_entry().await? {
@@ -182,7 +182,7 @@ fn add_and_commit(repo: &Repository, message: &str) -> Result<()> {
 }
 
 /// Remove every non git related item from the repository.
-async fn move_contents(src: &PathBuf, dst: &PathBuf) -> Result<()> {
+async fn move_contents(src: &Path, dst: &Path) -> Result<()> {
     let mut dir = tokio::fs::read_dir(src).await?;
 
     while let Some(entry) = dir.next_entry().await? {

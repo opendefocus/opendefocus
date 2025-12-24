@@ -2,7 +2,6 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Error, Result};
 use duct::cmd;
-use url::form_urlencoded::Target;
 
 use crate::{
     TargetPlatform,
@@ -27,6 +26,17 @@ pub async fn compile_nuke(
     get_sources(vec![target], versions.clone(), limit_threads).await?;
 
     for version in versions {
+        if !nuke_source_directory(&version)
+            .join(format!(
+                "{}DDImage.{}",
+                dll_prefix(target),
+                dll_suffix(target)
+            ))
+            .exists()
+        {
+            log::warn!("Skipping {version} as no sources could be found for this version on {target}");
+            continue;
+        };
         if target == TargetPlatform::MacosAarch64 || target == TargetPlatform::MacosX86_64 {
             unsafe {
                 std::env::set_var(

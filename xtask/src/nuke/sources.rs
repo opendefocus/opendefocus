@@ -14,7 +14,7 @@ use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt as _, BufReader},
 };
 use tokio_tar::Archive;
-use url::{Url, form_urlencoded::Target};
+use url::Url;
 use zip::ZipArchive;
 
 pub async fn get_sources(
@@ -30,7 +30,9 @@ pub async fn get_sources(
     let mut targets = Vec::with_capacity(versions.len());
     for platform in platforms {
         for version in &versions {
-            targets.push(get_target(&version, platform).await?)
+            if let Ok(target) = get_target(&version, platform).await {
+                targets.push(target)
+            }
         }
     }
     let progressbar = MultiProgress::new();
@@ -102,10 +104,14 @@ async fn get_target(version: &str, platform: TargetPlatform) -> Result<NukeTarge
 
     for full_version in minor_versions.as_object().unwrap().keys() {
         if full_version.starts_with(version) {
-            let retrieved_url = minor_versions[full_version]["installer"][target_installer]
-                .as_str()
-                .unwrap()
-                .to_string();
+            let retrieved_url = if let Some(retrieved_url) =
+                minor_versions[full_version]["installer"][target_installer].as_str()
+            {
+                retrieved_url.to_string()
+            } else {
+                log::warn!("Skipping {version} for {platform} as it is not found.");
+                continue;
+            };
 
             let file_size = reqwest::get(&retrieved_url)
                 .await?
@@ -120,7 +126,6 @@ async fn get_target(version: &str, platform: TargetPlatform) -> Result<NukeTarge
             });
         }
     }
-    log::info!("Fetched url for version {version}");
     Err(Error::msg("Version not found"))
 }
 
@@ -210,7 +215,7 @@ pub fn dll_suffix(platform: TargetPlatform) -> String {
 
 async fn extract_tar(
     compressed_installer: File,
-    installer_directory: &PathBuf,
+    installer_directory: &Path,
     progressbar: &ProgressBar,
 ) -> Result<PathBuf> {
     let buffer = BufReader::new(compressed_installer);
@@ -241,7 +246,7 @@ async fn extract_tar(
 
 async fn extract_zip(
     compressed_installer: File,
-    installer_directory: &PathBuf,
+    installer_directory: &Path,
     progressbar: &ProgressBar,
 ) -> Result<PathBuf> {
     let mut archive = ZipArchive::new(compressed_installer.try_into_std().unwrap())?;
@@ -269,8 +274,8 @@ async fn extract_zip(
 }
 
 async fn extract_dmg(
-    compressed_installer: &PathBuf,
-    installer_directory: &PathBuf,
+    compressed_installer: &Path,
+    installer_directory: &Path,
     progressbar: &ProgressBar,
 ) -> Result<PathBuf> {
     let _ = cmd!(
@@ -306,8 +311,8 @@ async fn extract_dmg(
 
 async fn install_required_files(
     major: usize,
-    installer: &PathBuf,
-    target_filepath: &PathBuf,
+    installer: &Path,
+    target_filepath: &Path,
     platform: TargetPlatform,
     progressbar: &ProgressBar,
 ) -> Result<()> {
@@ -339,9 +344,9 @@ async fn install_required_files(
 
 async fn install_windows(
     major: usize,
-    installer: &PathBuf,
+    installer: &Path,
     file: File,
-    install_path: &PathBuf,
+    install_path: &Path,
 ) -> Result<(), Error> {
     if install_path.is_dir() {
         tokio::fs::remove_dir_all(&install_path).await?;
@@ -385,12 +390,12 @@ async fn install_windows(
     Ok(())
 }
 
-async fn install_macos(installer: &PathBuf, install_path: &PathBuf) -> Result<(), Error> {
+async fn install_macos(installer: &Path, install_path: &Path) -> Result<(), Error> {
     tokio::fs::rename(installer, install_path).await?;
     Ok(())
 }
 
-async fn install_linux(major: usize, file: File, install_path: &PathBuf) -> Result<(), Error> {
+async fn install_linux(major: usize, file: File, install_path: &Path) -> Result<(), Error> {
     if major < 12 {
         let mut archive = ZipArchive::new(file.try_into_std().unwrap())?;
         archive.extract(install_path)?;
@@ -415,8 +420,8 @@ async fn install_linux(major: usize, file: File, install_path: &PathBuf) -> Resu
 }
 
 async fn keep_required_files(
-    installation_path: &PathBuf,
-    target_filepath: &PathBuf,
+    installation_path: &Path,
+    target_filepath: &Path,
     platform: TargetPlatform,
 ) -> Result<()> {
     if !target_filepath.join("include").exists() {
@@ -448,7 +453,7 @@ pub fn nuke_source_directory(version: &str) -> PathBuf {
     sources_directory().join(version)
 }
 
-async fn patch_headers(directory: &PathBuf) -> Result<()> {
+async fn patch_headers(directory: &Path) -> Result<()> {
     let allocator = directory
         .join("include")
         .join("DDImage")

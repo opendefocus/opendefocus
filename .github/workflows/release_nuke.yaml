@@ -9,6 +9,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  NUKE_VERSIONS: "16.0"
+
 permissions:
   contents: read
 
@@ -44,11 +47,15 @@ jobs:
           path: target/nuke/deps
           key: cache-linux-nuke-16
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
+
       - name: Build Nuke
         shell: bash
         run: |
           source ~/.bashrc
-          cargo xtask --compile --nuke-versions 16.0 --limit-threads --target-platform linux --use-zig --output-to-package
+          cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform linux --use-zig --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
@@ -70,8 +77,12 @@ jobs:
           path: target/nuke/deps
           key: cache-windows-nuke-16
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
+
       - name: Build Nuke
-        run: cargo xtask --compile --nuke-versions 16.0 --limit-threads --target-platform windows --output-to-package
+        run: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform windows --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
@@ -101,8 +112,12 @@ jobs:
           path: target/nuke/deps
           key: cache-macos-${{ matrix.platform.target }}-nuke-16
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
+
       - name: Build Nuke
-        run: cargo xtask --compile --nuke-versions ${{ matrix.platform.versions }} --limit-threads --target-platform ${{ matrix.platform.target }} --output-to-package
+        run: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform ${{ matrix.platform.target }} --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
@@ -125,8 +140,12 @@ jobs:
       - name: Release
         run: cargo xtask --release-package --target-package-path ./target-package.zip
 
+      - name: Debug
+        run: |
+          ls -l
+
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
           name: release
-          path: target_package.zip
+          path: target-package.zip
