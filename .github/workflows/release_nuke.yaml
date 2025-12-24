@@ -40,7 +40,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: target/nuke/deps
-          key: cache-linux-nuke-16
+          key: cache-linux-nuke-141516
 
       - name: Build Nuke
         shell: bash
@@ -66,10 +66,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: target/nuke/deps
-          key: cache-windows-nuke-16
+          key: cache-windows-nuke-141516
 
       - name: Build Nuke
-        run: cargo xtask --compile --nuke-versions 16.0 --limit-threads --target-platform windows --output-to-package
+        run: cargo xtask --compile --nuke-versions 14.0,14.1,15.0,15.1,15.2,16.0 --limit-threads --target-platform windows --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
