@@ -31,6 +31,9 @@ pub async fn create_package(target: TargetPlatform, versions: Vec<String>) -> Re
             .join(format!("{arch_name}-{os_name}"))
             .join(&filename);
 
+        if !source_binary_path.exists() {
+            log::warn!("Could not collect {version} as it was not found.");
+        }
         tokio::fs::rename(source_binary_path, target_binary_path.join(filename)).await?;
     }
     Ok(())

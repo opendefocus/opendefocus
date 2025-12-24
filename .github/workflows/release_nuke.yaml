@@ -11,7 +11,6 @@ on:
 
 env:
   NUKE_VERSIONS: "14.0,14.1,15.0,15.1,15.2,16.0"
-  TOKIO_WORKER_THREAD: 2
 
 permissions:
   contents: read
@@ -50,7 +49,7 @@ jobs:
         shell: bash
         run: |
           source ~/.bashrc
-          cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --target-platform linux --use-zig --output-to-package
+          cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform linux --use-zig --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
@@ -71,7 +70,7 @@ jobs:
           env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
 
       - name: Build Nuke
-        run: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --target-platform windows --output-to-package
+        run: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform windows --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
@@ -99,7 +98,7 @@ jobs:
           env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
 
       - name: Build Nuke
-        run: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --target-platform ${{ matrix.platform.target }} --output-to-package
+        run: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform ${{ matrix.platform.target }} --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
@@ -112,19 +111,20 @@ jobs:
     needs: [linux, windows, macos]
     steps:
       - uses: actions/checkout@v6
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
+
       - uses: actions/download-artifact@v5
         with:
           path: package
           merge-multiple: true
 
-      - run: ls -l && cd package && ls -l
-
       - name: Release
         run: cargo xtask --release-package --target-package-path ./target-package.zip
-
-      - name: Debug
-        run: |
-          ls -l
+        env:
+          GITHUB_RELEASE_TOKEN: ${{ secrets.GITHUB_RELEASE_TOKEN }}
 
       - name: Upload build
         uses: actions/upload-artifact@v4

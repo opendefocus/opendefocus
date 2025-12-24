@@ -97,6 +97,10 @@ struct Args {
     #[clap(long, action=ArgAction::SetTrue)]
     precommit: bool,
 
+    /// This will prevent concurrent downlodas to keep the used storage on the system low (for ci)
+    #[clap(long, action=ArgAction::SetTrue)]
+    limit_threads: bool,
+
     #[arg(long)]
     args: bool,
 
@@ -132,6 +136,7 @@ async fn main() -> Result<()> {
         get_sources(
             vec![target_platform],
             args.nuke_versions.clone(),
+            args.limit_threads,
         )
         .await?;
     }
@@ -145,6 +150,7 @@ async fn main() -> Result<()> {
             compile_nuke(
                 args.nuke_versions.clone(),
                 target_platform,
+                args.limit_threads,
                 args.use_zig,
             )
             .await?;

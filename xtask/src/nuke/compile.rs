@@ -20,9 +20,10 @@ fn build_dir(version: &str, target: TargetPlatform) -> PathBuf {
 pub async fn compile_nuke(
     versions: Vec<String>,
     target: TargetPlatform,
+    limit_threads: bool,
     use_zig: bool,
 ) -> Result<()> {
-    get_sources(vec![target], versions.clone()).await?;
+    get_sources(vec![target], versions.clone(), limit_threads).await?;
 
     for version in versions {
         if !nuke_source_directory(&version)
