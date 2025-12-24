@@ -11,4 +11,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- Merge pull request 'Set xtask and macros to not publish' ([#13](https://codeberg.org/opendefocus/opendefocus/pulls/13)) from develop into main
+- Initial release
