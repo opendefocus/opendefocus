@@ -1,5 +1,11 @@
 when:
   event: [push, manual]
+  path:
+    include:
+      - '**/*.rs'
+      - '**/*.toml'
+      - '**/*.py'
+      - '**/*.proto'
 
 
 steps:
