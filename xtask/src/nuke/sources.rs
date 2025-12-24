@@ -17,11 +17,7 @@ use tokio_tar::Archive;
 use url::Url;
 use zip::ZipArchive;
 
-pub async fn get_sources(
-    platforms: Vec<TargetPlatform>,
-    versions: Vec<String>,
-    limit_threads: bool,
-) -> Result<PathBuf> {
+pub async fn get_sources(platforms: Vec<TargetPlatform>, versions: Vec<String>) -> Result<PathBuf> {
     log::info!(
         "Getting nuke sources for {:?} and versions: '{:?}'",
         platforms,
@@ -57,24 +53,19 @@ pub async fn get_sources(
     }
     progressbar.println("Starting downloads... This can take a while.")?;
     let mut tasks = Vec::with_capacity(targets.len());
-    if limit_threads {
-        for (i, target) in targets.into_iter().enumerate() {
-            fetch_nuke_source(target, progressbars[i].clone()).await?;
-        }
-    } else {
-        for (i, target) in targets.into_iter().enumerate() {
-            tasks.push(tokio::spawn(fetch_nuke_source(
-                target,
-                progressbars[i].clone(),
-            )));
-        }
-        let mut outputs = Vec::with_capacity(tasks.len());
-        for task in tasks {
-            outputs.push(task.await?);
-        }
-        for i in outputs {
-            i?;
-        }
+
+    for (i, target) in targets.into_iter().enumerate() {
+        tasks.push(tokio::spawn(fetch_nuke_source(
+            target,
+            progressbars[i].clone(),
+        )));
+    }
+    let mut outputs = Vec::with_capacity(tasks.len());
+    for task in tasks {
+        outputs.push(task.await?);
+    }
+    for i in outputs {
+        i?;
     }
 
     Ok(sources_directory())

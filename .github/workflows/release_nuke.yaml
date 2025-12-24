@@ -11,6 +11,7 @@ on:
 
 env:
   NUKE_VERSIONS: "16.0"
+  TOKIO_WORKER_THREAD: 2
 
 permissions:
   contents: read
@@ -55,7 +56,7 @@ jobs:
         shell: bash
         run: |
           source ~/.bashrc
-          cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform linux --use-zig --output-to-package
+          cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --target-platform linux --use-zig --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
@@ -82,7 +83,7 @@ jobs:
           env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
 
       - name: Build Nuke
-        run: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform windows --output-to-package
+        run: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --target-platform windows --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
@@ -96,10 +97,9 @@ jobs:
         platform:
           - runner: macos-15-intel
             target: macos-x86-64
-            versions: "16.0"
           - runner: macos-latest
             target: macos-aarch64
-            versions: "16.0"
+
     runs-on: ${{ matrix.platform.runner }}
     steps:
       - uses: actions/checkout@v6
@@ -117,7 +117,7 @@ jobs:
           env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
 
       - name: Build Nuke
-        run: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform ${{ matrix.platform.target }} --output-to-package
+        run: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --target-platform ${{ matrix.platform.target }} --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
