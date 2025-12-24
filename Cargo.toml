@@ -3,7 +3,6 @@ members = [
     "crates/opendefocus",
     "crates/opendefocus-shared",
     "crates/opendefocus-kernel",
-    "crates/opendefocus-macros",
     "crates/opendefocus-datastructure",
     "crates/opendefocus-nuke",
     "xtask",

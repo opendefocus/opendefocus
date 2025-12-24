@@ -1,11 +1,10 @@
 use glam::{UVec2, Vec2, Vec4};
 #[cfg(not(any(target_arch = "spirv")))]
 use image::Pixel;
-use opendefocus_macros::*;
+use opendefocus_shared::*;
 #[cfg(not(any(target_arch = "spirv")))]
 use opendefocus_shared::cpu_image::{CPUImage, Sampler};
 use opendefocus_shared::math::{mix, mix_vec};
-use opendefocus_shared::{ConvolveSettings, OUTPUT_CHANNELS};
 #[cfg(target_arch = "spirv")]
 use spirv_std::{Sampler, image::Image2d};
 

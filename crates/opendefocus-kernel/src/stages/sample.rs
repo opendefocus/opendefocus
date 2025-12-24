@@ -1,11 +1,10 @@
 use glam::{UVec2, Vec2, Vec4};
 #[cfg(not(any(target_arch = "spirv")))]
 use image::{LumaA, Rgba};
-use opendefocus_macros::*;
+use opendefocus_shared::*;
 #[cfg(not(any(target_arch = "spirv")))]
 use opendefocus_shared::cpu_image::{CPUImage, Sampler};
 use opendefocus_shared::{
-    ConvolveSettings, GlobalFlags,
     math::{get_real_coordinates, get_sample_weight, smoothstep},
 };
 #[cfg(target_arch = "spirv")]
