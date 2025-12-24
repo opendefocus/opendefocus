@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 env:
-  NUKE_VERSIONS: "16.0"
+  NUKE_VERSIONS: "14.0,14.1,15.0,15.1,15.2,16.0"
   TOKIO_WORKER_THREAD: 2
 
 permissions:
