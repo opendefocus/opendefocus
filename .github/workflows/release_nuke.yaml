@@ -27,15 +27,6 @@ jobs:
           remove-codeql: "true"
           remove-haskell: "true"
 
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - uses: actions/checkout@v6
 
@@ -115,7 +106,7 @@ jobs:
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: nuke-macos-${{ matrix.platform }}
+          name: nuke-macos-${{ matrix.platform.target }}
           path: package
 
   release:
