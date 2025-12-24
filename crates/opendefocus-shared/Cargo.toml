@@ -1,10 +1,15 @@
 [package]
 name = "opendefocus-shared"
+description = "OpenDefocus shared crate for kernel and core crate"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+keywords.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+categories.workspace = true
 publish = true
 
 [features]
