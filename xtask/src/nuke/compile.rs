@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Error, Result};
 use duct::cmd;
@@ -129,6 +129,12 @@ async fn compile_native(version: &str, target: TargetPlatform) -> Result<(), any
             .join("Cargo.toml"),
     )?;
 
+    if target == TargetPlatform::Windows
+        && !nuke_source_directory(version).join("DDImage.lib").exists()
+    {
+        create_lib_from_dll(&nuke_source_directory(version).join("DDImage.dll")).await?;
+    }
+
     let mut expression = cmd!(
         "cargo",
         "build",
@@ -202,5 +208,40 @@ async fn compile_zig(version: &str, target: TargetPlatform) -> Result<(), anyhow
             .join(format!("{}opendefocus_nuke.{dylib}", dll_prefix(target))),
     )?;
     tokio::fs::rename(build_lib, output_dylib).await?;
+    Ok(())
+}
+
+pub async fn create_lib_from_dll(dll: &Path) -> Result<()> {
+    // just quick and dirty
+    let dumpbin = find_msvc_tools::find("x86_64", "dumpbin.exe").unwrap();
+    let exports = cmd!(dumpbin.get_program(), "/EXPORTS", dll)
+        .dir(dll.parent().unwrap())
+        .read()?;
+    let mut lines = vec!["EXPORTS\n".to_string()];
+    for (i, line) in exports.lines().enumerate() {
+        if i < 19 {
+            continue;
+        }
+        if line.len() > 26 {
+            lines.push(line[26..].to_string());
+            lines.push("\n".to_string());
+        }
+    }
+
+    let exports = lines.iter().cloned().collect::<String>();
+
+    let def = PathBuf::from("DDImage.def");
+    tokio::fs::write(dll.parent().unwrap().join(&def), exports).await?;
+
+    let lib = find_msvc_tools::find("x86_64", "lib.exe").unwrap();
+    cmd!(
+        lib.get_program(),
+        "/def:DDImage.def",
+        "/machine:x64",
+        "/out:DDImage.lib"
+    )
+    .dir(dll.parent().unwrap())
+    .run()?;
+
     Ok(())
 }

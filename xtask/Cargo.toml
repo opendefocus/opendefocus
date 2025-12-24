@@ -29,6 +29,7 @@ naga = { version = "28.0", features = ["spv-in", "wgsl-out"] }
 toml = "0.9"
 git2 = "0.20"
 async-walkdir = "2.1.0"
+find-msvc-tools = "0.1.5"
 
 [lints]
 workspace = true

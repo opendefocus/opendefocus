@@ -1,6 +1,6 @@
-use std::io::Result;
-
 use cargo_metadata::MetadataCommand;
+use duct::cmd;
+use std::{io::Result, path::PathBuf};
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=NULL");
     build_proto()?;
@@ -11,17 +11,34 @@ fn build_proto() -> Result<()> {
     #[cfg(feature = "compile-protobuf-src")]
     std::env::set_var("PROTOC", protobuf_src::protoc());
 
-    let metadata = MetadataCommand::new().exec().unwrap();
-    let circle_of_confusion_package = metadata
-        .packages
-        .iter()
-        .find(|p| p.name == "circle-of-confusion")
-        .unwrap();
-    let bokeh_creator_package = metadata
-        .packages
-        .iter()
-        .find(|p| p.name == "bokeh-creator")
-        .unwrap();
+    let metadata = MetadataCommand::new().exec();
+    let (circle_of_confusion_package, bokeh_creator_package) = if let Ok(metadata) = metadata {
+        let circle_of_confusion_package = metadata
+            .packages
+            .iter()
+            .find(|p| p.name == "circle-of-confusion")
+            .unwrap();
+        let bokeh_creator_package = metadata
+            .packages
+            .iter()
+            .find(|p| p.name == "bokeh-creator")
+            .unwrap();
+        (
+            circle_of_confusion_package
+                .manifest_path
+                .as_std_path()
+                .to_path_buf(),
+            bokeh_creator_package
+                .manifest_path
+                .as_std_path()
+                .to_path_buf(),
+        )
+    } else {
+        let metadata = cmd!("cargo", "metadata").dir(env!("CARGO_MANIFEST_DIR")).read()?;
+        println!("{}", metadata);
+        (PathBuf::default(), PathBuf::default())
+    };
+
     let mut config = prost_build::Config::new();
     #[cfg(feature = "serde")]
     config.type_attribute(".", "#[derive(serde::Serialize,serde::Deserialize)]");
@@ -34,19 +51,16 @@ fn build_proto() -> Result<()> {
     let includes = [
         "../../proto".to_string(),
         circle_of_confusion_package
-            .manifest_path
             .parent()
             .unwrap()
             .join("proto")
-            .to_string(),
+            .to_str().unwrap().to_string(),
         bokeh_creator_package
-            .manifest_path
             .parent()
             .unwrap()
             .join("proto")
-            .to_string(),
+            .to_str().unwrap().to_string(),
     ];
     config.compile_protos(&["opendefocus.proto"], &includes)?;
-
     Ok(())
 }

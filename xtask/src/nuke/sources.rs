@@ -5,13 +5,16 @@ use duct::cmd;
 use futures_util::TryStreamExt;
 use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
 use serde_json::Value;
-use std::{fmt::Write, path::PathBuf};
+use std::{
+    fmt::Write,
+    path::{Path, PathBuf},
+};
 use tokio::{
     fs::File,
     io::{AsyncBufReadExt, AsyncWriteExt as _, BufReader},
 };
 use tokio_tar::Archive;
-use url::Url;
+use url::{Url, form_urlencoded::Target};
 use zip::ZipArchive;
 
 pub async fn get_sources(
@@ -169,7 +172,6 @@ async fn fetch_nuke_source(target: NukeTarget, progressbar: ProgressBar) -> Resu
         None => return Err(Error::msg("Compressed installer does not have a extension")),
     };
     tokio::fs::remove_file(&compressed_installer).await?;
-
     progressbar.set_message("Installing required files...");
     let major = target.version.split_once(".").unwrap().0;
     let major = major.parse::<usize>()?;
@@ -358,33 +360,27 @@ async fn install_windows(
             .unwrap()
             .0;
         #[cfg(not(target_os = "windows"))]
-        let install_directory = installer.parent().unwrap().join(installer_name);
-        cmd!("msiextract", installer, "-C", installer.parent().unwrap())
-            .stdout_null()
-            .run()?;
-        #[cfg(target_os = "windows")]
         {
-            let target_filepath = format!(
-                r"{}",
-                installer
-                    .parent()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string()
-                    .replace("/", "\\")
-            ); // windows paths are great
-            let install_directory = installer
-                .parent()
-                .unwrap()
-                .join("SourceDir")
-                .join(installer_name);
-            cmd!("lessmsi", "x", installer, target_filepath)
+            let install_directory = installer.parent().unwrap().join(installer_name);
+            cmd!("msiextract", installer, "-C", installer.parent().unwrap())
                 .stdout_null()
                 .run()?;
             tokio::fs::rename(install_directory, install_path).await?;
         }
-        tokio::fs::rename(install_directory, install_path).await?;
+        #[cfg(target_os = "windows")]
+        {
+            let install_directory = installer
+                .parent()
+                .unwrap()
+                .join("extract")
+                .join("SourceDir")
+                .join(installer_name);
+            cmd!("lessmsi", "x", installer.file_name().unwrap(), r"extract\")
+                .stdout_null()
+                .dir(installer.parent().unwrap())
+                .run()?;
+            tokio::fs::rename(install_directory, install_path).await?;
+        }
     };
     Ok(())
 }

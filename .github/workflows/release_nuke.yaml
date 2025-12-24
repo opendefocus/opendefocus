@@ -64,26 +64,27 @@ jobs:
           name: nuke-linux
           path: package
 
-  macos_aarch64:
-    runs-on: macos-latest
+  windows:
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Setup required tools
-        run: brew install protobuf
+
+      - name: Setup instance
+        run: choco install lessmsi -y
 
       - name: Cache Nuke
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: target/nuke/deps
-          key: cache-macos-nuke-15-16-aarch64
+          key: cache-windows-nuke-16
 
       - name: Build Nuke
-        run: cargo xtask --compile --nuke-versions 15.0,15.1,15.2,16.0 --limit-threads --target-platform macos-aarch64 --output-to-package
+        run: cargo xtask --compile --nuke-versions 16.0 --limit-threads --target-platform windows --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: nuke-macos-aarch64
+          name: nuke-windows
           path: package
 
   macos:
@@ -119,7 +120,7 @@ jobs:
 
   release:
     runs-on: ubuntu-latest
-    needs: [linux, macos_aarch64, macos_x86_64]
+    needs: [linux, windows, macos]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/download-artifact@v5

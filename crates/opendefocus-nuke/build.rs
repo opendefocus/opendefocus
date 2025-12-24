@@ -46,6 +46,10 @@ fn main() -> Result<()> {
             .flag_if_supported("-Wno-date-time")
             .flag_if_supported("-Wno-unused-parameter");
     } else if platform_name == "windows" {
+        builder
+            .define("_CPPUNWIND", "1")
+            .define("NOMINMAX", "1")
+            .define("_USE_MATH_DEFINES", "1");
     }
     builder.compile("opendefocus-nuke");
 
