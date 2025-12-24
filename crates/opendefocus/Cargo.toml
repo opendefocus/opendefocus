@@ -1,10 +1,15 @@
 [package]
 name = "opendefocus"
+description = "An advanced open-source convolution library for image post-processing"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+keywords.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+categories.workspace = true
 publish = true
 
 [lib]
