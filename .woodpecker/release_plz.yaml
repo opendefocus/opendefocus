@@ -6,7 +6,7 @@ when:
 steps:
   release:
     when:
-      repo: olivebowl/opendefocus
+      repo: olivebowl/none
     image: rust
     commands:
       - apt update && apt install protobuf-compiler -y
