@@ -42,12 +42,6 @@ jobs:
           sudo apt install protobuf-compiler -y
           cargo install --locked cargo-zigbuild
 
-      - name: Cache Nuke
-        uses: actions/cache@v4
-        with:
-          path: target/nuke/deps
-          key: cache-linux-nuke-16
-
       - uses: Swatinem/rust-cache@v2
         with:
           env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
@@ -71,12 +65,6 @@ jobs:
 
       - name: Setup instance
         run: choco install lessmsi protoc -y
-
-      - name: Cache Nuke
-        uses: actions/cache@v4
-        with:
-          path: target/nuke/deps
-          key: cache-windows-nuke-16
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -105,12 +93,6 @@ jobs:
       - uses: actions/checkout@v6
       - name: Setup required tools
         run: brew install protobuf
-
-      - name: Cache Nuke
-        uses: actions/cache@v5
-        with:
-          path: target/nuke/deps
-          key: cache-macos-${{ matrix.platform.target }}-nuke-16
 
       - uses: Swatinem/rust-cache@v2
         with:
