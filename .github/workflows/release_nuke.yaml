@@ -83,10 +83,10 @@ jobs:
         platform:
           - runner: macos-15-intel
             target: macos-x86-64
-            versions: 16.0
+            versions: "16.0"
           - runner: macos-latest
             target: macos-aarch64
-            versions: 16.0
+            versions: "16.0"
     runs-on: ${{ matrix.platform.runner }}
     steps:
       - uses: actions/checkout@v6
