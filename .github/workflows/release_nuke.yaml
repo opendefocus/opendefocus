@@ -120,4 +120,4 @@ jobs:
       - name: Release
         run: cargo xtask --release-package
         env:
-          GITHUB_RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          CODEBERG_RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}

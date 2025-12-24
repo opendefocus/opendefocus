@@ -30,17 +30,14 @@ pub async fn release_package(target_archive_path: Option<PathBuf>) -> Result<()>
 
     create_archive(&target_file, &package_path).await?;
     let release_id = latest_release().await?;
-    upload_github_release(&target_file, release_id).await?;
+    upload_codeberg_release(&target_file, release_id).await?;
     Ok(())
 }
 
 async fn latest_release() -> Result<usize> {
     let client = reqwest::Client::builder().user_agent("OpenDefocus xtask").build()?;
     let response: Value = client
-        .get(format!("https://api.github.com/repos/{REPOSITORY}/releases/latest"))
-        .bearer_auth(std::env::var("GITHUB_RELEASE_TOKEN")?)
-        .header("X-GitHub-Api-Version", "2022-11-28")
-        .header(reqwest::header::ACCEPT, "application/vnd.github+json")
+        .get(format!("https://codeberg.org/api/v1/repos/{REPOSITORY}/releases/latest"))
         .send()
         .await?
         .json()
@@ -48,16 +45,15 @@ async fn latest_release() -> Result<usize> {
     Ok(response["id"].as_u64().unwrap() as usize)
 }
 
-async fn upload_github_release(release_zip: &Path, release_id: usize) -> Result<()> {
+async fn upload_codeberg_release(release_zip: &Path, release_id: usize) -> Result<()> {
     let client = reqwest::Client::builder().build()?;
     let filename = release_zip.file_name().unwrap().to_str().unwrap();
     let mut data = Vec::new();
     File::open(release_zip).await?.read_to_end(&mut data).await?;
     client.post(
-        format!("https://uploads.github.com/repos/{REPOSITORY}/releases/{release_id}/assets?name={filename}")
+        format!("https://codeberg.org/api/v1/repos/{REPOSITORY}/releases/{release_id}/assets?name={filename}")
     )
-        .bearer_auth(std::env::var("GITHUB_RELEASE_TOKEN")?)
-        .header("X-GitHub-Api-Version", "2022-11-28")
+        .bearer_auth(std::env::var("CODEBERG_RELEASE_TOKEN")?)
         .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
         .body(data)
         .send()
@@ -109,7 +105,7 @@ async fn create_archive(target_path: &Path, package_path: &Path) -> Result<(), a
 /// Documentation url
 
 pub async fn release_docs() -> Result<()> {
-    fetch_licenses(crate_root().join("docs").join("licenses.md")).await?;
+    fetch_licenses(crate_root().join("docs").join("src").join("licenses.md")).await?;
 
     let docs_target = std::env::temp_dir().join("opendefocus_docs");
     if docs_target.exists() {
