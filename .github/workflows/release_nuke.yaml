@@ -32,8 +32,11 @@ jobs:
         with:
           version: 0.13.0
 
-      - name: Setup zigbuild
-        run: cargo install --locked cargo-zigbuild
+      - name: Setup instance
+        run: |
+          sudo apt update
+          sudo apt install protobuf-compiler -y
+          cargo install --locked cargo-zigbuild
 
       - name: Cache Nuke
         uses: actions/cache@v4
