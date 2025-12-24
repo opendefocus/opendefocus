@@ -2433,16 +2433,11 @@ dependencies = [
  "glam",
  "image",
  "opendefocus-datastructure",
- "opendefocus-macros",
  "opendefocus-shared",
  "rayon",
  "rstest",
  "spirv-std",
 ]
-
-[[package]]
-name = "opendefocus-macros"
-version = "0.1.0"
 
 [[package]]
 name = "opendefocus-nuke"
@@ -2476,7 +2471,6 @@ dependencies = [
  "image",
  "libm",
  "num-traits",
- "opendefocus-macros",
  "prost-build",
  "protobuf-src",
  "rstest",

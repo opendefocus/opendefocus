@@ -1,11 +1,8 @@
 use crate::internal_settings::ConvolveSettings;
-use core::f32::consts::PI;
-use glam::{UVec2, Vec2, Vec4};
-#[cfg(not(target_arch = "spirv"))]
-use opendefocus_macros::*;
-
 #[cfg(target_arch = "spirv")]
 use core::arch::asm;
+use core::f32::consts::PI;
+use glam::{UVec2, Vec2, Vec4};
 
 pub const BASE_SAMPLES: u32 = 20;
 
@@ -213,7 +210,6 @@ pub fn saturate(x: f32) -> f32 {
     x.clamp(0.0, 1.0)
 }
 
-
 #[must_use]
 #[inline]
 #[cfg(target_arch = "spirv")]
@@ -331,7 +327,6 @@ mod tests {
         println!("result: '{result}', expected: '{expected}'");
         assert!((result - expected).abs() < 1e-3, "Difference is too large");
     }
-
 
     #[rstest]
     #[case(10.0, 1.0, 10.0)] // Positive number with positive exponent

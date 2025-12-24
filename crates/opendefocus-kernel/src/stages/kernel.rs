@@ -1,9 +1,7 @@
 use glam::{Vec2, Vec4};
 #[cfg(not(any(target_arch = "spirv")))]
 use image::Rgba;
-use opendefocus_macros::*;
-use opendefocus_shared::ConvolveSettings;
-use opendefocus_shared::GlobalFlags;
+use opendefocus_shared::*;
 #[cfg(not(any(target_arch = "spirv")))]
 use opendefocus_shared::cpu_image::{CPUImage, Sampler};
 use opendefocus_shared::math;

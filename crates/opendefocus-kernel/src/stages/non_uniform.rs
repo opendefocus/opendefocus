@@ -1,6 +1,5 @@
 use glam::{UVec2, Vec2};
-use opendefocus_macros::*;
-use opendefocus_shared::{ConvolveSettings, GlobalFlags, NonUniformFlags, math};
+use opendefocus_shared::*;
 
 use crate::datamodel::NonUniformValue;
 

@@ -70,7 +70,6 @@ The project has multiple crates defined at the crates directory:
 | [opendefocus](./crates/opendefocus)                              | The actual public library itself. The `main` crate.                                                                           |
 | [opendefocus-datastructure](./crates/opendefocus-datastructure/) | Datastructure bindings to protobuf and implementations.                                                                       |
 | [opendefocus-kernel](./crates/opendefocus-kernel/)               | Kernel (`no-std`) source code. Runs on both GPU and CPU.                                                                      |
-| [opendefocus-macros](./crates/opendefocus-macros/)               | Just some centralized macro definitions crate-wide.                                                                           |
 | [opendefocus-nuke](./crates/opendefocus-nuke/)                   | Nuke specific source code. Includes both C++ and Rust.                                                                        |
 | [opendefocus-shared](./crates/opendefocus-shared/)               | Code that can be used by both the [kernel](./crates/opendefocus-kernel/) and main [opendefocus](./crates/opendefocus/) crate. |
 | [spirv-cli-build](./crates/spirv-cli-build/)                     | Wrapper around the SPIR-V from Rust-GPU to compile using nightly for `opendefocus-kernel`.                                    |
