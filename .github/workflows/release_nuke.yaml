@@ -15,9 +15,6 @@ permissions:
 jobs:
   linux:
     runs-on: ubuntu-latest
-    needs: [fetch_nuke_sources]
-    container:
-      image: quay.io/pypa/manylinux_2_28
     steps:
       - name: Maximize build space
         uses: easimon/maximize-build-space@master
@@ -29,7 +26,6 @@ jobs:
           remove-docker-images: "true"
           remove-codeql: "true"
           remove-haskell: "true"
-
 
       - uses: actions/cache@v4
         with:
@@ -43,6 +39,13 @@ jobs:
 
       - uses: actions/checkout@v6
 
+      - name: Setup
+        run: |
+          cd ~
+          curl -O https://ziglang.org/download/0.13.0/zig-linux-$(uname -m)-0.13.0.tar.xz
+          tar xf zig-linux-$(uname -m)-0.13.0.tar.xz
+          echo "export PATH=\"\$HOME/zig-linux-$(uname -m)-0.13.0:\$PATH\"" >> ~/.bashrc
+
       - name: Cache Nuke
         uses: actions/cache@v4
         with:
@@ -50,7 +53,10 @@ jobs:
           key: cache-linux-nuke-16
 
       - name: Build Nuke
-        run: cargo xtask --compile --nuke-versions 16.0 --limit-threads --target-platform linux --output-to-package
+        shell: bash
+        run: |
+          source ~/.bashrc
+          cargo xtask --compile --nuke-versions 14.0,14.1,15.0,15.1,15.2,16.0 --limit-threads --target-platform linux --use-zig --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
@@ -81,11 +87,16 @@ jobs:
           path: package
 
   macos:
-    # matrix:
-    #   matrix:
-    #     version: [10, 12, 14]
-    #     os: [ubuntu-latest, windows-latest]
-    runs-on: macos-15-intel
+    strategy:
+      matrix:
+        runner:
+          - os: macos-15-intel
+            platform: macos-x86-64
+            versions: 14.0,14.1,15.0,15.1,15.2,16.0
+          - os: macos-latest
+            platform: macos-aarch64
+            versions: 15.0,15.1,15.2,16.0
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
       - name: Setup required tools
@@ -95,15 +106,15 @@ jobs:
         uses: actions/cache@v5
         with:
           path: target/nuke/deps
-          key: cache-macos-x86_64-nuke-14-15-16
+          key: cache-macos-${{ matrix.platform }}-nuke-$ {{ matrix.versions }}
 
       - name: Build Nuke
-        run: cargo xtask --compile --nuke-versions 14.0,14.1,15.0,15.1,15.2,16.0 --limit-threads --target-platform macos-x86-64 --output-to-package
+        run: cargo xtask --compile --nuke-versions ${{ matrix.versions }} --limit-threads --target-platform ${{ matrix.platform }} --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: nuke-macos-x86_64
+          name: nuke-macos-${{ matrix.platform }}
           path: package
 
   release:
