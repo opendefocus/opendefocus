@@ -8,7 +8,7 @@ repository.workspace = true
 publish = true
 
 [features]
-default = []
+default = ["std"]
 std = ["glam/default", "bitflags/std"]
 libm = ["dep:libm", "num-traits/libm", "glam/libm"]
 
