@@ -35,6 +35,3 @@ steps:
     environment:
       CODEBERG_TOKEN:
         from_secret: codeberg_token
-
-depends_on:
-  - test
