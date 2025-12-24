@@ -28,14 +28,12 @@ jobs:
           remove-haskell: "true"
 
       - uses: actions/checkout@v6
+      - uses: https://codeberg.org/mlugg/setup-zig@v2
+        with:
+          version: 0.13.0
 
-      - name: Setup
-        run: |
-          cd ~
-          curl -O https://ziglang.org/download/0.13.0/zig-linux-$(uname -m)-0.13.0.tar.xz
-          tar xf zig-linux-$(uname -m)-0.13.0.tar.xz
-          echo "export PATH=\"\$HOME/zig-linux-$(uname -m)-0.13.0:\$PATH\"" >> ~/.bashrc
-          cargo install --locked cargo-zigbuild
+      - name: Setup zigbuild
+        run: cargo install --locked cargo-zigbuild
 
       - name: Cache Nuke
         uses: actions/cache@v4
