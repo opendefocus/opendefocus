@@ -3,9 +3,11 @@ when:
 
 
 steps:
-  test:
+  release:
     image: rust:trixie
     commands:
+      - curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+      - cargo binstall cargo-about
       - cargo xtask --release-docs
     environment:
       PUSH_TOKEN:

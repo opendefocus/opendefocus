@@ -1,12 +1,5 @@
 when:
   event: [push, manual]
-  path:
-    include:
-      - '**.rs'
-      - '**.toml'
-      - '**.yaml'
-      - '**.py'
-      - '**.proto'
 
 
 steps:
