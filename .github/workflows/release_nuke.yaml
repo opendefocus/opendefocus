@@ -35,6 +35,7 @@ jobs:
           curl -O https://ziglang.org/download/0.13.0/zig-linux-$(uname -m)-0.13.0.tar.xz
           tar xf zig-linux-$(uname -m)-0.13.0.tar.xz
           echo "export PATH=\"\$HOME/zig-linux-$(uname -m)-0.13.0:\$PATH\"" >> ~/.bashrc
+          cargo install --locked cargo-zigbuild
 
       - name: Cache Nuke
         uses: actions/cache@v4
