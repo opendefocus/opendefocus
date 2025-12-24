@@ -6,14 +6,14 @@ when:
 steps:
   release:
     when:
-      repo: olivebowl/opendefocus
+      repo: olivebowl/none
     image: rust
     commands:
       - apt update && apt install protobuf-compiler -y
       - curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
       - cargo binstall release-plz
       - export CARGO_REGISTRY_TOKEN=$${CARGO_REGISTRY_TOKEN}
-      - git config user.email "$(git log -1 --pretty=format:'%ae')"
+      - git config user.name "git log -1 --pretty=format:'%an'"
       - git config user.email '${CI_COMMIT_AUTHOR_EMAIL}'
       - git remote set-url origin https://$${CODEBERG_TOKEN}@codeberg.org/olivebowl/opendefocus.git
       - release-plz release --forge gitea --git-token $${CODEBERG_TOKEN}
@@ -28,7 +28,7 @@ steps:
     commands:
       - curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
       - cargo binstall release-plz
-      - git config user.email "$(git log -1 --pretty=format:'%ae')"
+      - git config user.name "git log -1 --pretty=format:'%an'"
       - git config user.email '${CI_COMMIT_AUTHOR_EMAIL}'
       - git remote set-url origin https://$${CODEBERG_TOKEN}@codeberg.org/olivebowl/opendefocus.git
       - release-plz release-pr --forge gitea --git-token $${CODEBERG_TOKEN}

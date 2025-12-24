@@ -1,4 +1,5 @@
-![Header](./assets/header.jpg)
+![Header](./assets/header.png)
+
 
 # <i class="fa-solid fa-book"></i> Welcome
 This is the user guide for OpenDefocus.

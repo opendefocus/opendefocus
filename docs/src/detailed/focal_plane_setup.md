@@ -9,5 +9,5 @@ When applying defocus sometimes it is great to see what would be in focus and wh
 ## How to use
 To activate it, in the *render* knob, select *focal plane setup*. This will activate the preview rendering. No defocus will be shown.
 
-<video src="../assets/focal_plane_setup.webm" controls="controls" width="100%" loop></video>
+<video src="../assets/preview.mp4" controls="controls" width="100%" loop></video>
 > Here the focal point is used to select parts of the image. Blue shows it is in the far field, red shows it is in the near field. Green shows it is in focus. Chart used in this render: http://regex.info/blog/photo-tech/focus-chart

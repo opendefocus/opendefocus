@@ -23,8 +23,13 @@ async-compression = { version = "0.4.34", default-features = false, features = [
     "gzip",
 ] }
 astral-tokio-tar = "0.5.6"
-zip = {version = "6.0.0", default-features = false, features = ["deflate"]}
+zip = { version = "6.0.0", default-features = false, features = ["deflate", "bzip2"] }
 html-to-markdown-rs = "2.15.0"
+naga = { version = "28.0", features = ["spv-in", "wgsl-out"] }
+toml = "0.9"
+git2 = "0.20"
+async-walkdir = "2.1.0"
+find-msvc-tools = "0.1.5"
 
 [lints]
 workspace = true

@@ -1,8 +1,8 @@
 <h6 align="center">
   <br>
   <picture>
-    <source media="(max-width: 768px)" srcset="./resources/header_mobile.png">
-    <img src="./resources/header.png" alt="OpenDefocus" style="width: 100%;">
+    <source media="(max-width: 768px)" srcset="https://codeberg.org/opendefocus/opendefocus/media/branch/main/resources/header_mobile.png">
+    <img src="https://codeberg.org/opendefocus/opendefocus/media/branch/main/resources/header_christmas.png" alt="OpenDefocus" style="width: 100%;">
   </picture>
   <br></br>
   <p>Logo thanks to <a href="https://www.instagram.com/welmaakt/">Welmoed Boersma</a>!</p>
@@ -12,8 +12,8 @@
 <h4 align="center">An advanced open-source convolution library for image post-processing</h4>
 
 <p align="center">
-    <a href="https://ci.codeberg.org/repos/15493">
-        <img src="https://ci.codeberg.org/api/badges/15493/status.svg" alt="Tests" />
+    <a href="https://ci.codeberg.org/repos/15835">
+        <img src="https://ci.codeberg.org/api/badges/15835/status.svg" alt="Tests" />
     </a>
     <a href="https://crates.io/crates/opendefocus">
         <img src="https://img.shields.io/crates/l/opendefocus" alt="License" />
@@ -30,7 +30,7 @@
 
 <p align="center">
   <a href="#features">Features</a> •
-  <a href="https://codeberg.org/olivebowl/circle-of-confusion/releases" target="_blank">Download</a> •
+  <a href="https://codeberg.org/opendefocus/opendefocus/releases" target="_blank">Download</a> •
   <a href="https://opendefocus.codeberg.page">Documentation</a> •
   <a href="./CHANGELOG.md" target="_blank">Changelog</a> •
 </p>
@@ -106,9 +106,8 @@ Example to compile Nuke 15:
 ```bash
 cargo xtask \
   --compile \
-  --gpu \
   --nuke-versions 15.1,15.2 \
-  --target-platforms linux \
+  --target-platform linux \
   --output-to-package
 ```
 

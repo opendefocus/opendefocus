@@ -210,3 +210,4 @@ cython_debug/
 docs/book
 licenses.md
 .xwin-cache
+.ruff_cache

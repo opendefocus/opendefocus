@@ -10,8 +10,7 @@ publish = false
 
 [lib]
 name = "opendefocus_nuke"
-crate-type = ["staticlib"]
-
+crate-type = ["cdylib"]
 
 [dependencies]
 cxx = { version = "1.0" }

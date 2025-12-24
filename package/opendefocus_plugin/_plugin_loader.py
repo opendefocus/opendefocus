@@ -1,10 +1,14 @@
+"""Plugin loader and lookup script."""
+
+# ruff: noqa: ANN202, UP032, PTH118, PTH120,PTH112
+
 import logging
 import os
 import platform
 
-import nuke
+import nuke  # ty:ignore[unresolved-import]
 
-from opendefocus.datamodel import INSTALLATION_PATH
+from opendefocus_plugin._consts import INSTALLATION_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +26,7 @@ class UnsupportedSystemError(Exception):
 
 def _get_nuke_version():
     # type: () -> None
-    """Return the Nuke version in Major.Minor"""
+    """Return the Nuke version in Major.Minor."""
     return "{}.{}".format(nuke.NUKE_VERSION_MAJOR, nuke.NUKE_VERSION_MINOR)
 
 
@@ -86,7 +90,7 @@ def _build_plugin_path():
         "bin",
         _get_nuke_version(),
         _get_operating_system_name(),
-        _get_arch()
+        _get_arch(),
     ).replace(os.sep, "/")
 
 
@@ -114,8 +118,6 @@ def add_plugin_path():
     os.environ["OPENDEFOCUS_LOADED"] = "0"
 
     plugin_path = _build_plugin_path()
-    if os.getenv("OPENDEFOCUS_USE_DEV_BUILD"):
-        plugin_path = _build_plugin_path_dev()
     if not os.path.isdir(plugin_path):
         msg = (
             "OpenDefocus is installed, "
@@ -126,7 +128,7 @@ def add_plugin_path():
         )
         raise PluginNotFoundError(msg)
 
-    nuke.pluginAppendPath(str(plugin_path))
+    nuke.pluginAppendPath(str(plugin_path))  # ty:ignore[unresolved-attribute]
     os.environ["OPENDEFOCUS_LOADED"] = "1"
 
 
@@ -135,7 +137,7 @@ def add_plugin_path_safe():
     """Add the plugin path to Nuke if found, else send to the logger."""
     try:
         add_plugin_path()
-        logging.info("OpenDefocus is loaded successfully.")
+        logger.info("OpenDefocus is loaded successfully.")
 
-    except PluginNotFoundError as error:
-        logger.error(str(error))
+    except PluginNotFoundError:
+        logger.exception("Plugin loading failed.")

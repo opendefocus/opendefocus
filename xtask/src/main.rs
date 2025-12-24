@@ -1,14 +1,25 @@
+mod compile;
+mod consts;
 mod license;
 mod nuke;
+mod precommit;
+mod release;
+mod test;
+mod util;
 
 use core::fmt;
 use std::path::PathBuf;
 
 use crate::{
+    compile::compile_spirv,
     license::fetch_licenses,
-    nuke::{compile_nuke, create_package},
+    nuke::{compile_nuke, create_package, get_sources},
+    precommit::precommit,
+    release::{release_docs, release_package},
+    test::{test_crates, test_nuke_plugin_package},
+    util::crate_root,
 };
-use anyhow::{Error, Result};
+use anyhow::Result;
 use clap::{ArgAction, Parser};
 use duct::cmd;
 
@@ -36,15 +47,34 @@ impl fmt::Display for TargetPlatform {
 struct Args {
     #[clap(short, long, action=ArgAction::SetTrue)]
     compile: bool,
+
+    /// Compile using zig
+    #[clap(long, action=ArgAction::SetTrue)]
+    use_zig: bool,
+
     /// If compilation of spirv is needed
     #[clap(short, long, action=ArgAction::SetTrue)]
     gpu: bool,
 
-    #[clap(short, long, value_delimiter = ',')]
-    target_platforms: Vec<TargetPlatform>,
+    #[clap(short, long)]
+    target_platform: Option<TargetPlatform>,
+
+    /// Ship the package folder to a public release
+    #[clap(long, action=ArgAction::SetTrue)]
+    release_package: bool,
+
+    #[clap(long)]
+    target_package_path: Option<PathBuf>,
+
+    /// Release the docs onto the repository
+    #[clap(long, action=ArgAction::SetTrue)]
+    release_docs: bool,
 
     #[clap(short, long, value_delimiter = ',')]
     nuke_versions: Vec<String>,
+
+    #[clap(short, long, action=ArgAction::SetTrue)]
+    fetch_nuke: bool,
 
     #[clap(long, action=ArgAction::SetTrue)]
     output_to_package: bool,
@@ -54,46 +84,27 @@ struct Args {
 
     #[clap(long, action=ArgAction::SetTrue)]
     serve_docs: bool,
-}
 
-fn compile_spirv() -> Result<()> {
-    log::info!("Starting spirv build");
-    let spirv_path = cmd!(
-        "cargo",
-        "+nightly-2025-06-30",
-        "run",
-        "--manifest-path",
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("crates")
-            .join("spirv-cli-build")
-            .join("Cargo.toml"),
-        "--release",
-        "--",
-        "-c",
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("crates")
-            .join("opendefocus-kernel"),
-        "-o",
-        "./",
-        "--print-output",
-    )
-    .read()?
-    .lines()
-    .last()
-    .ok_or(Error::msg("Command did not have a last line."))?
-    .to_string();
+    #[clap(long, action=ArgAction::SetTrue)]
+    test_crates: bool,
 
-    log::info!("Spirv shader compiled to {spirv_path}");
+    #[clap(long, action=ArgAction::SetTrue)]
+    pytest: bool,
 
-    unsafe {
-        std::env::set_var("CONVOLVE_KERNEL_SPV_PATH", spirv_path);
-    }
+    #[clap(long, action=ArgAction::SetTrue)]
+    test_nuke_plugin_package: bool,
 
-    Ok(())
+    #[clap(long, action=ArgAction::SetTrue)]
+    precommit: bool,
+
+    /// This will prevent concurrent downlodas to keep the used storage on the system low (for ci)
+    #[clap(long, action=ArgAction::SetTrue)]
+    limit_threads: bool,
+
+    #[arg(long)]
+    args: bool,
+
+    remaining: Vec<String>,
 }
 
 #[tokio::main]
@@ -104,16 +115,51 @@ async fn main() -> Result<()> {
         .with_file(false)
         .init();
     let args = Args::parse();
-    if args.compile {
-        if args.gpu {
-            compile_spirv()?;
-        }
-        if !args.nuke_versions.is_empty() {
-            compile_nuke(args.nuke_versions.clone(), args.target_platforms.clone()).await?;
+
+    if args.test_crates {
+        test_crates().await?;
+    }
+
+    if args.pytest {
+        if args.test_nuke_plugin_package {
+            test_nuke_plugin_package().await?;
         }
     }
-    if args.output_to_package {
-        create_package(args.target_platforms, args.nuke_versions).await?;
+
+    if args.precommit {
+        precommit(args.remaining).await?;
+    }
+
+    if args.fetch_nuke
+        && let Some(target_platform) = args.target_platform
+    {
+        get_sources(
+            vec![target_platform],
+            args.nuke_versions.clone(),
+            args.limit_threads,
+        )
+        .await?;
+    }
+    if args.compile {
+        if args.gpu {
+            compile_spirv().await?;
+        }
+        if !args.nuke_versions.is_empty()
+            && let Some(target_platform) = args.target_platform
+        {
+            compile_nuke(
+                args.nuke_versions.clone(),
+                target_platform,
+                args.limit_threads,
+                args.use_zig,
+            )
+            .await?;
+        }
+    }
+    if args.output_to_package
+        && let Some(target_platform) = args.target_platform
+    {
+        create_package(target_platform, args.nuke_versions.clone()).await?;
     }
 
     if let Some(licenses_path) = args.create_licenses {
@@ -121,15 +167,15 @@ async fn main() -> Result<()> {
     }
 
     if args.serve_docs {
-        cmd!(
-            "mdbook",
-            "serve",
-            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .parent()
-                .unwrap()
-                .join("docs")
-        )
-        .run()?;
+        cmd!("mdbook", "serve", crate_root().join("docs")).run()?;
+    }
+
+    if args.release_package {
+        release_package(args.target_package_path).await?;
+    }
+
+    if args.release_docs {
+        release_docs().await?;
     }
 
     Ok(())

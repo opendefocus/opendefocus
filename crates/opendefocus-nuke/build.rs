@@ -8,29 +8,57 @@ fn main() -> Result<()> {
     } else {
         return Ok(());
     };
+    let platform_name = if let Ok(name) = std::env::var("PLATFORM_NAME") {
+        name
+    } else {
+        return Ok(());
+    };
 
     let cpp_version = std::env::var("CPP_VERSION").unwrap_or("17".to_string());
     CFG.exported_header_dirs.extend([nuke_path.as_path()]);
 
-    cxx_build::bridge("src/lib.rs")
+    let mut builder = cxx_build::bridge("src/lib.rs");
+    builder
         .std(&format!("c++{cpp_version}"))
-        .define("__gnu_cxx", "std")
-        .define("_GLIBCXX_USE_CXX11_ABI", "1")
-        // .flag_if_supported("-stdlib=libstdc++")
         .flag_if_supported("-DGLEW_NO_GLU")
-        .flag_if_supported("-Wno-deprecated-copy-with-user-provided-copy")
-        .flag_if_supported("-Wno-ignored-qualifiers")
-        .flag_if_supported("-Wno-date-time")
-        .flag_if_supported("-Wno-unused-parameter") // as a lot of stuff is produced because of third-party headers :)
         .file("src/opendefocus.cpp")
-        .file("src/bridge.cpp")
-        .cpp(true)
-        .compile("opendefocus-nuke");
+        .cpp(true);
+
+    if platform_name == "linux" {
+        builder
+            .flag("-fPIC")
+            .cpp_link_stdlib("stdc++")
+            .flag_if_supported("-Wno-deprecated-copy-with-user-provided-copy")
+            .flag_if_supported("-Wno-ignored-qualifiers")
+            .flag_if_supported("-Wno-date-time")
+            .flag_if_supported("-Wno-unused-parameter")
+            .flag_if_supported("-DGLEW_NO_GLU");
+        if std::env::var("USE_CXX11_ABI").is_ok() {
+            builder.flag("-D_GLIBCXX_USE_CXX11_ABI");
+        };
+        if std::env::var("USING_ZIG").is_ok() {
+            builder.define("__gnu_cxx", "std");
+        };
+    } else if platform_name == "macos" {
+        builder
+            .flag_if_supported("-Wno-deprecated-copy-with-user-provided-copy")
+            .flag_if_supported("-Wno-ignored-qualifiers")
+            .flag_if_supported("-Wno-date-time")
+            .flag_if_supported("-Wno-unused-parameter");
+    } else if platform_name == "windows" {
+        builder
+            .define("_CPPUNWIND", "1")
+            .define("NOMINMAX", "1")
+            .define("_USE_MATH_DEFINES", "1");
+    }
+    builder.compile("opendefocus-nuke");
 
     println!("cargo:rerun-if-changed=include/opendefocus.hpp");
-    println!("cargo:rerun-if-changed=include/bridge.hpp");
     println!("cargo:rerun-if-changed=src/opendefocus.cpp");
-    println!("cargo:rerun-if-changed=src/bridge.cpp");
+    println!(
+        "cargo:rustc-link-search=all={}",
+        std::env::var("NUKE_SOURCE_PATH").unwrap()
+    );
     println!("cargo:rustc-link-lib=dylib=DDImage");
 
     Ok(())

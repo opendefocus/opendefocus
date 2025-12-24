@@ -1,0 +1,14 @@
+when:
+  event: [push, manual]
+
+
+steps:
+  test:
+    image: rust:trixie
+    commands:
+      - apt update && apt install -y protobuf-compiler
+      - curl -LsSf https://astral.sh/uv/install.sh | sh
+      - . $HOME/.local/bin/env
+      - uv sync
+      - cargo xtask --test-crates
+      - cargo xtask --pytest --test-nuke-plugin-package
