@@ -12,8 +12,8 @@
 <h4 align="center">An advanced open-source convolution library for image post-processing</h4>
 
 <p align="center">
-    <a href="https://ci.codeberg.org/repos/15492">
-        <img src="https://ci.codeberg.org/api/badges/15492/status.svg" alt="Tests" />
+    <a href="https://ci.codeberg.org/repos/15835">
+        <img src="https://ci.codeberg.org/api/badges/15835/status.svg" alt="Tests" />
     </a>
     <a href="https://crates.io/crates/opendefocus">
         <img src="https://img.shields.io/crates/l/opendefocus" alt="License" />
