@@ -188,7 +188,7 @@ impl WgpuRunner {
             ..Default::default()
         });
 
-        let entry_point = "convolve_kernel_f32";
+        let entry_point = "convolve_kernel_f32_";
 
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("Convolve Pipeline"),

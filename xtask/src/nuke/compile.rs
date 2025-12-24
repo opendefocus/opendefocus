@@ -23,21 +23,19 @@ pub async fn compile_nuke(
     limit_threads: bool,
 ) -> Result<()> {
     get_sources(vec![target], versions.clone(), limit_threads).await?;
-    let xwin_path = target_directory().join("xwin");
-    if target == TargetPlatform::Windows && !xwin_path.exists() {
-        cmd!("xwin", "--accept-license", "splat", "--output", xwin_path).run()?;
-    };
 
     for version in versions {
+        if target == TargetPlatform::MacosAarch64 || target == TargetPlatform::MacosX86_64 {
+            unsafe {
+                std::env::set_var(
+                    "MACOSX_DEPLOYMENT_TARGET",
+                    get_macos_deployment_target(&version)?,
+                )
+            };
+        };
         let cpp_version = get_cpp_version(&version)?;
         println!("cargo:rustc-env=CPP_VERSION={}", cpp_version);
-        if target == TargetPlatform::MacosAarch64 || target == TargetPlatform::MacosX86_64 {
-            compile_macos_native(&version, &target).await?
-        } else if target == TargetPlatform::Linux {
-            compile_linux(&version, &target).await?
-        } else if target == TargetPlatform::Windows {
-            todo!()
-        }
+        compile(&version, &target).await?
     }
 
     Ok(())
@@ -54,89 +52,18 @@ fn get_cpp_version(version: &str) -> Result<usize> {
     Ok(17)
 }
 
-async fn compile_macos_native(version: &str, target: &TargetPlatform) -> Result<(), anyhow::Error> {
-    unsafe {
-        std::env::set_var("MACOSX_DEPLOYMENT_TARGET", "11.0");
+fn get_macos_deployment_target(version: &str) -> Result<String> {
+    let parsed_version = version.parse::<f32>()?;
+    if parsed_version < 13.0 {
+        return Ok("11.0".to_owned());
+    } else if parsed_version < 14.0 {
+        return Ok("12.0".to_owned());
     }
-    let sources_directory = nuke_source_directory(version);
-    let crates_path = path_to_string(
-        &crate_root()
-            .join("crates")
-            .join("opendefocus-nuke")
-            .join("Cargo.toml"),
-    )?;
-    cmd!(
-        "cargo",
-        "build",
-        "--manifest-path",
-        &crates_path,
-        "--release",
-    )
-    .env("NUKE_SOURCE_PATH", &sources_directory)
-    .run()?;
-    println!(
-        "cargo:rustc-env=NUKE_SOURCE_PATH={}",
-        path_to_string(&sources_directory)?
-    );
-    let staticlib = static_file_extension(target);
-    let src = crate_root()
-        .join("crates")
-        .join("opendefocus-nuke")
-        .join("src")
-        .join("opendefocus.cpp");
-    let out_dir = build_dir(version, target);
-    if !out_dir.is_dir() {
-        tokio::fs::create_dir_all(&out_dir).await?;
-    }
-    let output_dylib = out_dir.join(format!(
-        "OpenDefocus.{}",
-        dll_suffix(TargetPlatform::MacosAarch64)
-    ));
-    let build_staticlib = path_to_string(&&target_directory().join("release").join(format!(
-        "{}opendefocus_nuke.{staticlib}",
-        dll_prefix(TargetPlatform::MacosAarch64)
-    )))?;
-    cmd!(
-        "clang++",
-        "-c",
-        "-Wno-ignored-qualifiers",
-        format!("-I{}", path_to_string(&sources_directory.join("include"))?),
-        format!("-I{}crates", path_to_string(&crate_root())?),
-        format!("-I{}cxxbridge", path_to_string(&target_directory())?),
-        format!("-std=c++{}", get_cpp_version(version)?),
-        "-fPIC",
-        "-o",
-        &out_dir.join(format!(
-            "{}opendefocus.o",
-            dll_prefix(TargetPlatform::MacosAarch64)
-        )),
-        src,
-    )
-    .run()?;
-    cmd!(
-        "clang++",
-        format!("-L{}", path_to_string(&sources_directory)?),
-        "-lDDImage",
-        "-framework",
-        "Foundation",
-        "-framework",
-        "Metal",
-        "-framework",
-        "MetalKit",
-        "-shared",
-        "-o",
-        output_dylib,
-        &out_dir.join(format!(
-            "{}opendefocus.o",
-            dll_prefix(TargetPlatform::MacosAarch64)
-        )),
-        build_staticlib,
-    )
-    .run()?;
-    Ok(())
+
+    Ok("14".to_owned())
 }
 
-async fn compile_linux(version: &str, target: &TargetPlatform) -> Result<(), anyhow::Error> {
+async fn compile(version: &str, target: &TargetPlatform) -> Result<(), anyhow::Error> {
     let sources_directory = nuke_source_directory(version);
     let crates_path = path_to_string(
         &crate_root()
@@ -157,61 +84,17 @@ async fn compile_linux(version: &str, target: &TargetPlatform) -> Result<(), any
         "cargo:rustc-env=NUKE_SOURCE_PATH={}",
         path_to_string(&sources_directory)?
     );
-    let staticlib = static_file_extension(target);
-    let src = crate_root()
-        .join("crates")
-        .join("opendefocus-nuke")
-        .join("src")
-        .join("opendefocus.cpp");
+    let dylib = dll_suffix(*target);
     let out_dir = build_dir(version, target);
     if !out_dir.is_dir() {
         tokio::fs::create_dir_all(&out_dir).await?;
     }
     let output_dylib = out_dir.join(format!("OpenDefocus.{}", dll_suffix(*target)));
-    let build_staticlib = path_to_string(&target_directory().join("release").join(format!(
-        "{}opendefocus_nuke.{staticlib}",
-        dll_prefix(*target)
-    )))?;
-    cmd!(
-        "g++",
-        "-c",
-        "-Wno-ignored-qualifiers",
-        "-DGLEW_NO_GLU",
-        "-Wno-date-time",
-        "-Wno-unused-parameter",
-        "-D_GLIBCXX_USE_CXX11_ABI=1",
-        format!("-I{}", path_to_string(&sources_directory.join("include"))?),
-        format!("-I{}crates", path_to_string(&crate_root())?),
-        format!("-I{}cxxbridge", path_to_string(&target_directory())?),
-        format!("-std=c++{}", get_cpp_version(version)?),
-        "-fPIC",
-        "-o",
-        &out_dir.join(format!(
-            "{}opendefocus.o",
-            dll_prefix(TargetPlatform::Linux)
-        )),
-        src,
-    )
-    .run()?;
-    cmd!(
-        "g++",
-        format!("-L{}", path_to_string(&sources_directory)?),
-        "-lDDImage",
-        "-D_GLIBCXX_USE_CXX11_ABI=1",
-        "-shared",
-        "-o",
-        output_dylib,
-        &out_dir.join(format!("{}opendefocus.o", dll_prefix(*target))),
-        build_staticlib,
-    )
-    .run()?;
+    let build_lib = path_to_string(
+        &&target_directory()
+            .join("release")
+            .join(format!("{}opendefocus_nuke.{dylib}", dll_prefix(*target))),
+    )?;
+    tokio::fs::rename(build_lib, output_dylib).await?;
     Ok(())
-}
-
-fn static_file_extension(target: &TargetPlatform) -> String {
-    match target {
-        TargetPlatform::Windows => "lib",
-        _ => "a",
-    }
-    .to_string()
 }

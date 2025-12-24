@@ -16,14 +16,17 @@ fn main() -> Result<()> {
         .std(&format!("c++{cpp_version}"))
         .define("__gnu_cxx", "std")
         .define("_GLIBCXX_USE_CXX11_ABI", "1")
+        .flag("-fPIC")
+        // .cpp_link_stdlib("stdc++")
         // .flag_if_supported("-stdlib=libstdc++")
         .flag_if_supported("-DGLEW_NO_GLU")
+        // .flag_if_supported("-fvisibility=hidden")
         .flag_if_supported("-Wno-deprecated-copy-with-user-provided-copy")
         .flag_if_supported("-Wno-ignored-qualifiers")
         .flag_if_supported("-Wno-date-time")
         .flag_if_supported("-Wno-unused-parameter") // as a lot of stuff is produced because of third-party headers :)
-        .file("src/opendefocus.cpp")
         .file("src/bridge.cpp")
+        .file("src/opendefocus.cpp")
         .cpp(true)
         .compile("opendefocus-nuke");
 
@@ -31,7 +34,15 @@ fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=include/bridge.hpp");
     println!("cargo:rerun-if-changed=src/opendefocus.cpp");
     println!("cargo:rerun-if-changed=src/bridge.cpp");
+    println!("cargo:rustc-link-search=all={}", std::env::var("NUKE_SOURCE_PATH").unwrap());
     println!("cargo:rustc-link-lib=dylib=DDImage");
+
+    // #[cfg(target_os = "macos")]
+    // {
+    //     println!("cargo:rustc-link-lib=framework=Foundation");
+    //     println!("cargo:rustc-link-lib=framework=Metal");
+    // }
+
 
     Ok(())
 }

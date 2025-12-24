@@ -1,6 +1,9 @@
 // Wrapping of DDImage api into Rust native types
 
 #include "opendefocus-nuke/include/bridge.hpp"
+#ifdef __APPLE__
+  #include "opendefocus-nuke/include/opendefocus.hpp"
+#endif
 #include "DDImage/Iop.h"
 #include "DDImage/Knobs.h"
 #include "DDImage/Op.h"

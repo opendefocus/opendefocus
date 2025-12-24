@@ -1,10 +1,11 @@
 /// OpenDefocus Nuke plugin
 
 #pragma once
+
 #include "DDImage/Application.h"
 #include "DDImage/CameraOp.h"
 #include "DDImage/PlanarIop.h"
-#include "bridge.hpp"
+#include "opendefocus-nuke/include/bridge.hpp"
 #include "opendefocus-nuke/src/lib.rs.h"
 #include "rust/cxx.h"
 
