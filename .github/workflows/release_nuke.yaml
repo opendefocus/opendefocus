@@ -107,7 +107,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: target/nuke/deps
-          key: cache-macos-${{ matrix.platform.target }}-nuke-$ {{ matrix.platform.versions }}
+          key: cache-macos-${{ matrix.platform.target }}-nuke-${{ matrix.platform.versions }}
 
       - name: Build Nuke
         run: cargo xtask --compile --nuke-versions ${{ matrix.platform.versions }} --limit-threads --target-platform ${{ matrix.platform.target }} --output-to-package
@@ -137,4 +137,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release
-          path: package
+          path: target_package.zip
