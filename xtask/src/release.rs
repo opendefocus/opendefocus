@@ -1,4 +1,4 @@
-use crate::consts::REPOSITORY;
+use crate::consts::{EMAIL, REPOSITORY, USERNAME};
 use crate::{license::fetch_licenses, util::crate_root};
 use anyhow::Result;
 use duct::cmd;
@@ -181,9 +181,7 @@ fn add_and_commit(repo: &Repository, message: &str) -> Result<()> {
     index.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)?;
 
     let oid = index.write_tree()?;
-    let username = cmd!("git", "config", "user.name").read()?;
-    let email = cmd!("git", "config", "user.email").read()?;
-    let signature = Signature::now(&username, &email)?;
+    let signature = Signature::now(USERNAME, EMAIL)?;
     let parent_commit = find_last_commit(&repo)?;
     let tree = repo.find_tree(oid)?;
     repo.commit(
