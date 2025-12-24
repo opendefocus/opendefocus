@@ -4,6 +4,9 @@ use anyhow::Result;
 use duct::cmd;
 use futures_util::StreamExt;
 use git2::{Repository, Signature};
+use serde_json::Value;
+use tokio::fs::File;
+use tokio::io::AsyncReadExt;
 use std::path::{Path, PathBuf};
 use zip::{ZipWriter, write::SimpleFileOptions};
 pub async fn release_package(target_archive_path: Option<PathBuf>) -> Result<()> {
@@ -26,23 +29,40 @@ pub async fn release_package(target_archive_path: Option<PathBuf>) -> Result<()>
     let package_path = crate_root().join("package");
 
     create_archive(&target_file, &package_path).await?;
-    // upload_github_release(&target_file, "latest").await?;
+    let release_id = latest_release().await?;
+    upload_github_release(&target_file, release_id).await?;
     Ok(())
 }
 
-async fn upload_github_release(release_zip: &Path, release_id: &str) -> Result<()> {
+async fn latest_release() -> Result<usize> {
+    let client = reqwest::Client::builder().user_agent("OpenDefocus xtask").build()?;
+    let response: Value = client
+        .get(format!("https://api.github.com/repos/{REPOSITORY}/releases/latest"))
+        .bearer_auth(std::env::var("GITHUB_RELEASE_TOKEN")?)
+        .header("X-GitHub-Api-Version", "2022-11-28")
+        .header(reqwest::header::ACCEPT, "application/vnd.github+json")
+        .send()
+        .await?
+        .json()
+        .await?;
+    Ok(response["id"].as_u64().unwrap() as usize)
+}
+
+async fn upload_github_release(release_zip: &Path, release_id: usize) -> Result<()> {
     let client = reqwest::Client::builder().build()?;
     let filename = release_zip.file_name().unwrap().to_str().unwrap();
+    let mut data = Vec::new();
+    File::open(release_zip).await?.read_to_end(&mut data).await?;
     client.post(
         format!("https://uploads.github.com/repos/{REPOSITORY}/releases/{release_id}/assets?name={filename}")
     )
-        .header(reqwest::header::ACCEPT, "application/vnd.github+json")
         .bearer_auth(std::env::var("GITHUB_RELEASE_TOKEN")?)
-        .header(reqwest::header::CONTENT_TYPE, "application/zip")
         .header("X-GitHub-Api-Version", "2022-11-28")
-        .body(tokio::fs::read(release_zip).await?)
+        .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
+        .body(data)
         .send()
-        .await?;
+        .await?
+        .error_for_status()?;
 
     Ok(())
 }
