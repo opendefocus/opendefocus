@@ -32,7 +32,7 @@
   <a href="#features">Features</a> •
   <a href="https://codeberg.org/opendefocus/opendefocus/releases" target="_blank">Download</a> •
   <a href="https://opendefocus.codeberg.page">Documentation</a> •
-  <a href="./CHANGELOG.md" target="_blank">Changelog</a> •
+  <a href="./crates/opendefocus/CHANGELOG.md" target="_blank">Changelog</a> •
 </p>
 
 ---
