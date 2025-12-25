@@ -99,7 +99,7 @@ jobs:
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: nuke-macos-${{ matrix.platform.target }}
+          name: nuke-${{ matrix.platform.target }}
           path: package
 
   release:
@@ -111,6 +111,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
+
+      - name: Setup instance
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall cargo-about
 
       - uses: actions/download-artifact@v5
         with:
