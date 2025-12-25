@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1](https://codeberg.org/opendefocus/opendefocus/compare/opendefocus-v0.1.0...opendefocus-v0.1.1) - 2025-12-25
+
+### Other
+
+- Fix order of release plz and set user name correctly
+
 ## [0.1.0](https://codeberg.org/opendefocus/opendefocus/releases/tag/opendefocus-v0.1.0) - 2025-12-24
 
 ### Other

@@ -64,9 +64,9 @@ bokeh-creator = { version = ">=0.1.15, < 0.2", default-features = false, feature
 inpaint = { version = ">=0.1.7, < 0.2" }
 image-ndarray = ">= 0.1.4, < 0.2"
 
-opendefocus-shared = { path = "../opendefocus-shared", version = "=0.1.0" }
-opendefocus-kernel = { path = "../opendefocus-kernel", version = "=0.1.0" }
-opendefocus-datastructure = { path = "../opendefocus-datastructure", version = "=0.1.0" }
+opendefocus-shared = { path = "../opendefocus-shared", version = "=0.1.1" }
+opendefocus-kernel = { path = "../opendefocus-kernel", version = "=0.1.1" }
+opendefocus-datastructure = { path = "../opendefocus-datastructure", version = "=0.1.1" }
 num-traits = { version = "0.2", default-features = false }
 rgb = "0.8"
 prost = { version = ">=0.14, < 0.15" }
