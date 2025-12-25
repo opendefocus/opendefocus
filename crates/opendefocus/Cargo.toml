@@ -2,6 +2,7 @@
 name = "opendefocus"
 description = "An advanced open-source convolution library for image post-processing"
 version.workspace = true
+readme.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -79,8 +80,4 @@ assert_approx_eq = "1.1"
 image-compare = "0.4"
 rstest = "0.26"
 image = { version = "0.25", features = ["rayon"] }
-anyhow = "1.0.100"
-
-
-[build-dependencies]
-anyhow = "1.0.100"
+anyhow = "1.0"
