@@ -49,7 +49,7 @@ fn build_proto() -> Result<()> {
     config.extern_path(".bokeh_creator", "bokeh_creator");
     // config.extern_path(".bokeh_creator", "::bokeh-creator")
     let includes = [
-        "../../proto".to_string(),
+        "./proto".to_string(),
         circle_of_confusion_package
             .parent()
             .unwrap()
