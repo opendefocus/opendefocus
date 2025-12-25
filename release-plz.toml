@@ -1,0 +1,15 @@
+[workspace]
+changelog_path = "./CHANGELOG.md"
+git_release_enable = false
+git_release_name = "v{{ version }}"
+git_tag_enable = false
+git_tag_name = "v{{ version }}"
+
+[[package]]
+name = "opendefocus"
+git_release_enable = true
+git_tag_enable = true
+
+[[package]]
+name = "opendefocus-nuke"
+publish = false

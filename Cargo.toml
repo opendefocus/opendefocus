@@ -27,7 +27,7 @@ homepage = "https://opendefocus.codeberg.page"
 documentation = "https://opendefocus.codeberg.page"
 keywords = ["defocus", "convolution", "image-processing"]
 categories = ["multimedia", "graphics"]
-
+readme = "README.md"
 
 [profile.release.build-override]
 opt-level = 3
