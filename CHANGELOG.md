@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://codeberg.org/opendefocus/opendefocus/compare/v0.1.2...v0.1.3) - 2025-12-25
+
+### Other
+
+- Add license.md to release package
+
 ## [0.1.2](https://codeberg.org/opendefocus/opendefocus/compare/v0.1.1...v0.1.2) - 2025-12-25
 
 ### Other
