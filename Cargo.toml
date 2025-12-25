@@ -18,7 +18,7 @@ unexpected_cfgs = { level = "allow", check-cfg = [
 
 
 [workspace.package]
-version = "0.1.2"
+version = "0.1.3"
 authors = ["olivebowl <olivebowl@noreply.codeberg.org>"]
 edition = "2024"
 license = "EUPL-1.2"
