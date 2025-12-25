@@ -84,7 +84,7 @@ impl WgpuRunner {
     fn create_convolve_pipeline(
         device: &wgpu::Device,
     ) -> (Option<wgpu::ComputePipeline>, Option<wgpu::BindGroupLayout>) {
-        let wgsl = include_wgsl!("../../../../shaders/opendefocus-kernel.wgsl");
+        let wgsl = include_wgsl!("../shaders/opendefocus-kernel.wgsl");
         let shader_module = unsafe {
             device.create_shader_module_trusted(wgsl, wgpu::ShaderRuntimeChecks::unchecked())
         };

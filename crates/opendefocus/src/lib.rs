@@ -1,4 +1,3 @@
-#![doc = include_str!("../../../README.md")]
 #![warn(unused_extern_crates)]
 
 pub mod abort;
