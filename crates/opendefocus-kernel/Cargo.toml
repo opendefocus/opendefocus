@@ -34,7 +34,7 @@ spirv = ["dep:spirv-std"]
 [dependencies]
 bitflags = "2.10.0"
 glam = { version = "0.30.8", default-features = false }
-opendefocus-shared = { path = "../opendefocus-shared", default-features = false }
+opendefocus-shared = { path = "../opendefocus-shared", default-features = false, version = "=0.1.0" }
 spirv-std = { git = "https://github.com/rust-gpu/rust-gpu", rev = "5719b273fd1fa8207e6e4537fed8c1f8175d4cc8", optional = true}
 
 [target.'cfg(not(any(target_arch = "spirv")))'.dependencies]
@@ -46,7 +46,7 @@ workspace = true
 [dev-dependencies]
 rayon = { version = "1.11.0" }
 rstest = "0.26"
-opendefocus-datastructure = { path = "../opendefocus-datastructure" }
+opendefocus-datastructure = { path = "../opendefocus-datastructure", version = "=0.1.0" }
 
 [profile.release]
 opt-level = 3

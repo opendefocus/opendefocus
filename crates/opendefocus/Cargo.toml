@@ -44,7 +44,7 @@ wgpu = ["dep:wgpu", "std"]
 bytemuck = { version = "1.24", features = ["derive"] }
 image = { version = "0.25", default-features = false, features = ["rayon"] }
 libc = "0.2"
-ndarray = {version = "0.16", features = ["rayon"]}
+ndarray = { version = "0.16", features = ["rayon"] }
 glam = { version = "0.30.8", default-features = false, features = ["bytemuck"] }
 log = "0.4"
 rayon = "1.10"
@@ -64,9 +64,9 @@ bokeh-creator = { version = ">=0.1.15, < 0.2", default-features = false, feature
 inpaint = { version = ">=0.1.7, < 0.2" }
 image-ndarray = ">= 0.1.4, < 0.2"
 
-opendefocus-shared = { path = "../opendefocus-shared" }
-opendefocus-kernel = { path = "../opendefocus-kernel" }
-opendefocus-datastructure = { path = "../opendefocus-datastructure" }
+opendefocus-shared = { path = "../opendefocus-shared", version = "=0.1.0" }
+opendefocus-kernel = { path = "../opendefocus-kernel", version = "=0.1.0" }
+opendefocus-datastructure = { path = "../opendefocus-datastructure", version = "=0.1.0" }
 num-traits = { version = "0.2", default-features = false }
 rgb = "0.8"
 prost = { version = ">=0.14, < 0.15" }
