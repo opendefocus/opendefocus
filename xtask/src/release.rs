@@ -27,7 +27,7 @@ pub async fn release_package(target_archive_path: Option<PathBuf>) -> Result<()>
     }
 
     let package_path = crate_root().join("package");
-
+    fetch_licenses(package_path.join("license.md")).await?;
     create_archive(&target_file, &package_path).await?;
     let release_id = latest_release().await?;
     upload_codeberg_release(&target_file, release_id).await?;
