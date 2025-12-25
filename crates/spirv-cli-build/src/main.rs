@@ -31,7 +31,7 @@ fn main() -> Result<()> {
         .spirv_metadata(spirv_builder::SpirvMetadata::Full)
         .shader_crate_default_features(false)
         .capability(spirv_builder::Capability::Int8)
-        .shader_crate_features(["libm".to_string()]);
+        .shader_crate_features(["libm".to_string(), "spirv".to_string()]);
 
     build.toolchain_overwrite = Some(TOOLCHAIN_VERSION.to_string());
     let compilation = build.build()?;
