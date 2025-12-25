@@ -10,7 +10,7 @@ keywords.workspace = true
 documentation.workspace = true
 homepage.workspace = true
 categories.workspace = true
-publish = false
+publish = true
 
 [lib]
 name = "opendefocus_kernel"
