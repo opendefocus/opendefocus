@@ -3,10 +3,10 @@ name: CI
 on:
   push:
     tags:
-      - '*'
+      - 'opendefocus-v*'
 
 env:
-  NUKE_VERSIONS: "16.0"
+  NUKE_VERSIONS: "15.0,15.1,15.2,16.0"
 
 permissions:
   contents: read
