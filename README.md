@@ -26,13 +26,12 @@
     </a>
 </p>
 
----
 
 <p align="center">
-  <a href="#features">Features</a> •
-  <a href="https://codeberg.org/opendefocus/opendefocus/releases" target="_blank">Download</a> •
-  <a href="https://opendefocus.codeberg.page">Documentation</a> •
-  <a href="./crates/opendefocus/CHANGELOG.md" target="_blank">Changelog</a> •
+  <a href="#features" style="display: inline-block; padding: 5px 20px; background-color: rgba(93, 116, 222, 1); color: white; text-decoration: none; border-radius: 5px;">Features</a>
+  <a href="https://codeberg.org/opendefocus/opendefocus/releases" target="_blank" style="display: inline-block; padding: 5px 20px; background-color: rgba(93, 116, 222, 1); color: white; text-decoration: none; border-radius: 5px;">Download</a>
+  <a href="https://opendefocus.codeberg.page" style="display: inline-block; padding: 5px 20px; background-color: rgba(93, 116, 222, 1); color: white; text-decoration: none; border-radius: 5px;">Docs</a>
+  <a href="./CHANGELOG.md" target="_blank" style="display: inline-block; padding: 5px 20px; background-color: rgba(93, 116, 222, 1); color: white; text-decoration: none; border-radius: 5px;">Changelog</a>
 </p>
 
 ---
