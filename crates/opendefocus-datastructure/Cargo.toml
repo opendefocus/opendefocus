@@ -28,7 +28,7 @@ documented = { version = "0.9", optional = true }
 circle-of-confusion = { version = ">=0.2.5" }
 bokeh-creator = { version = ">=0.1.15, < 0.2", default-features = false }
 
-opendefocus-shared = { path = "../opendefocus-shared", version = "=0.1.3" }
+opendefocus-shared = { path = "../opendefocus-shared", version = "=0.1.4" }
 
 [lints]
 workspace = true
