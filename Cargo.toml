@@ -6,6 +6,7 @@ members = [
     "crates/opendefocus-datastructure",
     "crates/opendefocus-nuke",
     "xtask",
+    "examples/simple",
 ]
 exclude = ["crates/spirv-cli-build"]
 resolver = "2"
@@ -24,7 +25,7 @@ edition = "2024"
 license = "EUPL-1.2"
 repository = "https://codeberg.org/opendefocus/opendefocus"
 homepage = "https://opendefocus.codeberg.page"
-documentation = "https://opendefocus.codeberg.page"
+documentation = "https://docs.rs/opendefocus/"
 keywords = ["defocus", "convolution", "image-processing"]
 categories = ["multimedia", "graphics"]
 readme = "README.md"

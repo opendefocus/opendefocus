@@ -47,12 +47,12 @@ pub async fn render_convolution(
     }
 
     let depth_array = if use_depth {
-        Array2::from_shape_vec(
+        Some(Array2::from_shape_vec(
             (resolution.y as usize, resolution.x as usize),
             depth.to_vec(),
-        )?
+        )?)
     } else {
-        Array2::zeros((1, 1))
+        None
     };
 
     if settings.render.filter.mode() == FilterMode::Image && filter.is_empty() {
@@ -73,13 +73,7 @@ pub async fn render_convolution(
     };
 
     renderer
-        .render(
-            render_specs,
-            settings,
-            image,
-            depth_array,
-            filter_image,
-        )
+        .render_stripe(render_specs, settings, image, depth_array, filter_image)
         .await?;
 
     Ok(())

@@ -1,17 +1,19 @@
 use crate::consts::{EMAIL, REPOSITORY, USERNAME};
 use crate::{license::fetch_licenses, util::crate_root};
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use duct::cmd;
 use futures_util::StreamExt;
 use git2::{Repository, Signature};
-use serde::Serialize;
-use serde_json::Value;
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use zip::{ZipWriter, write::SimpleFileOptions};
 pub async fn release_package(target_archive_path: Option<PathBuf>) -> Result<()> {
-    let target_file = if let Some(target_path) = target_archive_path {
+    let target_file = if let Some(target_path) = target_archive_path.clone() {
         target_path
     } else {
         let tmp_dir = std::env::temp_dir();
@@ -32,12 +34,31 @@ pub async fn release_package(target_archive_path: Option<PathBuf>) -> Result<()>
     create_archive(&target_file, &package_path).await?;
     let release_id = latest_release().await?;
     let filename = target_file.file_name().unwrap().to_str().unwrap();
+    if target_archive_path.is_some() {
+        return Ok(());
+    };
     let metadata = ReleaseData {
+        changelog: None,
+        date: None,
         version: env!("CARGO_PKG_VERSION").to_owned(),
         nuke: NukeData::from_env(filename)?,
     };
     upload_metadata_to_release(metadata, release_id).await?;
     upload_codeberg_release(&target_file, release_id).await?;
+    trigger_docs_release().await?;
+    Ok(())
+}
+
+async fn trigger_docs_release() -> Result<()> {
+    let client = reqwest::Client::builder().build()?;
+    let response = client
+        .post(format!("https://ci.codeberg.org/api/repos/15835/pipelines"))
+        .bearer_auth(std::env::var("WOODPECKER_ACCESS_TOKEN")?)
+        .json(&json!({"branch": "main"}))
+        .send()
+        .await?
+        .error_for_status()?;
+    println!("{}", response.text().await?);
     Ok(())
 }
 
@@ -56,16 +77,68 @@ async fn latest_release() -> Result<usize> {
     Ok(response["id"].as_u64().unwrap() as usize)
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 struct ReleaseData {
     version: String,
     nuke: NukeData,
+    date: Option<DateTime<Utc>>,
+    changelog: Option<String>,
 }
 
-#[derive(Serialize, PartialEq, Debug)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 struct NukeData {
     versions: Vec<f32>,
     filename: String,
+    url: Option<String>,
+}
+
+fn release_data_to_markdown(release_data: &[ReleaseData]) -> String {
+    let mut table: Vec<String> =
+        vec!["| Version | Date | Nuke Versions | Download | Changelog | Source |".to_owned()];
+    table.push("| - | - | - | - | - | - |".to_owned());
+    let mut changelogs: Vec<String> = Vec::new();
+    for release in release_data {
+        let versions: String = release
+            .nuke
+            .versions
+            .iter()
+            .map(|f| {
+                let version = format!("{f}");
+                let version = if version.contains('.') {
+                    version
+                } else {
+                    format!("{}.0", version)
+                };
+                format!("`{version}`")
+            })
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        table.push(format!(
+            "| v{} | {} | {} | {} | {} | {}",
+            release.version,
+            release.date.unwrap().format("%d-%m-%Y"),
+            versions,
+            format!(
+                "[{}]({})",
+                release.nuke.filename,
+                release.nuke.url.as_ref().unwrap()
+            ),
+            format!("[Changelog](#v{})", release.version.replace(".", "")),
+            format!(
+                "[Source](https://codeberg.org/{REPOSITORY}/src/tag/v{})",
+                release.version
+            )
+        ));
+        changelogs.push(format!(
+            "{}\n{}",
+            format!("## v{}", release.version),
+            release.changelog.as_ref().unwrap().to_owned()
+        ));
+    }
+    let table: String = table.iter().map(|s| format!("{}\n", s)).collect();
+    let changelogs: String = changelogs.iter().map(|s| format!("{}\n", s)).collect();
+    format!("{table}\n{changelogs}")
 }
 
 impl NukeData {
@@ -77,6 +150,7 @@ impl NukeData {
             .collect();
         Ok(Self {
             versions,
+            url: None,
             filename: filename.to_owned(),
         })
     }
@@ -156,11 +230,65 @@ async fn create_archive(target_path: &Path, package_path: &Path) -> Result<(), a
     Ok(())
 }
 
-/// Documentation url
+async fn get_releases() -> Result<Vec<ReleaseData>> {
+    let codeberg_releases: Value = reqwest::get(format!(
+        "https://codeberg.org/api/v1/repos/{REPOSITORY}/releases"
+    ))
+    .await?
+    .error_for_status()?
+    .json()
+    .await?;
+    let mut releases = Vec::new();
+    for release in codeberg_releases.as_array().unwrap() {
+        for asset in release["assets"].as_array().unwrap() {
+            if asset["name"] != "metadata.json" {
+                continue;
+            }
+            let mut release_data: ReleaseData =
+                reqwest::get(asset["browser_download_url"].as_str().unwrap())
+                    .await?
+                    .json()
+                    .await?;
+
+            let nuke_asset = if let Some(nuke_asset) = release["assets"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|f| f["name"].as_str().unwrap().contains("nuke"))
+            {
+                nuke_asset
+            } else {
+                continue;
+            };
+            let nuke_url = nuke_asset["browser_download_url"]
+                .as_str()
+                .unwrap()
+                .to_string();
+            release_data.date =
+                Some(DateTime::from_str(nuke_asset["created_at"].as_str().unwrap()).unwrap());
+            release_data.nuke.url = Some(nuke_url);
+            release_data.changelog = Some(release["body"].as_str().unwrap().to_string());
+            releases.push(release_data);
+        }
+    }
+    Ok(releases)
+}
+
+async fn create_downloads_table() -> Result<()> {
+    log::info!("Creating downloads markdown...");
+    let releases = get_releases().await?;
+    let markdown = release_data_to_markdown(&releases);
+    tokio::fs::write(
+        crate_root().join("docs").join("src").join("downloads.md"),
+        markdown,
+    )
+    .await?;
+    log::info!("Downloads markdown written");
+    Ok(())
+}
 
 pub async fn release_docs() -> Result<()> {
-    fetch_licenses(crate_root().join("docs").join("src").join("licenses.md")).await?;
-
+    prepare_docs().await?;
     let docs_target = std::env::temp_dir().join("opendefocus_docs");
     if docs_target.exists() {
         tokio::fs::remove_dir_all(&docs_target).await?;
@@ -197,6 +325,12 @@ pub async fn release_docs() -> Result<()> {
     let mut remote = repo.find_remote("origin")?;
     remote.push(&["refs/heads/main:refs/heads/main"], None)?;
 
+    Ok(())
+}
+
+pub async fn prepare_docs() -> Result<()> {
+    fetch_licenses(crate_root().join("docs").join("src").join("licenses.md")).await?;
+    create_downloads_table().await?;
     Ok(())
 }
 
@@ -249,7 +383,6 @@ fn add_and_commit(repo: &Repository, message: &str) -> Result<()> {
     Ok(())
 }
 
-/// Remove every non git related item from the repository.
 async fn move_contents(src: &Path, dst: &Path) -> Result<()> {
     let mut dir = tokio::fs::read_dir(src).await?;
 
@@ -263,7 +396,7 @@ async fn move_contents(src: &Path, dst: &Path) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::release::NukeData;
+    use super::*;
 
     #[test]
     fn nuke_data_from_env() {
@@ -276,6 +409,7 @@ mod tests {
         assert_eq!(
             NukeData {
                 versions: vec![15.0, 15.1, 15.2, 16.0],
+                url: None,
                 filename: "blabla".to_owned()
             },
             nuke_data

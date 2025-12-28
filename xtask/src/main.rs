@@ -15,7 +15,7 @@ use crate::{
     license::fetch_licenses,
     nuke::{compile_nuke, create_package, get_sources},
     precommit::precommit,
-    release::{release_docs, release_package},
+    release::{prepare_docs, release_docs, release_package},
     test::{test_crates, test_nuke_plugin_package},
     util::crate_root,
 };
@@ -167,6 +167,7 @@ async fn main() -> Result<()> {
     }
 
     if args.serve_docs {
+        prepare_docs().await?;
         cmd!("mdbook", "serve", crate_root().join("docs")).run()?;
     }
 

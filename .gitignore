@@ -209,5 +209,7 @@ cython_debug/
 
 docs/book
 licenses.md
+downloads.md
 .xwin-cache
 .ruff_cache
+result.png

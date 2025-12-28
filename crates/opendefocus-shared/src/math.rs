@@ -45,7 +45,7 @@ pub fn sqrt(value: f32) -> f32 {
 
 #[inline]
 #[cfg(not(feature = "libm"))]
-/// Just a simple port from https://mazzo.li/posts/vectorized-atan2.html
+/// Just a simple port from <https://mazzo.li/posts/vectorized-atan2.html>
 /// This is a fast port mostly without branching
 pub fn atan2f(a: f32, b: f32) -> f32 {
     let swap = a.abs() > b.abs();

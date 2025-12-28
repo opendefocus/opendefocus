@@ -1,0 +1,23 @@
+[package]
+name = "simple"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+
+[dependencies]
+anyhow = "1.0"
+image = "0.25.9"
+image-ndarray = "0.1.5"
+ndarray = "0.16"
+opendefocus = {path = "../../crates/opendefocus"}
+tokio = { version = "1", features = ["full"] }
+
+[lints]
+workspace = true

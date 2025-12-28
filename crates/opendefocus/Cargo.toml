@@ -80,3 +80,6 @@ assert_approx_eq = "1.1"
 image-compare = "0.4"
 rstest = "0.26"
 image = { version = "0.25", features = ["rayon"] }
+tokio  = {version = "1.0", features = ["full"]}
+tokio-test = "0.4.4"
+anyhow = "1.0"
