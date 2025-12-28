@@ -1,0 +1,12 @@
+{
+    "version": "0.1.4",
+    "nuke": {
+        "versions": [
+            15.0,
+            15.1,
+            15.2,
+            16.0
+        ],
+        "filename": "opendefocus-nuke-0.1.4.zip"
+    }
+}

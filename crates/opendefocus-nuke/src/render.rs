@@ -33,7 +33,7 @@ pub async fn render_convolution(
         },
     };
     let resolution = render_specs.get_resolution();
-    let mut image = ArrayViewMut3::from_shape(
+    let image = ArrayViewMut3::from_shape(
         (
             resolution.y as usize,
             resolution.x as usize,
@@ -76,7 +76,7 @@ pub async fn render_convolution(
         .render(
             render_specs,
             settings,
-            &mut image,
+            image,
             depth_array,
             filter_image,
         )

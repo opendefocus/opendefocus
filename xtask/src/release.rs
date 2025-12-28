@@ -4,10 +4,11 @@ use anyhow::Result;
 use duct::cmd;
 use futures_util::StreamExt;
 use git2::{Repository, Signature};
+use serde::Serialize;
 use serde_json::Value;
+use std::path::{Path, PathBuf};
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
-use std::path::{Path, PathBuf};
 use zip::{ZipWriter, write::SimpleFileOptions};
 pub async fn release_package(target_archive_path: Option<PathBuf>) -> Result<()> {
     let target_file = if let Some(target_path) = target_archive_path {
@@ -30,14 +31,24 @@ pub async fn release_package(target_archive_path: Option<PathBuf>) -> Result<()>
     fetch_licenses(package_path.join("license.md")).await?;
     create_archive(&target_file, &package_path).await?;
     let release_id = latest_release().await?;
+    let filename = target_file.file_name().unwrap().to_str().unwrap();
+    let metadata = ReleaseData {
+        version: env!("CARGO_PKG_VERSION").to_owned(),
+        nuke: NukeData::from_env(filename)?,
+    };
+    upload_metadata_to_release(metadata, release_id).await?;
     upload_codeberg_release(&target_file, release_id).await?;
     Ok(())
 }
 
 async fn latest_release() -> Result<usize> {
-    let client = reqwest::Client::builder().user_agent("OpenDefocus xtask").build()?;
+    let client = reqwest::Client::builder()
+        .user_agent("OpenDefocus xtask")
+        .build()?;
     let response: Value = client
-        .get(format!("https://codeberg.org/api/v1/repos/{REPOSITORY}/releases/latest"))
+        .get(format!(
+            "https://codeberg.org/api/v1/repos/{REPOSITORY}/releases/latest"
+        ))
         .send()
         .await?
         .json()
@@ -45,11 +56,54 @@ async fn latest_release() -> Result<usize> {
     Ok(response["id"].as_u64().unwrap() as usize)
 }
 
+#[derive(Serialize)]
+struct ReleaseData {
+    version: String,
+    nuke: NukeData,
+}
+
+#[derive(Serialize, PartialEq, Debug)]
+struct NukeData {
+    versions: Vec<f32>,
+    filename: String,
+}
+
+impl NukeData {
+    pub fn from_env(filename: &str) -> Result<Self> {
+        let versions = std::env::var("NUKE_VERSIONS")?;
+        let versions: Vec<f32> = versions
+            .split_terminator(",")
+            .map(|f| f.parse::<f32>().unwrap())
+            .collect();
+        Ok(Self {
+            versions,
+            filename: filename.to_owned(),
+        })
+    }
+}
+
+async fn upload_metadata_to_release(metadata: ReleaseData, release_id: usize) -> Result<()> {
+    let client = reqwest::Client::builder().build()?;
+    client.post(
+        format!("https://codeberg.org/api/v1/repos/{REPOSITORY}/releases/{release_id}/assets?name=metadata.json")
+    )
+        .bearer_auth(std::env::var("CODEBERG_RELEASE_TOKEN")?)
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .json(&metadata)
+        .send()
+        .await?
+        .error_for_status()?;
+
+    Ok(())
+}
 async fn upload_codeberg_release(release_zip: &Path, release_id: usize) -> Result<()> {
     let client = reqwest::Client::builder().build()?;
     let filename = release_zip.file_name().unwrap().to_str().unwrap();
     let mut data = Vec::new();
-    File::open(release_zip).await?.read_to_end(&mut data).await?;
+    File::open(release_zip)
+        .await?
+        .read_to_end(&mut data)
+        .await?;
     client.post(
         format!("https://codeberg.org/api/v1/repos/{REPOSITORY}/releases/{release_id}/assets?name={filename}")
     )
@@ -205,4 +259,26 @@ async fn move_contents(src: &Path, dst: &Path) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::release::NukeData;
+
+    #[test]
+    fn nuke_data_from_env() {
+        unsafe {
+            std::env::set_var("NUKE_VERSIONS", "15.0,15.1,15.2,16.0");
+        }
+
+        let nuke_data = NukeData::from_env("blabla").unwrap();
+
+        assert_eq!(
+            NukeData {
+                versions: vec![15.0, 15.1, 15.2, 16.0],
+                filename: "blabla".to_owned()
+            },
+            nuke_data
+        );
+    }
 }

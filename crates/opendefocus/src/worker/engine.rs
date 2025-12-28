@@ -41,7 +41,7 @@ impl RenderEngine {
     pub async fn render<'image, T: TraitBounds>(
         &self,
         runner: &SharedRunner,
-        image: &mut ArrayViewMut3<'image, T>,
+        mut image: ArrayViewMut3<'image, T>,
         depth: Array2<T>,
         filter: Option<Array3<T>>,
     ) -> Result<()> {
@@ -230,10 +230,10 @@ fn prepare_filter_image<T: TraitBounds>(
 
 /// Render the kernel directly to the target image
 fn render_preview_bokeh<'a, T: TraitBounds>(
-    image: &mut ArrayViewMut3<'a, T>,
+    mut image: ArrayViewMut3<'a, T>,
     settings: &Settings,
 ) -> Result<()> {
-    bokeh_creator::Renderer::render_to_array(settings.bokeh.clone(), image);
+    bokeh_creator::Renderer::render_to_array(settings.bokeh.clone(), &mut image);
     Ok(())
 }
 
@@ -281,7 +281,7 @@ fn prepare_depth_map<T: TraitBounds>(
 /// * Green is in focus
 /// * Blue is out of focus
 fn render_focal_plane_preview<'a, T: TraitBounds>(
-    image: &mut ArrayViewMut3<'a, T>,
+    image: ArrayViewMut3<'a, T>,
     depth: ArrayView2<f32>,
     output_real_values: bool,
 ) -> Result<()> {

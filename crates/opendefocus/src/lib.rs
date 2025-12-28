@@ -61,7 +61,7 @@ impl OpenDefocusRenderer {
         &self,
         render_specs: datamodel::render::RenderSpecs,
         settings: datamodel::Settings,
-        image: &mut ArrayViewMut3<'image, T>,
+        image: ArrayViewMut3<'image, T>,
         depth: Array2<T>,
         filter: Option<Array3<T>>,
     ) -> Result<()> {

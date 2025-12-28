@@ -56,7 +56,7 @@ fn render_pixel(depth: f32, channel: usize, output_real_values: bool) -> f32 {
 }
 
 pub fn render_focal_plane_overlay<T: TraitBounds>(
-    image: &mut ArrayViewMut3<T>,
+    mut image: ArrayViewMut3<T>,
     depth: &ArrayView2<f32>,
     output_real_values: bool,
 ) {
