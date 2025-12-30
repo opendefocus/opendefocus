@@ -351,11 +351,20 @@ async fn install_windows(
     if install_path.is_dir() {
         tokio::fs::remove_dir_all(&install_path).await?;
     }
-    tokio::fs::create_dir_all(&install_path).await?;
     if major < 14 {
-        let mut archive = ZipArchive::new(file.try_into_std().unwrap())?;
-        archive.extract(install_path)?;
+        let _ = cmd!(
+            "7z",
+            "x",
+            installer.file_name().unwrap(),
+            "-aoa",
+            "-oextracted"
+        )
+        .dir(installer.parent().unwrap())
+        .stdout_null()
+        .run()?;
+        tokio::fs::rename(installer.parent().unwrap().join("extracted"), install_path).await?;
     } else {
+        tokio::fs::create_dir_all(&install_path).await?;
         let installer_name = installer
             .file_name()
             .unwrap()
