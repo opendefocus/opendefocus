@@ -8,6 +8,7 @@ on:
       - 'main'
 env:
   NUKE_VERSIONS: "14.0,14.1,15.0,15.1,15.2,16.0"
+  RUST_BACKTRACE: "1"
 
 permissions:
   contents: read
