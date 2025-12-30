@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- Remove Nuke 13
+- Add Nuke 14 and add [downloads](https://opendefocus.codeberg.page/download.html) page to documentation
 
 ## [0.1.4](https://codeberg.org/opendefocus/opendefocus/compare/v0.1.3...v0.1.4) - 2025-12-25
 
