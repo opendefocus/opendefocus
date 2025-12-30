@@ -144,8 +144,6 @@ public:
 
 size_t get_imageplane_size(DD::Image::ImagePlaneDescriptor descriptor);
 
-static DD::Image::Iop *OpenDefocusCreate(Node *node);
-
 void create_float_knob(DD::Image::Knob_Callback callback, float *value,
                        KnobParameters parameters);
 void create_int_knob(DD::Image::Knob_Callback callback, int *value,
