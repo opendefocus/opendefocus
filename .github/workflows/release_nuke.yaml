@@ -46,7 +46,7 @@ jobs:
       - uses: nick-fields/retry@v2
         name: Build
         with:
-          timeout_seconds: 10
+          timeout_minutes: 100
           max_attempts: 3
           command: |
             source ~/.bashrc
@@ -74,7 +74,7 @@ jobs:
       - uses: nick-fields/retry@v2
         name: Build
         with:
-          timeout_seconds: 10
+          timeout_minutes: 100
           max_attempts: 3
           command: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform windows --output-to-package
 
@@ -106,7 +106,7 @@ jobs:
       - uses: nick-fields/retry@v2
         name: Build
         with:
-          timeout_seconds: 10
+          timeout_minutes: 100
           max_attempts: 3
           command: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform ${{ matrix.platform.target }} --output-to-package
 
