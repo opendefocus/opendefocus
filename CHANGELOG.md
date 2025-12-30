@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5](https://codeberg.org/opendefocus/opendefocus/compare/v0.1.4...v0.1.5) - 2025-12-30
+
+### Other
+
+- Remove Nuke 13
+
 ## [0.1.4](https://codeberg.org/opendefocus/opendefocus/compare/v0.1.3...v0.1.4) - 2025-12-25
 
 ### Other
