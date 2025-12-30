@@ -9,6 +9,7 @@ steps:
     commands:
       - curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
       - cargo binstall release-plz
+      - cargo binstall cargo-semver-checks
       - git config user.name "$(git log -1 --pretty=format:'%an')"
       - git config user.email '${CI_COMMIT_AUTHOR_EMAIL}'
       - git remote set-url origin https://$${CODEBERG_TOKEN}@codeberg.org/olivebowl/opendefocus.git
