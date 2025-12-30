@@ -11,6 +11,7 @@ accepted = [
     "Apache-2.0 WITH LLVM-exception",
     "NCSA",
     "bzip2-1.0.6",
+    "OpenSSL",
 ]
 ignore-build-dependencies = false
 ignore-dev-dependencies = false

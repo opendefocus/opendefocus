@@ -32,6 +32,6 @@
 - [Developer documentation]()
 
 
-- [Contributing]()
+- [Contributing](./contributing.md)
 - [License](./license.md)
 
