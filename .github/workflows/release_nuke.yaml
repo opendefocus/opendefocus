@@ -42,11 +42,14 @@ jobs:
         with:
           env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
 
-      - name: Build Nuke
-        shell: bash
-        run: |
-          source ~/.bashrc
-          cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform linux --use-zig --output-to-package
+      - uses: nick-fields/retry@v2
+        name: Build
+        with:
+          timeout_seconds: 10
+          max_attempts: 3
+          command: |
+            source ~/.bashrc
+            cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform linux --use-zig --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
@@ -66,8 +69,13 @@ jobs:
         with:
           env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
 
-      - name: Build Nuke
-        run: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform windows --output-to-package
+
+      - uses: nick-fields/retry@v2
+        name: Build
+        with:
+          timeout_seconds: 10
+          max_attempts: 3
+          command: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform windows --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
@@ -94,8 +102,12 @@ jobs:
         with:
           env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
 
-      - name: Build Nuke
-        run: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform ${{ matrix.platform.target }} --output-to-package
+      - uses: nick-fields/retry@v2
+        name: Build
+        with:
+          timeout_seconds: 10
+          max_attempts: 3
+          command: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform ${{ matrix.platform.target }} --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
