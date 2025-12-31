@@ -102,6 +102,7 @@ fn release_data_to_markdown(release_data: &[ReleaseData]) -> String {
             .nuke
             .versions
             .iter()
+            .rev()
             .map(|f| {
                 let version = format!("{f}");
                 let version = if version.contains('.') {
