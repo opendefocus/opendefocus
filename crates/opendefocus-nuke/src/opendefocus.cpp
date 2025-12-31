@@ -165,11 +165,11 @@ void OpenDefocus::renderStripe(DD::Image::ImagePlane &output_plane) {
   rust::Slice<float> image_slice(working_plane.writable(),
                                  get_imageplane_size(working_plane));
   rust::Slice<const float> depth_slice =
-      instance->fetch_depth() ? rust::Slice(depth_plane.readable(),
+      instance->fetch_depth() ? rust::Slice<const float>(depth_plane.readable(),
                                             get_imageplane_size(depth_plane))
                               : rust::Slice<const float>(0, 0);
   rust::Slice<const float> filter_slice =
-      instance->fetch_filter() ? rust::Slice(filter_plane.readable(),
+      instance->fetch_filter() ? rust::Slice<const float>(filter_plane.readable(),
                                              get_imageplane_size(filter_plane))
                                : rust::Slice<const float>(0, 0);
 
