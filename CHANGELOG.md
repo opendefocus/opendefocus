@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.6](https://codeberg.org/opendefocus/opendefocus/compare/v0.1.5...v0.1.6) - 2025-12-31
 
-### Fixed
+### Added
 
-- remove cache in release step
+- Nuke 13
 
 ## [0.1.5](https://codeberg.org/opendefocus/opendefocus/compare/v0.1.4...v0.1.5) - 2025-12-30
 
