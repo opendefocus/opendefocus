@@ -7,7 +7,7 @@
 
 - [User guide](./user_guide.md)
   - [Download](./download.md)
-  - [Installation]()
+  - [Installation](./installation.md)
   - [Quickstart](./quickstart/index.md)
     - [Inputs](./quickstart/inputs.md)
     - [Options](./quickstart/options.md)
