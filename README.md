@@ -22,7 +22,7 @@
         <img src="https://img.shields.io/crates/v/opendefocus" alt="Version" />
     </a>
     <a href="https://opendefocus.codeberg.page/download.html">
-        <img src="https://img.shields.io/badge/nuke-12%2B-yellow?logo=nuke" alt="Nuke Versions" />
+        <img src="https://img.shields.io/badge/nuke-13%2B-yellow?logo=nuke" alt="Nuke Versions" />
     </a>
 </p>
 
