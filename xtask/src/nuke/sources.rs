@@ -236,7 +236,7 @@ async fn extract_tar(
                 return Ok(filepath);
             }
         }
-        if filename.contains("installer") {
+        if filename.contains("installer") && !filename.ends_with("tgz") && !filename.ends_with("zip") {
             return Ok(filepath);
         }
     }
