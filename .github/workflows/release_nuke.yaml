@@ -118,10 +118,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: Swatinem/rust-cache@v2
-        with:
-          env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
-
       - name: Setup instance
         run: |
           curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
