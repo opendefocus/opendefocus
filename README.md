@@ -12,19 +12,23 @@
 <h4 align="center">An advanced open-source convolution library for image post-processing</h4>
 
 <p align="center">
-    <a href="https://ci.codeberg.org/repos/15835">
-        <img src="https://ci.codeberg.org/api/badges/15835/status.svg" alt="Tests" />
-    </a>
     <a href="https://crates.io/crates/opendefocus">
         <img src="https://img.shields.io/crates/l/opendefocus" alt="License" />
     </a>
     <a href="https://crates.io/crates/opendefocus">
         <img src="https://img.shields.io/crates/v/opendefocus" alt="Version" />
     </a>
+    <a href = "https://codeberg.org/opendefocus/opendefocus/issues">
+      <img alt="Gitea Issues" src="https://img.shields.io/gitea/issues/open/olivebowl/opendefocus?gitea_url=https%3A%2F%2Fcodeberg.org">
+    </a>
+      <a href="https://ci.codeberg.org/repos/15835">
+        <img src="https://ci.codeberg.org/api/badges/15835/status.svg" alt="Tests" />
+    </a>
     <a href="https://opendefocus.codeberg.page/download.html">
         <img src="https://img.shields.io/badge/nuke-13%2B-yellow?logo=nuke" alt="Nuke Versions" />
     </a>
 </p>
+
 
 ---
 
