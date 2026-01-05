@@ -34,7 +34,9 @@ pub async fn compile_nuke(
             ))
             .exists()
         {
-            log::warn!("Skipping {version} as no sources could be found for this version on {target}");
+            log::warn!(
+                "Skipping {version} as no sources could be found for this version on {target}"
+            );
             continue;
         };
         if target == TargetPlatform::MacosAarch64 || target == TargetPlatform::MacosX86_64 {
@@ -98,7 +100,7 @@ fn get_macos_deployment_target(version: &str) -> Result<String> {
         return Ok("12.0".to_owned());
     }
 
-    Ok("14".to_owned())
+    Ok("14.0".to_owned())
 }
 
 fn get_platform_name(target: TargetPlatform) -> String {

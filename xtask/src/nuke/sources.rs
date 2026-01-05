@@ -85,6 +85,7 @@ struct NukeTarget {
     pub version: String,
     pub url: Url,
     pub package_size: u64,
+    pub full_version: String,
 }
 
 async fn get_target(version: &str, platform: TargetPlatform) -> Result<NukeTarget> {
@@ -123,6 +124,7 @@ async fn get_target(version: &str, platform: TargetPlatform) -> Result<NukeTarge
                 platform,
                 package_size: file_size,
                 url: Url::parse(&retrieved_url)?,
+                full_version: full_version.to_owned(),
             });
         }
     }
@@ -167,7 +169,15 @@ async fn fetch_nuke_source(target: NukeTarget, progressbar: ProgressBar) -> Resu
         Some(extension) => match extension.to_str().unwrap() {
             "tgz" => extract_tar(file, &installer_directory, &progressbar).await?,
             "zip" => extract_zip(file, &installer_directory, &progressbar).await?,
-            "dmg" => extract_dmg(&compressed_installer, &installer_directory, &progressbar).await?,
+            "dmg" => {
+                extract_dmg(
+                    &target,
+                    &compressed_installer,
+                    &installer_directory,
+                    &progressbar,
+                )
+                .await?
+            }
             _ => {
                 return Err(Error::msg(
                     "Compressed installer does not have a valid extension",
@@ -180,14 +190,7 @@ async fn fetch_nuke_source(target: NukeTarget, progressbar: ProgressBar) -> Resu
     progressbar.set_message("Installing required files...");
     let major = target.version.split_once(".").unwrap().0;
     let major = major.parse::<usize>()?;
-    install_required_files(
-        major,
-        &installer,
-        &sources_directory,
-        target.platform,
-        &progressbar,
-    )
-    .await?;
+    install_required_files(major, &installer, &sources_directory, &target, &progressbar).await?;
     tokio::fs::remove_dir_all(installer_directory).await?;
     progressbar.set_message("Patching headers...");
     patch_headers(&sources_directory).await?;
@@ -236,7 +239,10 @@ async fn extract_tar(
                 return Ok(filepath);
             }
         }
-        if filename.contains("installer") && !filename.ends_with("tgz") && !filename.ends_with("zip") {
+        if filename.contains("installer")
+            && !filename.ends_with("tgz")
+            && !filename.ends_with("zip")
+        {
             return Ok(filepath);
         }
     }
@@ -274,6 +280,7 @@ async fn extract_zip(
 }
 
 async fn extract_dmg(
+    target: &NukeTarget,
     compressed_installer: &Path,
     installer_directory: &Path,
     progressbar: &ProgressBar,
@@ -306,6 +313,27 @@ async fn extract_dmg(
     if filepath.is_dir() {
         return Ok(filepath);
     }
+    let filepath = installer_directory
+        .join(format!("Nuke-{}-mac-x86-64-installer", target.full_version))
+        .join(format!("Nuke{}", target.full_version))
+        .join(format!("Nuke{}.app", target.full_version))
+        .join("Contents")
+        .join("MacOS");
+    if filepath.is_dir() {
+        return Ok(filepath);
+    };
+
+    let legacy_path = installer_directory
+        .join(format!("Nuke{}", target.full_version))
+        .join(format!(
+            "Nuke{}-mac-x86-release-64.pkg",
+            target.full_version
+        ))
+        .join("Contents")
+        .join("Archive.pax.gz");
+    if legacy_path.is_file() {
+        return Ok(legacy_path);
+    }
     Err(Error::msg("No installer found in dmg"))
 }
 
@@ -313,14 +341,13 @@ async fn install_required_files(
     major: usize,
     installer: &Path,
     target_filepath: &Path,
-    platform: TargetPlatform,
+    target: &NukeTarget,
     progressbar: &ProgressBar,
 ) -> Result<()> {
-    let file = tokio::fs::File::open(installer).await?;
     let install_path = target_filepath.join("extracted");
     tokio::fs::create_dir_all(&install_path).await?;
-    match platform {
-        TargetPlatform::Windows => install_windows(major, installer, file, &install_path).await?,
+    match target.platform {
+        TargetPlatform::Windows => install_windows(major, installer, &install_path).await?,
         TargetPlatform::Linux => {
             install_linux(
                 major,
@@ -333,10 +360,10 @@ async fn install_required_files(
             )
             .await?
         }
-        _ => install_macos(installer, &install_path).await?,
+        _ => install_macos(major, target, installer, &install_path).await?,
     };
     progressbar.set_message("Installed to extraction location, cleaning files...");
-    keep_required_files(&install_path, target_filepath, platform).await?;
+    keep_required_files(&install_path, target_filepath, target.platform).await?;
     progressbar.set_message("Cleanup done, removing installer...");
     tokio::fs::remove_dir_all(install_path).await?;
     Ok(())
@@ -345,7 +372,6 @@ async fn install_required_files(
 async fn install_windows(
     major: usize,
     installer: &Path,
-    file: File,
     install_path: &Path,
 ) -> Result<(), Error> {
     if install_path.is_dir() {
@@ -399,7 +425,39 @@ async fn install_windows(
     Ok(())
 }
 
-async fn install_macos(installer: &Path, install_path: &Path) -> Result<(), Error> {
+async fn install_macos(
+    major: usize,
+    target: &NukeTarget,
+    installer: &Path,
+    install_path: &Path,
+) -> Result<(), Error> {
+    if major < 12 {
+        let work_dir = installer.parent().unwrap();
+
+        let _ = cmd!("7z", "x", installer)
+            .stdout_null()
+            .dir(work_dir)
+            .run()?;
+
+        let _ = cmd!("7z", "x", "Archive.pax")
+            .dir(work_dir)
+            .stdout_null()
+            .run()?;
+
+        tokio::fs::rename(
+            installer
+                .parent()
+                .unwrap()
+                .join(format!("Nuke{}", target.full_version))
+                .join(format!("Nuke{}.app", target.full_version))
+                .join("Contents")
+                .join("MacOS"),
+            install_path,
+        )
+        .await?;
+
+        return Ok(());
+    }
     tokio::fs::rename(installer, install_path).await?;
     Ok(())
 }
