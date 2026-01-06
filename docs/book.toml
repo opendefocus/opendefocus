@@ -9,3 +9,7 @@ no-section-label = false
 git-repository-url = "https://codeberg.org/opendefocus/opendefocus"
 git-repository-icon = "fab-git-alt"
 edit-url-template = "https://codeberg.org/opendefocus/opendefocus/_edit/main/crates/opendefocus/docs/{path}"
+
+[preprocessor.toc]
+command = "mdbook-toc"
+renderer = ["html"]

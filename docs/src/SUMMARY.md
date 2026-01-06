@@ -5,9 +5,9 @@
 
 ---
 
+- [Download](./download.md)
+- [Installation](./installation.md)
 - [User guide](./user_guide.md)
-  - [Download](./download.md)
-  - [Installation](./installation.md)
   - [Quickstart](./quickstart/index.md)
     - [Inputs](./quickstart/inputs.md)
     - [Options](./quickstart/options.md)
@@ -29,9 +29,18 @@
 
 ---
 
-- [Developer documentation]()
-
-
 - [Contributing](./contributing.md)
+- [Developer documentation](./developer/index.md)
+  - [Crates](./developer/crates.md)
+    - [opendefocus](./developer/opendefocus.md)
+    - [opendefocus-datastructure](./developer/opendefocus_datastructure.md)
+    - [opendefocus-kernel](./developer/opendefocus_kernel.md)
+    - [opendefocus-shared](./developer/opendefocus_shared.md)
+    - [opendefocus-nuke](./developer/opendefocus_nuke.md)
+    - [xtask](./developer/xtask.md)
+  - [Building](./developer/building.md)
+
+---
+
 - [License](./license.md)
 

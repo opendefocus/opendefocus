@@ -22,9 +22,9 @@ pub async fn compile_nuke(
     target: TargetPlatform,
     limit_threads: bool,
     use_zig: bool,
-) -> Result<()> {
+) -> Result<Vec<PathBuf>> {
     get_sources(vec![target], versions.clone(), limit_threads).await?;
-
+    let mut binaries = vec![];
     for version in versions {
         if !nuke_source_directory(&version)
             .join(format!(
@@ -49,17 +49,17 @@ pub async fn compile_nuke(
         };
 
         if use_zig {
-            compile_zig(&version, target).await?;
+            binaries.push(compile_zig(&version, target).await?);
             continue;
         }
         if is_crosscompiling(target) {
             return Err(Error::msg("Cant cross compile without using zig or xwin"));
         }
 
-        compile_native(&version, target).await?
+        binaries.push(compile_native(&version, target).await?);
     }
 
-    Ok(())
+    Ok(binaries)
 }
 
 fn is_crosscompiling(target: TargetPlatform) -> bool {
@@ -132,7 +132,7 @@ fn get_rust_target(target: TargetPlatform) -> String {
     .to_string()
 }
 
-async fn compile_native(version: &str, target: TargetPlatform) -> Result<(), anyhow::Error> {
+async fn compile_native(version: &str, target: TargetPlatform) -> Result<PathBuf, anyhow::Error> {
     let sources_directory = nuke_source_directory(version);
     let crates_path = path_to_string(
         &crate_root()
@@ -174,11 +174,11 @@ async fn compile_native(version: &str, target: TargetPlatform) -> Result<(), any
             .join("release")
             .join(format!("{}opendefocus_nuke.{dylib}", dll_prefix(target))),
     )?;
-    tokio::fs::rename(build_lib, output_dylib).await?;
-    Ok(())
+    tokio::fs::rename(build_lib, &output_dylib).await?;
+    Ok(output_dylib)
 }
 
-async fn compile_zig(version: &str, target: TargetPlatform) -> Result<(), anyhow::Error> {
+async fn compile_zig(version: &str, target: TargetPlatform) -> Result<PathBuf, anyhow::Error> {
     let sources_directory = nuke_source_directory(version);
 
     let crates_path = path_to_string(
@@ -219,8 +219,8 @@ async fn compile_zig(version: &str, target: TargetPlatform) -> Result<(), anyhow
             .join("release")
             .join(format!("{}opendefocus_nuke.{dylib}", dll_prefix(target))),
     )?;
-    tokio::fs::rename(build_lib, output_dylib).await?;
-    Ok(())
+    tokio::fs::rename(build_lib, &output_dylib).await?;
+    Ok(output_dylib)
 }
 
 pub async fn create_lib_from_dll(dll: &Path) -> Result<()> {

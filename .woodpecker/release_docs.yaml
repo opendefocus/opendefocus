@@ -8,6 +8,7 @@ steps:
     commands:
       - curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
       - cargo binstall cargo-about
+      - cargo binstall mdbook-toc
       - cargo binstall mdbook
       - git config user.email "$(git log -1 --pretty=format:'%ae')"
       - git config user.email '${CI_COMMIT_AUTHOR_EMAIL}'

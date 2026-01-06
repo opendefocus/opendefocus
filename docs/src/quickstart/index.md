@@ -4,10 +4,14 @@ This is a quick reference guide to how to get started defocussing using OpenDefo
 
 Also good to know, each knob in the node has a tooltip included. If you ever need some information, just hover the knob.
 
-If you're looking for technical explanations, the [<i class="fa-solid fa-magnifying-glass"></i> Detailed](../detailed/index.md) page contains that. If you're searching something but don't know where to find it? The search bar can probably find it for you.
+If you're looking for explanations, the [<i class="fa-solid fa-magnifying-glass"></i> Detailed](../detailed/index.md) page contains that. If you're searching something but don't know where to find it? The search bar can probably find it for you.
 
 We'll go through the different tabs and their purposes.
 
+## Index
 
----
-
+- [Inputs](./quickstart/inputs.md)
+- [Options](./quickstart/options.md)
+- [Quality](./quickstart/quality.md)
+- [Bokeh](./quickstart/bokeh.md)
+- [Non uniform](./quickstart/non_uniform.md)

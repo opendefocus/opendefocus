@@ -52,6 +52,7 @@ If you can't figure it out, feel free to create an issue!
 4. Create your contribution and test the changes.
     - If you want to open the changes in Nuke, set the `NUKE_PATH` to the package directory in this cloned local repository.
 
+---
 
 ## Most of all
 Thank you!! For taking the time to read this and to contribute your time into this project.
