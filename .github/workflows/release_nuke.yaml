@@ -82,7 +82,7 @@ jobs:
             -H "Authorization: token ${{ secrets.CODEBERG_RELEASE_TOKEN }}" \
             -d '{
                   "context": "${{ github.workflow }} / ${{ github.job }}",
-                  "state": "${{ job.status }}"
+                  "state": "${{ job.status }}",
                   "target_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
                 }'
 
