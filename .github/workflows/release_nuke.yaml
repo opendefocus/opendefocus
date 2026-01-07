@@ -1,4 +1,4 @@
-name: CI
+name: "Nuke build"
 
 on:
   push:
@@ -18,18 +18,16 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - &ci-status
+      - &ci-pending-status
         name: Set CI status
-        if: always()
         shell: bash
         run: |
           curl -X POST "https://codeberg.org/api/v1/repos/olivebowl/opendefocus/statuses/${{ github.sha }}" \
             -H "Content-Type: application/json" \
             -H "Authorization: token ${{ secrets.CODEBERG_RELEASE_TOKEN }}" \
             -d '{
-                  "context": "${{ github.workflow }} / ${{ job.name }}",
-                  "description": "${{ job.status }}",
-                  "state": "${{ job.status }}",
+                  "context": "${{ github.workflow }} / ${{ github.jobs[github.job].name }}",
+                  "state": "pending",
                   "target_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/${{ github.job }}"
                 }'
 
@@ -74,12 +72,25 @@ jobs:
           name: nuke-linux
           path: package
 
-      - *ci-status
+      - &ci-finished
+        name: Set CI status
+        shell: bash
+        if: always()
+        run: |
+          curl -X POST "https://codeberg.org/api/v1/repos/olivebowl/opendefocus/statuses/${{ github.sha }}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: token ${{ secrets.CODEBERG_RELEASE_TOKEN }}" \
+            -d '{
+                  "context": "${{ github.workflow }} / ${{ github.job }}",
+                  "state": "${{ job.status }}"
+                  "target_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/job/${{ github.job }}"
+                }'
+
 
   windows:
     runs-on: windows-2022
     steps:
-      - *ci-status
+      - *ci-pending-status
       - uses: actions/checkout@v6
 
       - name: Setup instance
@@ -98,7 +109,7 @@ jobs:
           name: nuke-windows
           path: package
 
-      - *ci-status
+      - *ci-finished
 
   macos:
     strategy:
@@ -111,7 +122,7 @@ jobs:
 
     runs-on: ${{ matrix.platform.runner }}
     steps:
-      - *ci-status
+      - *ci-pending-status
       - uses: actions/checkout@v6
       - name: Setup required tools
         run: brew install protobuf
@@ -133,13 +144,13 @@ jobs:
           name: nuke-${{ matrix.platform.target }}
           path: package
 
-      - *ci-status
+      - *ci-finished
 
   release:
     runs-on: ubuntu-latest
     needs: [linux, windows, macos]
     steps:
-      - *ci-status
+      - *ci-finished
 
       - uses: actions/checkout@v6
 
@@ -174,4 +185,4 @@ jobs:
           name: release-candidate
           path: release-candidate.zip
 
-      - *ci-status
+      - *ci-finished
