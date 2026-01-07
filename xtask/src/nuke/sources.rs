@@ -414,7 +414,7 @@ async fn install_windows(major: usize, installer: &Path, install_path: &Path) ->
                 .join("extract")
                 .join("SourceDir")
                 .join(installer_name);
-            cmd!("lessmsi", "x", installer.file_name().unwrap(), r"extract\")
+            cmd!("lessmsi", "xo", installer.file_name().unwrap(), r"extract\")
                 .dir(installer.parent().unwrap())
                 .run()?;
             tokio::fs::rename(install_directory, install_path).await?;
