@@ -23,7 +23,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          curl -X POST "https://codeberg.org/api/v1/repos/olivebowl/opendefocus/statuses/{{ github.sha }}" \
+          curl -X POST "https://codeberg.org/api/v1/repos/olivebowl/opendefocus/statuses/${{ github.sha }}" \
             -H "Content-Type: application/json" \
             -H "Authorization: token ${{ secrets.CODEBERG_RELEASE_TOKEN }}" \
             -d '{
