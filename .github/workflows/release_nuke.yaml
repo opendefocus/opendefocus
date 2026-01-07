@@ -2,10 +2,10 @@ name: CI
 
 on:
   push:
-    tags:
-      - 'v*'
-    branches:
-      - 'main'
+    # tags:
+    #   - 'v*'
+    # branches:
+    #   - 'main'
 env:
   NUKE_VERSIONS: "13.0,13.1,13.2,14.0,14.1,15.0,15.1,15.2,16.0"
   RUST_BACKTRACE: "1"
@@ -59,7 +59,7 @@ jobs:
           path: package
 
   windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v6
 
