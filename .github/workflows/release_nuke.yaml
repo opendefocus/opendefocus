@@ -26,9 +26,9 @@ jobs:
             -H "Content-Type: application/json" \
             -H "Authorization: token ${{ secrets.CODEBERG_RELEASE_TOKEN }}" \
             -d '{
-                  "context": "${{ github.workflow }} / ${{ github.jobs[github.job].name }}",
+                  "context": "${{ github.workflow }} / ${{ github.job }}",
                   "state": "pending",
-                  "target_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/${{ github.job }}"
+                  "target_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
                 }'
 
       - name: Maximize build space
@@ -83,7 +83,7 @@ jobs:
             -d '{
                   "context": "${{ github.workflow }} / ${{ github.job }}",
                   "state": "${{ job.status }}"
-                  "target_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/job/${{ github.job }}"
+                  "target_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
                 }'
 
 
