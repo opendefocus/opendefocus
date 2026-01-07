@@ -405,6 +405,7 @@ async fn install_windows(major: usize, installer: &Path, install_path: &Path) ->
         }
         #[cfg(target_os = "windows")]
         {
+            tokio::fs::remove_dir_all(installer.parent().unwrap().join("extract")).await?;
             let install_directory = installer
                 .parent()
                 .unwrap()
