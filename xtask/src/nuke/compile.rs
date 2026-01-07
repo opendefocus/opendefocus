@@ -153,6 +153,8 @@ async fn compile_native(version: &str, target: TargetPlatform) -> Result<PathBuf
         "--manifest-path",
         &crates_path,
         "--release",
+        "--target",
+        get_rust_target(target)
     )
     .env("CPP_VERSION", format!("{}", get_cpp_version(version)?))
     .env("NUKE_SOURCE_PATH", &sources_directory)
@@ -171,6 +173,7 @@ async fn compile_native(version: &str, target: TargetPlatform) -> Result<PathBuf
     let output_dylib = out_dir.join(format!("OpenDefocus.{}", dll_suffix(target)));
     let build_lib = path_to_string(
         &target_directory()
+            .join(get_rust_target(target))
             .join("release")
             .join(format!("{}opendefocus_nuke.{dylib}", dll_prefix(target))),
     )?;
