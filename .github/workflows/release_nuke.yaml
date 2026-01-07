@@ -17,6 +17,7 @@ jobs:
 
   linux:
     runs-on: ubuntu-latest
+    name: linux
     steps:
       - &ci-pending-status
         name: Set CI status
@@ -89,6 +90,7 @@ jobs:
 
   windows:
     runs-on: windows-2022
+    name: windows
     steps:
       - *ci-pending-status
       - uses: actions/checkout@v6
@@ -119,7 +121,7 @@ jobs:
             target: macos-x86-64
           - runner: macos-latest
             target: macos-aarch64
-
+    name: ${{ matrix.platform.target }}
     runs-on: ${{ matrix.platform.runner }}
     steps:
       - *ci-pending-status
@@ -148,6 +150,7 @@ jobs:
 
   release:
     runs-on: ubuntu-latest
+    name: release
     needs: [linux, windows, macos]
     steps:
       - *ci-pending-status
