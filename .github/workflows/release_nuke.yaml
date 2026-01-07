@@ -27,7 +27,7 @@ jobs:
             -H "Content-Type: application/json" \
             -H "Authorization: token ${{ secrets.CODEBERG_RELEASE_TOKEN }}" \
             -d '{
-                  "context": "${{ github.workflow }} / ${{ github.job }}",
+                  "context": "ci/github/${{ github.event_name}}/${{ github.workflow }}/${{ github.job }}",
                   "state": "pending",
                   "target_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
                 }'
@@ -82,7 +82,7 @@ jobs:
             -H "Content-Type: application/json" \
             -H "Authorization: token ${{ secrets.CODEBERG_RELEASE_TOKEN }}" \
             -d '{
-                  "context": "${{ github.workflow }} / ${{ github.job }}",
+                  "context": "ci/github/${{ github.event_name}}/${{ github.workflow }}/${{ github.job }}",
                   "state": "${{ job.status }}",
                   "target_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
                 }'
