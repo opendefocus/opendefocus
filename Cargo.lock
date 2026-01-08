@@ -2496,7 +2496,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "opendefocus"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "assert_approx_eq",
@@ -2530,7 +2530,7 @@ dependencies = [
 
 [[package]]
 name = "opendefocus-datastructure"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "bokeh-creator",
  "bytemuck",
@@ -2548,7 +2548,7 @@ dependencies = [
 
 [[package]]
 name = "opendefocus-kernel"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "bitflags 2.10.0",
  "glam",
@@ -2562,7 +2562,7 @@ dependencies = [
 
 [[package]]
 name = "opendefocus-nuke"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "bitflags 2.10.0",
@@ -2584,7 +2584,7 @@ dependencies = [
 
 [[package]]
 name = "opendefocus-shared"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "bitflags 2.10.0",
  "bytemuck",
@@ -3685,7 +3685,7 @@ dependencies = [
 
 [[package]]
 name = "simple"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "image",
@@ -5093,7 +5093,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "astral-tokio-tar",
