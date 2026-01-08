@@ -271,6 +271,14 @@ void set_parameters(DD::Image::Knob_Callback callback,
   }
 }
 
+void create_button_knob(DD::Image::Knob_Callback callback,
+                       KnobParameters parameters) {
+  Button(callback, parameters.name.c_str(),
+             parameters.label.empty() ? nullptr : parameters.label.c_str());
+  set_parameters(callback, parameters);
+}
+
+
 void create_float_knob(DD::Image::Knob_Callback callback, float *value,
                        KnobParameters parameters) {
   Float_knob(callback, value, parameters.name.c_str(),

@@ -124,6 +124,8 @@ pub enum KnobDefinition {
     FocalPlaneOffset,
     UseCustomStripeHeight,
     CustomStripeHeight,
+    Donate,
+    Documentation,
 }
 impl fmt::Display for KnobDefinition {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -196,6 +198,8 @@ impl KnobDefinition {
             Self::FocalPlaneOffset => KnobType::Float,
             Self::UseCustomStripeHeight => KnobType::Bool,
             Self::CustomStripeHeight => KnobType::Int,
+            Self::Donate => KnobType::Button,
+            Self::Documentation => KnobType::Button,
         }
     }
 
@@ -282,8 +286,7 @@ impl KnobDefinition {
             }
 
             Self::PreviewFilter => KnobChanged::new(
-                nuke_settings.filter_type == FilterType::Blade
-                    || nuke_settings.filter_type == FilterType::Disc,
+                false, // TODO fix preview filter (#23)
                 true,
             ),
             Self::FilterResolution => KnobChanged::new(
@@ -717,6 +720,14 @@ impl KnobDefinition {
                 .with_tooltip("Height in pixels")
                 .with_range(0 as f32, 512 as f32)
                 .with_flag(FlagMask::FORCE_RANGE)
+                .build(),
+            Self::Documentation => KnobParameters::create(&self.to_snake_case())
+                .with_label("documentation")
+                .with_tooltip("Open the documentation in the webbrowser")
+                .build(),
+            Self::Donate => KnobParameters::create(&self.to_snake_case())
+                .with_label("donate")
+                .with_tooltip("Fund this project to support development")
                 .build(),
         }
     }

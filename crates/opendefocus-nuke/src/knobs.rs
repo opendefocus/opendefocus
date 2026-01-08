@@ -3,7 +3,10 @@ use cxx::UniquePtr;
 use crate::{
     consts::KnobDefinition,
     ffi::{
-        Channel, ChannelSet, Knob_Callback, KnobType, create_bool_knob, create_divider_knob, create_enumeration_knob, create_float_knob, create_inputchannelset_knob, create_inputonlychannel_knob, create_int_knob, create_newline_knob, create_tab_knob, create_text_knob, create_xy_knob
+        Channel, ChannelSet, Knob_Callback, KnobType, create_bool_knob, create_button_knob,
+        create_divider_knob, create_enumeration_knob, create_float_knob,
+        create_inputchannelset_knob, create_inputonlychannel_knob, create_int_knob,
+        create_newline_knob, create_tab_knob, create_text_knob, create_xy_knob,
     },
 };
 
@@ -48,6 +51,7 @@ pub fn create_knob_with_value<T>(
 
 pub fn create_knob(callback: &Knob_Callback, definition: KnobDefinition) {
     match definition.knob_type() {
+        KnobType::Button => create_button_knob(callback, definition.parameters()),
         KnobType::Text => create_text_knob(callback, definition.parameters()),
         KnobType::NamedText => create_text_knob(callback, definition.parameters()),
         KnobType::Newline => create_newline_knob(callback, definition.parameters()),

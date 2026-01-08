@@ -27,6 +27,7 @@ tokio = { version = "1.48.0", features = ["full"] }
 tracing-subscriber = {version = "0.3", features = ["env-filter"]}
 convert_case = "0.10"
 chrono = "0.4"
+webbrowser = "1.0.6"
 
 [build-dependencies]
 miette = { version = "5", features = ["fancy"] }

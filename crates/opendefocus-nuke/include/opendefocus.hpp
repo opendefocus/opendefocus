@@ -144,6 +144,8 @@ public:
 
 size_t get_imageplane_size(DD::Image::ImagePlaneDescriptor descriptor);
 
+void create_button_knob(DD::Image::Knob_Callback callback,
+                       KnobParameters parameters);
 void create_float_knob(DD::Image::Knob_Callback callback, float *value,
                        KnobParameters parameters);
 void create_int_knob(DD::Image::Knob_Callback callback, int *value,

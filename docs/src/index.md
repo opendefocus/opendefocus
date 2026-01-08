@@ -14,6 +14,7 @@
 ---
 
 <p align="center">
+  <a href="./donate.md">Donate</a> •
   <a href="#user-features">Features</a> •
   <a href="./user_guide.md">User guide</a> •
   <a href="./download.md">Download</a> •
@@ -32,7 +33,7 @@ Looking for specific features? Look at the [detailed](./detailed.md) section whi
 
 ## <i class="fa-solid fa-star"></i> User features
 
-* Entirely free!
+* Entirely free! ([but please consider donating!](./donate.md))
 * Native integration for camera data to match convolution to real world camera data.
 * GPU accelerated (Vulkan/Metal)
 * Both simple 2D defocus as well as depth based (1/Z, real or direct math based)

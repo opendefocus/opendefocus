@@ -86,6 +86,7 @@ mod ffi {
     #[derive(Clone, Debug)]
     enum KnobType {
         Float,
+        Button,
         Int,
         Bool,
         Enumeration,
@@ -182,14 +183,6 @@ mod ffi {
         fn height(self: Pin<&mut Format>, height: i32);
     }
 
-
-    // unsafe extern "C++" {
-    //     include!("opendefocus-nuke/include/opendefocus.hpp");
-    //     type OpenDefocus;
-
-    // }
-
-
     #[namespace = "DD::Image"]
     unsafe extern "C++" {
         include!("DDImage/ChannelSet.h");
@@ -219,7 +212,10 @@ mod ffi {
 
         type OpenDefocusNukeInstance;
         #[Self = "OpenDefocusNukeInstance"]
-        fn create(nuke_settings: NukeSpecificSettings, gui: bool) -> Result<Box<OpenDefocusNukeInstance>>;
+        fn create(
+            nuke_settings: NukeSpecificSettings,
+            gui: bool,
+        ) -> Result<Box<OpenDefocusNukeInstance>>;
         fn create_knobs(&mut self, callback: &Knob_Callback);
         fn set_proxy_scale(&mut self, value: f32);
         fn set_camera_data(&mut self, value: NukeCameraData);
@@ -265,6 +261,8 @@ mod ffi {
             value: *mut f32,
             parameters: KnobParameters,
         );
+
+        fn create_button_knob(callback: &Knob_Callback, parameters: KnobParameters);
 
         unsafe fn create_bool_knob(
             callback: &Knob_Callback,
@@ -608,9 +606,21 @@ impl OpenDefocusNukeInstance {
         self.create_filter_knobs(callback);
         self.create_nonuniform_knobs(callback);
         self.create_advanced_knobs(callback);
+        self.create_help_knobs(callback);
     }
 
-    pub fn create_advanced_knobs(&mut self, callback: &Knob_Callback) {
+    fn create_help_knobs(&mut self, callback: &Knob_Callback) {
+        create_tab_knob(
+            callback,
+            KnobParameters::create("").with_label("Help").build(),
+        );
+        create_divider_knob(callback);
+        create_knob(callback, KnobDefinition::Documentation);
+        create_divider_knob(callback);
+        create_knob(callback, KnobDefinition::Donate);
+    }
+
+    fn create_advanced_knobs(&mut self, callback: &Knob_Callback) {
         create_tab_knob(
             callback,
             KnobParameters::create("").with_label("Advanced").build(),
@@ -639,7 +649,7 @@ impl OpenDefocusNukeInstance {
         );
     }
 
-    pub fn create_nonuniform_knobs(&mut self, callback: &Knob_Callback) {
+    fn create_nonuniform_knobs(&mut self, callback: &Knob_Callback) {
         create_tab_knob(
             callback,
             KnobParameters::create("").with_label("Non-uniform").build(),
@@ -775,7 +785,7 @@ impl OpenDefocusNukeInstance {
         );
     }
 
-    pub fn create_filter_knobs(&mut self, callback: &Knob_Callback) {
+    fn create_filter_knobs(&mut self, callback: &Knob_Callback) {
         create_tab_knob(
             callback,
             KnobParameters::create("").with_label("Bokeh").build(),
@@ -869,7 +879,7 @@ impl OpenDefocusNukeInstance {
     }
 
     /// Initialize the defocus knobs tab
-    pub fn create_defocus_knobs(&mut self, callback: &Knob_Callback) {
+    fn create_defocus_knobs(&mut self, callback: &Knob_Callback) {
         create_tab_knob(
             callback,
             KnobParameters::create("").with_label("OpenDefocus").build(),
@@ -997,7 +1007,11 @@ impl OpenDefocusNukeInstance {
 
         if knob_name == KnobDefinition::FocusPointUtility.to_snake_case() {
             self.focus_point_knobchanged(node);
-        }
+        } else if knob_name == KnobDefinition::Documentation.to_snake_case() {
+            webbrowser::open("https://opendefocus.codeberg.page")?;
+        } else if knob_name == KnobDefinition::Donate.to_snake_case() {
+            webbrowser::open("https://codeberg.org/opendefocus/opendefocus/donate")?;
+        };
 
         for knob in KnobDefinition::iter() {
             let knob_changed = knob.knob_changed(&self.settings, &self.nuke_settings, node);
@@ -1133,7 +1147,7 @@ fn version_footer() -> String {
 
     format!(
         "<div style='color: #808080;'>
-            OpenDefocus v{version} {decoration}
+            OpenDefocus v{version} {decoration} - consider to <a href='https://codeberg.org/opendefocus/opendefocus/donate' style='color: #D3D3D3'>donate</a> ❤️
         </div>",
         decoration = decoration,
         version = version
