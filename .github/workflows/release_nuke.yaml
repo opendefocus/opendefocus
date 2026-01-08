@@ -58,20 +58,26 @@ jobs:
         with:
           env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
 
-      - uses: nick-fields/retry@v2
-        name: Build
-        with:
-          timeout_minutes: 100
-          max_attempts: 3
-          command: |
-            source ~/.bashrc
-            cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform linux --use-zig --output-to-package
+      # - uses: nick-fields/retry@v2
+      #   name: Build
+      #   with:
+      #     timeout_minutes: 100
+      #     max_attempts: 3
+      #     command: |
+      #       source ~/.bashrc
+      #       cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform linux --use-zig --output-to-package
 
-      - name: Upload build
+      # - name: Upload build
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: nuke-linux
+      #     path: package
+
+      - name: Upload debug
         uses: actions/upload-artifact@v4
         with:
-          name: nuke-linux
-          path: package
+          name: nuke-linux-files
+          path: target
 
       - &ci-finished
         name: Set CI status
@@ -102,14 +108,20 @@ jobs:
         with:
           env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
 
-      - name: Build
-        run: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform windows --output-to-package
+      # - name: Build
+      #   run: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform windows --output-to-package
 
-      - name: Upload build
+      - name: Upload debug
         uses: actions/upload-artifact@v4
         with:
-          name: nuke-windows
-          path: package
+          name: nuke-windows-files
+          path: target
+
+      # - name: Upload build
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: nuke-windows
+      #     path: package
 
       - *ci-finished
 
@@ -133,59 +145,65 @@ jobs:
         with:
           env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
 
-      - uses: nick-fields/retry@v2
-        name: Build
-        with:
-          timeout_minutes: 100
-          max_attempts: 3
-          command: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform ${{ matrix.platform.target }} --output-to-package
+      # - uses: nick-fields/retry@v2
+      #   name: Build
+      #   with:
+      #     timeout_minutes: 100
+      #     max_attempts: 3
+      #     command: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform ${{ matrix.platform.target }} --output-to-package
 
-      - name: Upload build
+      - name: Upload debug
         uses: actions/upload-artifact@v4
         with:
-          name: nuke-${{ matrix.platform.target }}
-          path: package
+          name: nuke-${{ matrix.platform.target }}-files
+          path: target
+
+      # - name: Upload build
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: nuke-${{ matrix.platform.target }}
+      #     path: package
 
       - *ci-finished
 
-  release:
-    runs-on: ubuntu-latest
-    name: release
-    needs: [linux, windows, macos]
-    steps:
-      - *ci-pending-status
+  # release:
+  #   runs-on: ubuntu-latest
+  #   name: release
+  #   needs: [linux, windows, macos]
+  #   steps:
+  #     - *ci-pending-status
 
-      - uses: actions/checkout@v6
+  #     - uses: actions/checkout@v6
 
-      - name: Setup instance
-        run: |
-          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-          cargo binstall cargo-about
+  #     - name: Setup instance
+  #       run: |
+  #         curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+  #         cargo binstall cargo-about
 
-      - uses: actions/download-artifact@v5
-        with:
-          path: package
-          merge-multiple: true
+  #     - uses: actions/download-artifact@v5
+  #       with:
+  #         path: package
+  #         merge-multiple: true
 
-      - name: Release
-        run: cargo xtask --release-package
-        if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          CODEBERG_RELEASE_TOKEN: ${{ secrets.CODEBERG_RELEASE_TOKEN }}
-          WOODPECKER_ACCESS_TOKEN: ${{ secrets.WOODPECKER_ACCESS_TOKEN }}
+  #     - name: Release
+  #       run: cargo xtask --release-package
+  #       if: startsWith(github.ref, 'refs/tags/v')
+  #       env:
+  #         CODEBERG_RELEASE_TOKEN: ${{ secrets.CODEBERG_RELEASE_TOKEN }}
+  #         WOODPECKER_ACCESS_TOKEN: ${{ secrets.WOODPECKER_ACCESS_TOKEN }}
 
-      - name: Release
-        run: cargo xtask --release-package --target-package-path ./release-candidate.zip
-        if: startsWith(github.ref, 'refs/tags/v') != true
-        env:
-          CODEBERG_RELEASE_TOKEN: ${{ secrets.CODEBERG_RELEASE_TOKEN }}
-          WOODPECKER_ACCESS_TOKEN: ${{ secrets.WOODPECKER_ACCESS_TOKEN }}
+  #     - name: Release
+  #       run: cargo xtask --release-package --target-package-path ./release-candidate.zip
+  #       if: startsWith(github.ref, 'refs/tags/v') != true
+  #       env:
+  #         CODEBERG_RELEASE_TOKEN: ${{ secrets.CODEBERG_RELEASE_TOKEN }}
+  #         WOODPECKER_ACCESS_TOKEN: ${{ secrets.WOODPECKER_ACCESS_TOKEN }}
 
-      - name: Upload build
-        uses: actions/upload-artifact@v4
-        if: startsWith(github.ref, 'refs/tags/v') != true
-        with:
-          name: release-candidate
-          path: release-candidate.zip
+  #     - name: Upload build
+  #       uses: actions/upload-artifact@v4
+  #       if: startsWith(github.ref, 'refs/tags/v') != true
+  #       with:
+  #         name: release-candidate
+  #         path: release-candidate.zip
 
-      - *ci-finished
+  #     - *ci-finished
