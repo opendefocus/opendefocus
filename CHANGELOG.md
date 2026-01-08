@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - #47 'wrong version' and #45 'The specified procedure could note be found' because of a caching during the build step of the plugin. Plugin should now load correctly.
+- filter preview is now temporarily disabled, because it is blocked by #23
 
 ## [0.1.6](https://codeberg.org/opendefocus/opendefocus/compare/v0.1.5...v0.1.6) - 2025-12-31
 
