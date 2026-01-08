@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.7](https://codeberg.org/opendefocus/opendefocus/compare/v0.1.6...v0.1.7) - 2026-01-08
 
-### Other
+### Fixed
 
-- add donate button in plugin and in readme
+- #47 'wrong version' and #45 'The specified procedure could note be found' because of a caching during the build step of the plugin. Plugin should now load correctly.
 
 ## [0.1.6](https://codeberg.org/opendefocus/opendefocus/compare/v0.1.5...v0.1.6) - 2025-12-31
 
