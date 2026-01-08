@@ -3,6 +3,11 @@ use miette::Result;
 use std::path::PathBuf;
 
 fn main() -> Result<()> {
+    println!("cargo:rerun-if-env-changed=NUKE_SOURCE_PATH");
+    println!("cargo:rerun-if-env-changed=PLATFORM_NAME");
+    println!("cargo:rerun-if-changed=include/opendefocus.hpp");
+    println!("cargo:rerun-if-changed=src/opendefocus.cpp");
+
     let nuke_path = if let Ok(sources) = std::env::var("NUKE_SOURCE_PATH") {
         PathBuf::from(sources).join("include")
     } else {
@@ -53,8 +58,7 @@ fn main() -> Result<()> {
     }
     builder.compile("opendefocus-nuke");
 
-    println!("cargo:rerun-if-changed=include/opendefocus.hpp");
-    println!("cargo:rerun-if-changed=src/opendefocus.cpp");
+
     println!(
         "cargo:rustc-link-search=all={}",
         std::env::var("NUKE_SOURCE_PATH").unwrap()

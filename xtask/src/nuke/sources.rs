@@ -369,11 +369,7 @@ async fn install_required_files(
     Ok(())
 }
 
-async fn install_windows(
-    major: usize,
-    installer: &Path,
-    install_path: &Path,
-) -> Result<(), Error> {
+async fn install_windows(major: usize, installer: &Path, install_path: &Path) -> Result<(), Error> {
     if install_path.is_dir() {
         tokio::fs::remove_dir_all(&install_path).await?;
     }
@@ -409,13 +405,16 @@ async fn install_windows(
         }
         #[cfg(target_os = "windows")]
         {
+            if installer.parent().unwrap().join("extract").is_dir() {
+                tokio::fs::remove_dir_all(installer.parent().unwrap().join("extract")).await?;
+            };
             let install_directory = installer
                 .parent()
                 .unwrap()
                 .join("extract")
                 .join("SourceDir")
                 .join(installer_name);
-            cmd!("lessmsi", "x", installer.file_name().unwrap(), r"extract\")
+            cmd!("lessmsi", "xo", installer.file_name().unwrap(), r"extract\")
                 .stdout_null()
                 .dir(installer.parent().unwrap())
                 .run()?;
@@ -501,6 +500,13 @@ async fn keep_required_files(
 
     let library = format!("{}DDImage.{}", dll_prefix(platform), dll_suffix(platform));
 
+    if platform == TargetPlatform::Windows {
+        tokio::fs::rename(
+            installation_path.join("DDImage.lib"),
+            target_filepath.join("DDImage.lib"),
+        )
+        .await?;
+    }
     tokio::fs::rename(
         installation_path.join(&library),
         target_filepath.join(&library),

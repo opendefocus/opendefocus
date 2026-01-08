@@ -1,11 +1,11 @@
-name: CI
+name: "Nuke build"
 
 on:
   push:
-    tags:
-      - 'v*'
-    branches:
-      - 'main'
+    # tags:
+    #   - 'v*'
+    # branches:
+    #   - 'main'
 env:
   NUKE_VERSIONS: "13.0,13.1,13.2,14.0,14.1,15.0,15.1,15.2,16.0"
   RUST_BACKTRACE: "1"
@@ -14,9 +14,24 @@ permissions:
   contents: read
 
 jobs:
+
   linux:
     runs-on: ubuntu-latest
+    name: linux
     steps:
+      - &ci-pending-status
+        name: Set CI status
+        shell: bash
+        run: |
+          curl -X POST "https://codeberg.org/api/v1/repos/olivebowl/opendefocus/statuses/${{ github.sha }}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: token ${{ secrets.CODEBERG_RELEASE_TOKEN }}" \
+            -d '{
+                  "context": "ci/github/${{ github.event_name}}/${{ github.workflow }}/${{ github.job }}",
+                  "state": "pending",
+                  "target_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                }'
+
       - name: Maximize build space
         uses: easimon/maximize-build-space@master
         with:
@@ -58,9 +73,26 @@ jobs:
           name: nuke-linux
           path: package
 
+      - &ci-finished
+        name: Set CI status
+        shell: bash
+        if: always()
+        run: |
+          curl -X POST "https://codeberg.org/api/v1/repos/olivebowl/opendefocus/statuses/${{ github.sha }}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: token ${{ secrets.CODEBERG_RELEASE_TOKEN }}" \
+            -d '{
+                  "context": "ci/github/${{ github.event_name}}/${{ github.workflow }}/${{ github.job }}",
+                  "state": "${{ job.status }}",
+                  "target_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                }'
+
+
   windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
+    name: windows
     steps:
+      - *ci-pending-status
       - uses: actions/checkout@v6
 
       - name: Setup instance
@@ -69,7 +101,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
-
 
       - name: Build
         run: cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform windows --output-to-package
@@ -80,6 +111,8 @@ jobs:
           name: nuke-windows
           path: package
 
+      - *ci-finished
+
   macos:
     strategy:
       matrix:
@@ -88,9 +121,10 @@ jobs:
             target: macos-x86-64
           - runner: macos-latest
             target: macos-aarch64
-
+    name: ${{ matrix.platform.target }}
     runs-on: ${{ matrix.platform.runner }}
     steps:
+      - *ci-pending-status
       - uses: actions/checkout@v6
       - name: Setup required tools
         run: brew install protobuf
@@ -112,10 +146,15 @@ jobs:
           name: nuke-${{ matrix.platform.target }}
           path: package
 
+      - *ci-finished
+
   release:
     runs-on: ubuntu-latest
+    name: release
     needs: [linux, windows, macos]
     steps:
+      - *ci-pending-status
+
       - uses: actions/checkout@v6
 
       - name: Setup instance
@@ -137,14 +176,16 @@ jobs:
 
       - name: Release
         run: cargo xtask --release-package --target-package-path ./release-candidate.zip
-        if: github.ref == 'refs/heads/main'
+        if: startsWith(github.ref, 'refs/tags/v') != true
         env:
           CODEBERG_RELEASE_TOKEN: ${{ secrets.CODEBERG_RELEASE_TOKEN }}
           WOODPECKER_ACCESS_TOKEN: ${{ secrets.WOODPECKER_ACCESS_TOKEN }}
 
       - name: Upload build
         uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/main'
+        if: startsWith(github.ref, 'refs/tags/v') != true
         with:
           name: release-candidate
           path: release-candidate.zip
+
+      - *ci-finished
