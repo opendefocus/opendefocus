@@ -50,7 +50,7 @@ jobs:
 
       - name: Build
         run: |
-          docker run --rm -it quay.io/pypa/manylinux2014_x86_64:latest /bin/bash -c "
+          docker run --rm quay.io/pypa/manylinux2014_x86_64:latest /bin/bash -c "
               yum -y update && \
               yum install -y openssl-devel && \
               curl https://sh.rustup.rs -sSf | sh -s -- -y && \
