@@ -50,8 +50,8 @@ jobs:
 
       - uses: addnab/docker-run-action@v3
         with:
-          registry: quay.io
-          image: pypa/manylinux2014_x86_64:latest
+          registry: quay.io/pypa
+          image: manylinux2014_x86_64:latest
           options: -v ${{ github.workspace }}:/work
           run: |
             yum update
