@@ -48,17 +48,16 @@ jobs:
         with:
           env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
 
-      - uses: addnab/docker-run-action@v3
-        with:
-          registry: quay.io/pypa
-          image: manylinux2014_x86_64:latest
-          options: -v ${{ github.workspace }}:/work
-          run: |
-            yum update
-            yum install openssl-devel -y
-            curl https://sh.rustup.rs -sSf | sh -s -- -y
-            source ~/.bashrc
-            cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform linux --output-to-package
+      - name: Build
+        run: |
+          docker run --rm -it quay.io/pypa/manylinux2014_x86_64:latest /bin/bash -c "
+              yum -y update && \
+              yum install -y openssl-devel && \
+              curl https://sh.rustup.rs -sSf | sh -s -- -y && \
+              source ~/.bashrc && \
+              cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} \
+              --limit-threads --target-platform linux --output-to-package
+          "
 
       - name: Upload build
         uses: actions/upload-artifact@v4
