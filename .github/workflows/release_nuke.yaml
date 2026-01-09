@@ -54,7 +54,8 @@ jobs:
               dnf -y update && \
               dnf install -y openssl-devel protobuf-compiler gcc-toolset-11 && \
               curl https://sh.rustup.rs -sSf | sh -s -- -y && \
-              scl enable gcc-toolset-11 "bash" && \
+              source /opt/rh/gcc-toolset-11/enable && \
+              source ~/.bashrc && \
               cd /opendefocus && \
               cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} \
               --limit-threads --target-platform linux --build-protoc --output-to-package
