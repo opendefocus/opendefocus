@@ -450,11 +450,12 @@ dependencies = [
 
 [[package]]
 name = "bokeh-creator"
-version = "0.1.15"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16cf145d3ec1367bc24132576b789c7d8fbd8863d5dec4b83ac71c1da0397912"
+checksum = "d10cf41bf78e09e83357d3758687d26ec2bb8002b5e8a41f89c7ee11976e43a8"
 dependencies = [
  "documented",
+ "duct",
  "glam",
  "image",
  "image-ndarray",
@@ -463,6 +464,7 @@ dependencies = [
  "prost",
  "prost-build",
  "prost-types",
+ "protobuf-src",
 ]
 
 [[package]]
@@ -596,15 +598,17 @@ dependencies = [
 
 [[package]]
 name = "circle-of-confusion"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5829008137367b1243cbbc1971ea0b33c6181511e8b8088f6c71e254516a69af"
+checksum = "0f1f7feb4caa6f2cf58bf0648139b609e06b78b4c22e9592bd4288b68270e039"
 dependencies = [
  "documented",
+ "duct",
  "libm",
  "prost",
  "prost-build",
  "prost-types",
+ "protobuf-src",
 ]
 
 [[package]]

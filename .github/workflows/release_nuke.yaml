@@ -44,28 +44,22 @@ jobs:
           remove-haskell: "true"
 
       - uses: actions/checkout@v6
-      - uses: mlugg/setup-zig@v2
-        with:
-          version: 0.13.0
-
-      - name: Setup instance
-        run: |
-          sudo apt update
-          sudo apt install protobuf-compiler -y
-          cargo install --locked cargo-zigbuild
 
       - uses: Swatinem/rust-cache@v2
         with:
           env-vars: "CARGO CC CFLAGS CXX CMAKE RUST NUKE_VERSIONS"
 
-      - uses: nick-fields/retry@v2
-        name: Build
+      - uses: addnab/docker-run-action@v3
         with:
-          timeout_minutes: 100
-          max_attempts: 3
-          command: |
+          registry: quay.io
+          image: pypa/manylinux2014_x86_64:latest
+          options: -v ${{ github.workspace }}:/work
+          run: |
+            yum update
+            yum install openssl-devel -y
+            curl https://sh.rustup.rs -sSf | sh -s -- -y
             source ~/.bashrc
-            cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform linux --use-zig --output-to-package
+            cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} --limit-threads --target-platform linux --output-to-package
 
       - name: Upload build
         uses: actions/upload-artifact@v4
