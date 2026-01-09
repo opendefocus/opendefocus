@@ -13,6 +13,10 @@ readme.workspace = true
 name = "opendefocus_nuke"
 crate-type = ["cdylib"]
 
+[features]
+default = []
+protobuf-vendored = ["opendefocus/protobuf-vendored"]
+
 [dependencies]
 cxx = { version = "1.0" }
 opendefocus = { path = "../opendefocus", features = ["documented", "wgpu"], version = "=0.1.7" }

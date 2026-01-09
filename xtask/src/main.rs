@@ -48,6 +48,9 @@ struct Args {
     #[clap(short, long, action=ArgAction::SetTrue)]
     compile: bool,
 
+    #[clap(long, action=ArgAction::SetTrue)]
+    build_protoc: bool,
+
     /// Compile using zig
     #[clap(long, action=ArgAction::SetTrue)]
     use_zig: bool,
@@ -152,6 +155,7 @@ async fn main() -> Result<()> {
                 target_platform,
                 args.limit_threads,
                 args.use_zig,
+                args.build_protoc,
             )
             .await?;
         }

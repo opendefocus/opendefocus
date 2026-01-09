@@ -40,6 +40,7 @@ libm = [
     "opendefocus-datastructure/libm",
 ]
 wgpu = ["dep:wgpu", "std"]
+protobuf-vendored = ["opendefocus-datastructure/protobuf-vendored"]
 
 [dependencies]
 bytemuck = { version = "1.24", features = ["derive"] }

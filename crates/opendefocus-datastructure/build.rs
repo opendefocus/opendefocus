@@ -2,16 +2,15 @@ use cargo_metadata::MetadataCommand;
 use duct::cmd;
 use std::{io::Result, path::PathBuf};
 fn main() -> Result<()> {
-    // println!("cargo:rerun-if-changed=NULL");
+    println!("cargo:rerun-if-changed=NULL");
     build_proto()?;
     Ok(())
 }
 
 fn build_proto() -> Result<()> {
-    if cmd!("protoc").run().is_err() {
-        unsafe {
-            std::env::set_var("PROTOC", protobuf_src::protoc());
-        }
+    #[cfg(feature = "protobuf")]
+    unsafe {
+        std::env::set_var("PROTOC", protobuf_src::protoc());
     }
 
     let metadata = MetadataCommand::new().exec();

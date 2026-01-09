@@ -22,6 +22,7 @@ pub async fn compile_nuke(
     target: TargetPlatform,
     limit_threads: bool,
     use_zig: bool,
+    build_protoc: bool,
 ) -> Result<Vec<PathBuf>> {
     get_sources(vec![target], versions.clone(), limit_threads).await?;
     let mut binaries = vec![];
@@ -49,14 +50,14 @@ pub async fn compile_nuke(
         };
 
         if use_zig {
-            binaries.push(compile_zig(&version, target).await?);
+            binaries.push(compile_zig(&version, target, build_protoc).await?);
             continue;
         }
         if is_crosscompiling(target) {
             return Err(Error::msg("Cant cross compile without using zig or xwin"));
         }
 
-        binaries.push(compile_native(&version, target).await?);
+        binaries.push(compile_native(&version, target, build_protoc).await?);
     }
 
     Ok(binaries)
@@ -132,7 +133,19 @@ fn get_rust_target(target: TargetPlatform) -> String {
     .to_string()
 }
 
-async fn compile_native(version: &str, target: TargetPlatform) -> Result<PathBuf, anyhow::Error> {
+fn get_features(build_protoc: bool) -> String {
+    if build_protoc {
+        "protobuf-vendored".to_owned()
+    } else {
+        "default".to_owned()
+    }
+}
+
+async fn compile_native(
+    version: &str,
+    target: TargetPlatform,
+    build_protoc: bool,
+) -> Result<PathBuf, anyhow::Error> {
     let sources_directory = nuke_source_directory(version);
     let crates_path = path_to_string(
         &crate_root()
@@ -154,7 +167,9 @@ async fn compile_native(version: &str, target: TargetPlatform) -> Result<PathBuf
         &crates_path,
         "--release",
         "--target",
-        get_rust_target(target)
+        get_rust_target(target),
+        "--features",
+        get_features(build_protoc)
     )
     .env("CPP_VERSION", format!("{}", get_cpp_version(version)?))
     .env("NUKE_SOURCE_PATH", &sources_directory)
@@ -181,7 +196,11 @@ async fn compile_native(version: &str, target: TargetPlatform) -> Result<PathBuf
     Ok(output_dylib)
 }
 
-async fn compile_zig(version: &str, target: TargetPlatform) -> Result<PathBuf, anyhow::Error> {
+async fn compile_zig(
+    version: &str,
+    target: TargetPlatform,
+    build_protoc: bool,
+) -> Result<PathBuf, anyhow::Error> {
     let sources_directory = nuke_source_directory(version);
 
     let crates_path = path_to_string(
@@ -197,7 +216,9 @@ async fn compile_zig(version: &str, target: TargetPlatform) -> Result<PathBuf, a
         &crates_path,
         "--release",
         "--target",
-        get_zig_target(target)
+        get_zig_target(target),
+        "--features",
+        get_features(build_protoc)
     )
     .env("CPP_VERSION", format!("{}", get_cpp_version(version)?))
     .env("NUKE_SOURCE_PATH", &sources_directory)
