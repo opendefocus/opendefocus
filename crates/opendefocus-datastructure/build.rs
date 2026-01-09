@@ -8,7 +8,7 @@ fn main() -> Result<()> {
 }
 
 fn build_proto() -> Result<()> {
-    #[cfg(feature = "protobuf")]
+    #[cfg(feature = "protobuf-vendored")]
     unsafe {
         std::env::set_var("PROTOC", protobuf_src::protoc());
     }
