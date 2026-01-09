@@ -50,11 +50,12 @@ jobs:
 
       - name: Build
         run: |
-          docker run --rm quay.io/pypa/manylinux2014_x86_64:latest /bin/bash -c "
+          docker run --rm -v $(pwd):/opendefocus quay.io/pypa/manylinux2014_x86_64:latest /bin/bash -c "
               yum -y update && \
               yum install -y openssl-devel && \
               curl https://sh.rustup.rs -sSf | sh -s -- -y && \
               source ~/.bashrc && \
+              cd /opendefocus && \
               cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} \
               --limit-threads --target-platform linux --build-protoc --output-to-package
           "
