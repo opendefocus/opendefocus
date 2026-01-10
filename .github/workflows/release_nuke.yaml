@@ -58,7 +58,7 @@ jobs:
               source ~/.bashrc && \
               cd /opendefocus && \
               cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} \
-              --limit-threads --target-platform linux --build-protoc --output-to-package
+              --limit-threads --target-platform linux --output-to-package
           "
 
       - name: Upload build
