@@ -35,7 +35,7 @@ jobs:
       - name: Maximize build space
         uses: easimon/maximize-build-space@master
         with:
-          root-reserve-mb: 4096
+          root-reserve-mb: 8192
           swap-size-mb: 1024
           remove-dotnet: "true"
           remove-android: "true"
@@ -50,14 +50,15 @@ jobs:
 
       - name: Build
         run: |
-          docker run --rm -v $(pwd):/opendefocus quay.io/pypa/manylinux2014_x86_64:latest /bin/bash -c "
-              yum -y update && \
-              yum install -y openssl-devel && \
+          docker run --rm -v $(pwd):/opendefocus almalinux:8 /bin/bash -c "
+              dnf -y update && \
+              dnf install -y openssl-devel protobuf-compiler gcc-toolset-11 && \
               curl https://sh.rustup.rs -sSf | sh -s -- -y && \
+              source /opt/rh/gcc-toolset-11/enable && \
               source ~/.bashrc && \
               cd /opendefocus && \
               cargo xtask --compile --nuke-versions ${{ env.NUKE_VERSIONS }} \
-              --limit-threads --target-platform linux --build-protoc --output-to-package
+              --limit-threads --target-platform linux --output-to-package
           "
 
       - name: Upload build
