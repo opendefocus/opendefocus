@@ -1,7 +1,7 @@
 # Summary
 
 - [Welcome](./index.md)
-- [Donate]()
+- [Donate](./donate.md)
 
 ---
 
