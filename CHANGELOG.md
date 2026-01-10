@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.8](https://codeberg.org/opendefocus/opendefocus/compare/v0.1.7...v0.1.8) - 2026-01-10
 
-### Other
+### Fixed
 
-- Merge pull request '47-fix-cxx-abi-linux' ([#53](https://codeberg.org/opendefocus/opendefocus/pulls/53)) from 47-fix-cxx-abi-linux into main
+- Fix #47 which did not find the right symbols on Linux ([pr #53](https://codeberg.org/opendefocus/opendefocus/pulls/53))
 
 ## [0.1.7](https://codeberg.org/opendefocus/opendefocus/compare/v0.1.6...v0.1.7) - 2026-01-08
 
