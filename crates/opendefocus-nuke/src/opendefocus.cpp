@@ -306,22 +306,18 @@ void create_xy_knob(DD::Image::Knob_Callback callback, rust::Slice<float> value,
 }
 void create_enumeration_knob(DD::Image::Knob_Callback callback, int *value,
                              KnobParameters parameters) {
-  // Use std::vector to store enum labels
   std::vector<const char *> enum_labels(parameters.enum_labels.size() + 1);
 
   for (size_t i = 0; i < parameters.enum_labels.size(); ++i) {
     enum_labels[i] = parameters.enum_labels[i].c_str();
   }
 
-  // Set the last element to nullptr
   enum_labels[parameters.enum_labels.size()] = nullptr;
 
-  // Call Enumeration_knob with enum_labels
   Enumeration_knob(callback, value, enum_labels.data(), parameters.name.c_str(),
                    parameters.label.empty() ? nullptr
                                             : parameters.label.c_str());
 
-  // Set additional parameters
   set_parameters(callback, parameters);
 }
 
