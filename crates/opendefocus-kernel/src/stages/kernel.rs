@@ -1,10 +1,10 @@
 use glam::{Vec2, Vec4};
 #[cfg(not(any(target_arch = "spirv")))]
 use image::Rgba;
-use opendefocus_shared::*;
 #[cfg(not(any(target_arch = "spirv")))]
 use opendefocus_shared::cpu_image::{CPUImage, Sampler};
 use opendefocus_shared::math;
+use opendefocus_shared::*;
 #[cfg(target_arch = "spirv")]
 use spirv_std::{Sampler, image::Image2d};
 
@@ -35,10 +35,9 @@ pub fn get_kernel_by_distance(
     #[cfg(target_arch = "spirv")] bilinear_sampler: &Sampler,
 ) -> Vec4 {
     let sample_position = get_mip_and_scale(depth_sample, distance, settings);
-    if sample_position.scale.x <= 0.0
-        || sample_position.scale.y <= 0.0
-        || sample_position.scale.x > 1.0
-        || sample_position.scale.y > 1.0
+    if math::powf((sample_position.scale.x - 0.5) * 2.0, 2.0)
+        + math::powf((sample_position.scale.y - 0.5) * 2.0, 2.0)
+        >= 1.0
     {
         return Vec4::ZERO;
     }
@@ -80,7 +79,8 @@ fn get_mip_and_scale(
     // As CoC is radius, we need the diameter
     let pixel_increment = settings.filter_resolution.as_vec2() / depth_diameter;
 
-    let mut coordinates = (-distance * pixel_increment) + settings.filter_resolution.as_vec2() * 0.5;
+    let mut coordinates =
+        (-distance * pixel_increment) + settings.filter_resolution.as_vec2() * 0.5;
     coordinates = if_else!(
         depth_sample > 0.0
             && GlobalFlags::from_bits_retain(settings.flags)
