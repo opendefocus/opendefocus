@@ -11,14 +11,14 @@ use crate::worker::chunks::ChunkHandler;
 use circle_of_confusion::{Math, Resolution};
 use core::f32;
 use glam::UVec2;
-use ndarray::{Array2, Array3, ArrayView2, ArrayViewMut3, Zip, s};
+use ndarray::{Array2, Array3, ArrayView2, ArrayView3, ArrayViewMut3, Zip, s};
 use opendefocus_datastructure::defocus::DefocusMode;
 use opendefocus_datastructure::render::{FilterMode, RenderSpecs};
 use opendefocus_datastructure::{Settings, render::ResultMode};
 use resize::Type;
 const MINIMUM_FILTER_SIZE: u32 = 8;
 const ALPHA_CHANNEL: usize = 4;
-const EXPECTED_CHANNEL_COUNT: usize = 4;
+const PROCESSING_CHANNEL_COUNT: usize = 4;
 
 pub struct RenderEngine {
     settings: Settings,
@@ -73,9 +73,6 @@ impl RenderEngine {
             return Ok(());
         }
 
-        if image.dim().2 != EXPECTED_CHANNEL_COUNT {
-            return Err(Error::InvalidChannelCount); // TODO add additional padding in renderer if mismatch
-        }
         let filter_mipmaps = if self.settings.defocus.defocus_mode() == DefocusMode::Twod {
             vec![filter_image]
         } else {
@@ -135,7 +132,7 @@ impl RenderEngine {
         filter_mipmaps: &MipmapBuffer<f32>,
         depth: ArrayView2<'depth, f32>,
     ) -> Result<()> {
-        let original_image = image.to_owned();
+        let original_image = resize_array_dimensions(image.view(), 4)?;
 
         let mut output_image_data = Array3::zeros((
             original_image.dim().0,
@@ -152,9 +149,9 @@ impl RenderEngine {
                         .flat_map(|&x| vec![x, x]) // duplicate each element
                         .collect(),
                 )?;
-                (Array3::zeros(image.dim()), depth_array)
+                (Array3::zeros(original_image.dim()), depth_array)
             } else {
-                let (inpaint_image, inpaint_depth) = get_inpaint_image(image.view(), depth.view())?;
+                let (inpaint_image, inpaint_depth) = get_inpaint_image(original_image.view(), depth.view())?;
                 let depth_array = Array3::from_shape_vec(
                     (depth.dim().0, depth.dim().1, 2),
                     depth
@@ -169,7 +166,7 @@ impl RenderEngine {
         runner
             .convolve(
                 output_image_data.as_slice_mut().ok_or(Error::OutputSlice)?,
-                image.view(),
+                original_image.view(),
                 inpaint_image,
                 filter_mipmaps,
                 depth_array,
@@ -187,7 +184,6 @@ impl RenderEngine {
 
         Ok(())
     }
-
 }
 
 /// Prepare the filter image for further processing
@@ -206,7 +202,9 @@ fn prepare_filter_image<T: TraitBounds>(
         let filter_image =
             resize_by_scale(image.view(), max_size as f32 / scale_factor, Type::Mitchell)?;
 
-        filter_image
+        resize_array_dimensions(filter_image.view(), PROCESSING_CHANNEL_COUNT)?
+
+        
     } else if settings.render.filter.mode() == FilterMode::Simple {
         Array3::zeros((
             MINIMUM_FILTER_SIZE as usize,
@@ -222,7 +220,7 @@ fn prepare_filter_image<T: TraitBounds>(
             UVec2::new(resolution[2] - resolution[0], resolution[3] - resolution[1]).as_usizevec2();
         let mut image = Array3::zeros((resolution.y, resolution.x, channels));
         bokeh_creator::Renderer::render_to_array(settings.bokeh, &mut image.view_mut());
-        image
+        resize_array_dimensions(image.view(), PROCESSING_CHANNEL_COUNT)?
     };
 
     Ok(image)
@@ -288,4 +286,20 @@ fn render_focal_plane_preview<'a, T: TraitBounds>(
     render_focal_plane_overlay::<T>(image, &depth, output_real_values);
 
     Ok(())
+}
+
+fn resize_array_dimensions<T: TraitBounds>(
+    array: ArrayView3<T>,
+    dimensions: usize,
+) -> Result<Array3<T>> {
+    let difference = dimensions as i32 - array.dim().2 as i32;
+    if difference < 0 {
+        return Err(Error::InvalidChannelCount);
+    } else if difference == 0 {
+        return Ok(array.to_owned());
+    }
+    let mut target = Array3::zeros((array.dim().0, array.dim().1, dimensions));
+    target.slice_mut(s![.., .., ..array.dim().2]).assign(&array);
+
+    Ok(target)
 }

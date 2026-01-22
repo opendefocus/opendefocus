@@ -66,7 +66,7 @@ pub enum Error {
     #[cfg(feature = "wgpu")]
     #[error("{0}")]
     BufferAsync(#[from] wgpu::BufferAsyncError),
-    #[error("Anything other than 4 channels is not yet supported")]
+    #[error("The input channel count is resizing to a lower value which is not supported")]
     InvalidChannelCount,
 }
 

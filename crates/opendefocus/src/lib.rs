@@ -246,7 +246,7 @@ impl OpenDefocusRenderer {
     }
 
     /// Internal validator which performs some checks ahead of actual rendering.
-    fn validate<'image, T: TraitBounds>(
+    fn validate<T: TraitBounds>(
         &self,
         settings: &datamodel::Settings,
         depth: &Option<Array2<T>>,
@@ -267,5 +267,20 @@ impl OpenDefocusRenderer {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use image_ndarray::prelude::ImageArray;
+    use opendefocus_datastructure::Settings;
+
+    use super::*;
+    #[tokio::test]
+    async fn test_multi_channel_renderings()  {
+        let test_image = image::load_from_memory(include_bytes!("../../../test/images/any/toad.png")).unwrap().to_rgb32f();
+        let mut settings = Settings::default();
+        let renderer = OpenDefocusRenderer::new(true, &mut settings).await.unwrap();
+        renderer.render(settings, test_image.to_ndarray().view_mut(), None, None).await.unwrap();
     }
 }
