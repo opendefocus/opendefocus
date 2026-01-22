@@ -34,7 +34,8 @@ void OpenDefocus::setup_filter_rendering() {
   DD::Image::Box box(resolution[0], resolution[1], resolution[2],
                      resolution[3]);
   info_.setBox(box);
-
+  instance->nuke_settings().filter_format->width(resolution[2] - resolution[0]);
+  instance->nuke_settings().filter_format->height(resolution[3] - resolution[1]);
   instance->nuke_settings().filter_format->set(box);
 
   info_.full_size_format(*instance->nuke_settings().filter_format);
@@ -305,22 +306,18 @@ void create_xy_knob(DD::Image::Knob_Callback callback, rust::Slice<float> value,
 }
 void create_enumeration_knob(DD::Image::Knob_Callback callback, int *value,
                              KnobParameters parameters) {
-  // Use std::vector to store enum labels
   std::vector<const char *> enum_labels(parameters.enum_labels.size() + 1);
 
   for (size_t i = 0; i < parameters.enum_labels.size(); ++i) {
     enum_labels[i] = parameters.enum_labels[i].c_str();
   }
 
-  // Set the last element to nullptr
   enum_labels[parameters.enum_labels.size()] = nullptr;
 
-  // Call Enumeration_knob with enum_labels
   Enumeration_knob(callback, value, enum_labels.data(), parameters.name.c_str(),
                    parameters.label.empty() ? nullptr
                                             : parameters.label.c_str());
 
-  // Set additional parameters
   set_parameters(callback, parameters);
 }
 
@@ -444,5 +441,5 @@ get_channelset(DD::Image::ChannelSetInit channels) {
 }
 
 std::shared_ptr<DD::Image::Format> create_format() {
-  return std::make_shared<DD::Image::Format>();
+  return std::make_shared<DD::Image::Format>(DD::Image::Format(1, 1, 1.0));
 }

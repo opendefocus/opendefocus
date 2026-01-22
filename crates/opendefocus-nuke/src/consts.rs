@@ -286,7 +286,7 @@ impl KnobDefinition {
             }
 
             Self::PreviewFilter => KnobChanged::new(
-                false, // TODO fix preview filter (#23)
+                true,
                 true,
             ),
             Self::FilterResolution => KnobChanged::new(
