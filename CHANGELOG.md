@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.9](https://codeberg.org/opendefocus/opendefocus/compare/v0.1.8...v0.1.9) - 2026-01-23
 
-### Other
+### Added
+- #2 Up to 4 channels renders are now supported.
 
-- Merge pull request '#24: Fix simple shape to be circular when using depth' ([#57](https://codeberg.org/opendefocus/opendefocus/pulls/57)) from 24-fix-simple-shape-to-be-circular-when-using-depth into main
+### Fixed
+
+- #24 simple shape being circular when in background in depth mode. Now prevents samples determined by circular distance, this results in a small performance boost as well.
+- #23 preview filter is enabled again and the crash is fixed
 
 ## [0.1.8](https://codeberg.org/opendefocus/opendefocus/compare/v0.1.7...v0.1.8) - 2026-01-10
 
