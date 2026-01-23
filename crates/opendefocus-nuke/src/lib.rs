@@ -328,7 +328,7 @@ impl NukeSpecificSettings {
             custom_stripe_height: 64,
             use_custom_stripe_height: false,
             math: Math::OneDividedByZ,
-            filter_type: ffi::FilterType::Disc,
+            filter_type: ffi::FilterType::Simple,
             mode: Mode::TwoD,
         }
     }
