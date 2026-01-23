@@ -19,7 +19,7 @@ protobuf-vendored = ["opendefocus/protobuf-vendored"]
 
 [dependencies]
 cxx = { version = "1.0" }
-opendefocus = { path = "../opendefocus", features = ["documented", "wgpu"], version = "=0.1.8" }
+opendefocus = { path = "../opendefocus", features = ["documented", "wgpu"], version = "=0.1.9" }
 bitflags = "2.10"
 log = "0.4"
 documented = "0.9"
