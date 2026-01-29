@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10](https://codeberg.org/opendefocus/opendefocus/releases/tag/v0.1.10) - 2026-01-29
+
+### Fixed
+
+- #62: fix focal point causing the Nuke node to be corrupted when direct math is selected
+
+
 ## [0.1.9](https://codeberg.org/opendefocus/opendefocus/compare/v0.1.8...v0.1.9) - 2026-01-23
 
 ### Added
