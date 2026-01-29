@@ -435,7 +435,6 @@ impl OpenDefocusNukeInstance {
 
         self.set_math()?;
 
-
         match self.nuke_settings.mode {
             ffi::Mode::TwoD => self.settings.defocus.set_defocus_mode(DefocusMode::Twod),
             _ => self.settings.defocus.set_defocus_mode(DefocusMode::Depth),
@@ -976,7 +975,7 @@ impl OpenDefocusNukeInstance {
 
     pub fn knob_changed(&mut self, node: &Op, knob_name: String) -> Result<bool> {
         // TODO optimize to just call when actually needed, for now this is fine
-        
+
         if knob_name == KnobDefinition::Math.to_snake_case() || knob_name == "showPanel" {
             self.set_math()?;
         } else if knob_name == KnobDefinition::UseGpuIfAvailable.to_snake_case() {
