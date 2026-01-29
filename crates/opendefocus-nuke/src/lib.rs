@@ -433,20 +433,8 @@ impl OpenDefocusNukeInstance {
                 });
         }
 
-        match self.nuke_settings.math {
-            ffi::Math::Direct => self.settings.defocus.use_direct_math = true,
-            ffi::Math::OneDividedByZ => self
-                .settings
-                .defocus
-                .circle_of_confusion
-                .set_math(circle_of_confusion::Math::OneDividedByZ),
-            ffi::Math::Real => self
-                .settings
-                .defocus
-                .circle_of_confusion
-                .set_math(circle_of_confusion::Math::Real),
-            _ => return Err(Error::msg("Invalid math selected.")),
-        }
+        self.set_math()?;
+
 
         match self.nuke_settings.mode {
             ffi::Mode::TwoD => self.settings.defocus.set_defocus_mode(DefocusMode::Twod),
@@ -988,14 +976,15 @@ impl OpenDefocusNukeInstance {
 
     pub fn knob_changed(&mut self, node: &Op, knob_name: String) -> Result<bool> {
         // TODO optimize to just call when actually needed, for now this is fine
-
-        if knob_name == KnobDefinition::UseGpuIfAvailable.to_snake_case() {
+        
+        if knob_name == KnobDefinition::Math.to_snake_case() || knob_name == "showPanel" {
+            self.set_math()?;
+        } else if knob_name == KnobDefinition::UseGpuIfAvailable.to_snake_case() {
             self.renderer = self.runtime.block_on(OpenDefocusRenderer::new(
                 self.settings.render.use_gpu_if_available,
                 &mut self.settings,
             ))?;
-        };
-        if knob_name == "inputChange" && input_connected(node, CAMERA_INPUT) {
+        } else if knob_name == "inputChange" && input_connected(node, CAMERA_INPUT) {
             set_knobchanged(
                 node,
                 KnobDefinition::Mode.to_snake_case(),
@@ -1018,6 +1007,28 @@ impl OpenDefocusNukeInstance {
             set_knobchanged(node, knob.parameters().name, knob_changed);
         }
         Ok(true)
+    }
+
+    fn set_math(&mut self) -> Result<()> {
+        match self.nuke_settings.math {
+            ffi::Math::Direct => self.settings.defocus.use_direct_math = true,
+            ffi::Math::OneDividedByZ => {
+                self.settings
+                    .defocus
+                    .circle_of_confusion
+                    .set_math(circle_of_confusion::Math::OneDividedByZ);
+                self.settings.defocus.use_direct_math = false;
+            }
+            ffi::Math::Real => {
+                self.settings
+                    .defocus
+                    .circle_of_confusion
+                    .set_math(circle_of_confusion::Math::Real);
+                self.settings.defocus.use_direct_math = false;
+            }
+            _ => return Err(Error::msg("Invalid math selected.")),
+        }
+        Ok(())
     }
 
     fn focus_point_knobchanged(&mut self, node: &Op) {

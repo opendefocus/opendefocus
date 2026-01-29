@@ -218,8 +218,9 @@ impl KnobDefinition {
             Self::RenderResult => KnobChanged::new(nuke_settings.mode != Mode::TwoD, true),
 
             Self::FocusPlane => KnobChanged::new(
-                nuke_settings.mode == Mode::Depth
-                    || (nuke_settings.mode == Mode::Camera && !settings.defocus.use_camera_focal),
+                (nuke_settings.mode == Mode::Depth
+                    || (nuke_settings.mode == Mode::Camera && !settings.defocus.use_camera_focal))
+                    && !settings.defocus.use_direct_math,
                 true,
             ),
             Self::DeviceName => KnobChanged::new(true, true)
@@ -247,11 +248,26 @@ impl KnobDefinition {
                 settings.defocus.circle_of_confusion.camera_data.is_none(),
             ),
             Self::CameraMaxSize => KnobChanged::new(true, nuke_settings.mode == Mode::Camera),
-            Self::WorldUnit => KnobChanged::new(nuke_settings.mode == Mode::Camera, true),
-            Self::FocusPointUtility => KnobChanged::new(nuke_settings.mode != Mode::TwoD, true),
-            Self::UseCameraFocal => KnobChanged::new(nuke_settings.mode == Mode::Camera, true),
-            Self::ProtectRange => KnobChanged::new(nuke_settings.mode != Mode::TwoD, true),
-            Self::FocalPlaneOffset => KnobChanged::new(nuke_settings.mode != Mode::TwoD, true),
+            Self::WorldUnit => KnobChanged::new(
+                nuke_settings.mode == Mode::Camera && !settings.defocus.use_direct_math,
+                true,
+            ),
+            Self::FocusPointUtility => KnobChanged::new(
+                nuke_settings.mode != Mode::TwoD && !settings.defocus.use_direct_math,
+                true,
+            ),
+            Self::UseCameraFocal => KnobChanged::new(
+                nuke_settings.mode == Mode::Camera && !settings.defocus.use_direct_math,
+                true,
+            ),
+            Self::ProtectRange => KnobChanged::new(
+                nuke_settings.mode != Mode::TwoD && !settings.defocus.use_direct_math,
+                true,
+            ),
+            Self::FocalPlaneOffset => KnobChanged::new(
+                nuke_settings.mode != Mode::TwoD && !settings.defocus.use_direct_math,
+                true,
+            ),
             Self::CatseyeAmount => KnobChanged::new(settings.non_uniform.catseye.enable, true),
             Self::CatseyeGamma => KnobChanged::new(settings.non_uniform.catseye.enable, true),
             Self::CatseyeDimensionBased => {
@@ -285,10 +301,7 @@ impl KnobDefinition {
                 KnobChanged::new(settings.non_uniform.axial_aberration.enable, true)
             }
 
-            Self::PreviewFilter => KnobChanged::new(
-                true,
-                true,
-            ),
+            Self::PreviewFilter => KnobChanged::new(true, true),
             Self::FilterResolution => KnobChanged::new(
                 nuke_settings.filter_type == FilterType::Blade
                     || nuke_settings.filter_type == FilterType::Disc,
