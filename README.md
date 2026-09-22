@@ -33,7 +33,6 @@
 ---
 
 <p align="center">
-  <a href="https://codeberg.org/opendefocus/opendefocus" target="_blank">Donate</a> •
   <a href="#features">Features</a> •
   <a href="https://opendefocus.codeberg.page/download.html" target="_blank">Download</a> •
   <a href="https://opendefocus.codeberg.page">Documentation</a> •
