@@ -39,7 +39,7 @@ jobs:
       - name: Install a software Vulkan driver and a virtual display
         run: |
           sudo apt-get update
-          sudo apt-get install -y mesa-vulkan-drivers libvulkan1 xvfb
+          sudo apt-get install -y mesa-vulkan-drivers libvulkan1 xvfb libglu1-mesa libgl1
       - name: Install Natron
         run: |
           mkdir -p "$RUNNER_TEMP/natron"
@@ -47,6 +47,7 @@ jobs:
           renderer=$(find "$RUNNER_TEMP/natron" -name NatronRenderer -type f -print -quit)
           test -x "$renderer"
           echo "NATRON_RENDERER=$renderer" >> "$GITHUB_ENV"
+          ldd "$(dirname "$renderer")/bin/NatronRenderer" | grep "not found" || true
       - name: Compare plugin and CLI renders
         run: xvfb-run -a cargo xtask --test-natron
       - name: Upload Natron log and renders
