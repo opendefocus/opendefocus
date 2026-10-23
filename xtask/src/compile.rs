@@ -117,7 +117,58 @@ pub async fn validate_gpu_shaders() -> Result<()> {
         .validate(&module)
         .map_err(|error| anyhow::anyhow!("{}", error.emit_to_string(&source)))
         .with_context(|| format!("GPU shader {name}"))?;
+        write_spirv_for_every_entry_point(&module, name)?;
         log::info!("Validated GPU shader {name}");
+    }
+    Ok(())
+}
+
+/// Writes SPIR-V for every compute entry point of `module`, the form wgpu hands to Vulkan.
+/// Metal and the WGSL validator accept shaders that naga's SPIR-V writer rejects or panics
+/// on, so this catches Linux and Windows failures without a Vulkan adapter. Fails when an
+/// entry point cannot be written.
+fn write_spirv_for_every_entry_point(module: &naga::Module, name: &str) -> Result<()> {
+    for entry_point in &module.entry_points {
+        let written = std::panic::catch_unwind(|| {
+            let info = naga::valid::Validator::new(
+                naga::valid::ValidationFlags::all(),
+                naga::valid::Capabilities::all(),
+            )
+            .validate(module)
+            .map_err(|error| anyhow::anyhow!("{error}"))?;
+            let constants = naga::back::PipelineConstants::default();
+            let (module, info) = naga::back::pipeline_constants::process_overrides(
+                module,
+                &info,
+                Some((entry_point.stage, entry_point.name.as_str())),
+                &constants,
+            )
+            .map_err(|error| anyhow::anyhow!("{error}"))?;
+            let pipeline = naga::back::spv::PipelineOptions {
+                shader_stage: entry_point.stage,
+                entry_point: entry_point.name.clone(),
+            };
+            naga::back::spv::write_vec(
+                &module,
+                &info,
+                &naga::back::spv::Options::default(),
+                Some(&pipeline),
+            )
+            .map(drop)
+            .map_err(|error| anyhow::anyhow!("{error}"))
+        });
+        match written {
+            Ok(result) => result.with_context(|| {
+                format!(
+                    "SPIR-V for GPU shader {name}, entry point {}",
+                    entry_point.name
+                )
+            })?,
+            Err(_) => anyhow::bail!(
+                "naga panicked writing SPIR-V for GPU shader {name}, entry point {}",
+                entry_point.name
+            ),
+        }
     }
     Ok(())
 }
