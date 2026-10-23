@@ -1,0 +1,62 @@
+name: Test Natron
+
+# Renders the occlusion scene through the OFX bundle in NatronRenderer and compares it with
+# the CLI render on the same runner (cargo xtask --test-natron, tolerance 1e-6). The runner
+# has no GPU, so both renders use the software Vulkan adapter.
+
+on:
+  pull_request:
+    paths:
+      - 'crates/opendefocus-ofx/**'
+      - 'crates/opendefocus/**'
+      - 'test/natron/**'
+      - 'test/images/scenes/occlusion/**'
+      - 'xtask/src/natron.rs'
+      - 'xtask/src/release.rs'
+      - '.github/workflows/test-natron.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: natron-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  natron:
+    name: Natron 2.5.0 (Linux x86_64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      NATRON_URL: https://github.com/NatronGitHub/Natron/releases/download/v2.5.0/Natron-2.5.0-Linux-x86_64-no-installer.tar.xz
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Install a software Vulkan driver and a virtual display
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends mesa-vulkan-drivers libvulkan1 xvfb libglu1-mesa libgl1 openimageio-tools
+      - name: Show the OpenImageIO tools
+        run: dpkg -L openimageio-tools | grep /bin/ ; command -v idiff || true
+      - name: Install Natron
+        run: |
+          mkdir -p "$RUNNER_TEMP/natron"
+          curl -fsSL "$NATRON_URL" | tar -xJ -C "$RUNNER_TEMP/natron"
+          renderer=$(find "$RUNNER_TEMP/natron" -name NatronRenderer -type f -print -quit)
+          test -x "$renderer"
+          echo "NATRON_RENDERER=$renderer" >> "$GITHUB_ENV"
+          ldd "$(dirname "$renderer")/bin/NatronRenderer" | grep "not found" || true
+          ls -la "$(dirname "$renderer")"
+      - name: Compare plugin and CLI renders
+        run: xvfb-run -a cargo xtask --test-natron
+      - name: Upload Natron log and renders
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: natron-test
+          path: target/natron-test/
+          if-no-files-found: ignore
