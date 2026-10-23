@@ -4,6 +4,7 @@ members = [
     "crates/bokeh-creator",
     "crates/circle-of-confusion",
     "crates/opendefocus",
+    "crates/opendefocus-ui",
     "crates/opendefocus-cli",
     "examples/simple",
 ]
