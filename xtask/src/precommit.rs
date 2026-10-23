@@ -208,12 +208,11 @@ const BANNER_CHARS: [char; 6] = ['-', '=', '#', '*', '~', '_'];
 /// Extensions of script files that are only allowed under `NON_RUST_CODE_HOMES`.
 const NON_RUST_CODE_EXTENSIONS: [&str; 6] = ["py", "sh", "ps1", "bat", "js", "ts"];
 /// Directories where non-Rust code is allowed, as described in AGENTS.md.
-const NON_RUST_CODE_HOMES: [&str; 5] = [
+const NON_RUST_CODE_HOMES: [&str; 4] = [
     "crates/circle-of-confusion/python/",
     "crates/circle-of-confusion/test/python/",
     "test/natron/",
     "packaging/",
-    ".devcontainer/",
 ];
 
 /// Whether a line is a `//` banner such as `// ----` or `// === Section ===`. Doc comments
