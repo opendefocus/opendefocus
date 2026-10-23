@@ -1,0 +1,8 @@
+when:
+  event: [push, pull_request, manual]
+steps:
+  test:
+    image: rust
+    commands:
+      - cargo test --no-default-features
+      - cargo test --features image
