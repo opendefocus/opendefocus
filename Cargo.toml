@@ -6,6 +6,7 @@ members = [
     "crates/opendefocus-datastructure",
     "crates/opendefocus-nuke",
     "crates/image-ndarray",
+    "crates/bokeh-creator",
     "xtask",
     "examples/simple",
 ]
