@@ -30,6 +30,5 @@
         "redhat.vscode-yaml"
       ]
     }
-  },
-  "postCreateCommand": "./.devcontainer/scripts/linux/init.sh"
+  }
 }

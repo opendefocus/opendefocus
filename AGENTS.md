@@ -49,8 +49,8 @@ Rules:
    validation, benchmarks, packaging and release go through `cargo xtask`. Do not add
    Python, shell or other scripts. The only allowed non-Rust code is what must run in
    another runtime: the `circle-of-confusion` Python bindings and their tests,
-   `test/natron/` (executed inside Natron's Python), the installer inputs in
-   `packaging/`, and `.devcontainer/` setup. New exceptions need maintainer approval.
+   `test/natron/` (executed inside Natron's Python), and the installer inputs in
+   `packaging/`. New exceptions need maintainer approval.
 5. **Items are documented.** Every function, method, type, constant and module,
    public or private and including those inside submodules, has a doc comment that
    says what it does, what its arguments mean when that is not obvious, what it
