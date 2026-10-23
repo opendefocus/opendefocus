@@ -1,0 +1,142 @@
+name: Crate releases
+
+# Opens the release pull request and publishes the crates. Releases created with the default
+# GITHUB_TOKEN do not start other workflows, so the Python wheels, the OFX installers and the
+# documentation are started here by dispatch.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  image-ndarray-validation:
+    if: github.repository == 'opendefocus/opendefocus' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/test-image-ndarray.yaml
+
+  circle-of-confusion-validation:
+    if: github.repository == 'opendefocus/opendefocus' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/test-circle-of-confusion.yaml
+
+  release-pr:
+    needs: [circle-of-confusion-validation, image-ndarray-validation]
+    if: github.repository == 'opendefocus/opendefocus' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    concurrency:
+      group: release-pr
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify packaged bokeh references
+        run: cargo xtask fixtures sync
+      - uses: release-plz/action@v0.5
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+
+  release:
+    needs: [circle-of-confusion-validation, image-ndarray-validation]
+    if: github.repository == 'opendefocus/opendefocus' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    concurrency:
+      group: crate-release
+      cancel-in-progress: false
+    outputs:
+      circle-of-confusion-ref: ${{ steps.circle-of-confusion-ref.outputs.ref }}
+      opendefocus-tag: ${{ steps.opendefocus-tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify packaged bokeh references
+        run: cargo xtask fixtures sync
+      - uses: release-plz/action@v0.5
+        id: release-plz
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Select circle-of-confusion release tag
+        id: circle-of-confusion-ref
+        env:
+          RELEASES: ${{ steps.release-plz.outputs.releases }}
+        run: |
+          tag=$(jq -r '.[] | select(.package_name == "circle-of-confusion") | .tag' <<< "$RELEASES")
+          if [ -n "$tag" ]; then
+            echo "ref=refs/tags/$tag" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Select opendefocus release tag
+        id: opendefocus-tag
+        env:
+          RELEASES: ${{ steps.release-plz.outputs.releases }}
+        run: |
+          tag=$(jq -r '.[] | select(.package_name == "opendefocus") | .tag' <<< "$RELEASES")
+          if [ -n "$tag" ]; then
+            echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          fi
+
+  opendefocus-installers:
+    needs: release
+    if: needs.release.outputs.opendefocus-tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/github-script@v8
+        env:
+          RELEASE_TAG: ${{ needs.release.outputs.opendefocus-tag }}
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'release-ofx.yaml',
+              ref: 'main',
+              inputs: { tag: process.env.RELEASE_TAG },
+            });
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'release-docs.yaml',
+              ref: 'main',
+            });
+
+  circle-of-confusion-python:
+    needs: release
+    if: needs.release.outputs.circle-of-confusion-ref != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/github-script@v8
+        env:
+          RELEASE_REF: ${{ needs.release.outputs.circle-of-confusion-ref }}
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'release-circle-of-confusion-python.yaml',
+              ref: 'main',
+              inputs: { ref: process.env.RELEASE_REF },
+            });
