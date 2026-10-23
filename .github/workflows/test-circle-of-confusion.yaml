@@ -1,0 +1,115 @@
+name: Test circle-of-confusion
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/circle-of-confusion/**'
+      - 'test/images/circle-of-confusion/**'
+      - 'xtask/src/fixtures/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/test-circle-of-confusion.yaml'
+  pull_request:
+    paths:
+      - 'crates/circle-of-confusion/**'
+      - 'test/images/circle-of-confusion/**'
+      - 'xtask/src/fixtures/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/test-circle-of-confusion.yaml'
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: ''
+      artifact-name:
+        type: string
+        default: circle-of-confusion-python
+permissions:
+  contents: read
+jobs:
+  python-tooling:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: astral-sh/setup-uv@v7
+      - run: uv lock
+        working-directory: crates/circle-of-confusion
+      - run: uvx --from ruff==0.14.4 ruff check .
+        working-directory: crates/circle-of-confusion
+      - run: uvx --from ruff==0.14.4 ruff format --check .
+        working-directory: crates/circle-of-confusion
+      - run: uvx ty check . --ignore unresolved-import
+        working-directory: crates/circle-of-confusion
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo xtask fixtures sync
+      - run: cargo fmt --package circle-of-confusion --check
+      - run: cargo test --locked --release -p circle-of-confusion
+      - run: cargo test --locked --release -p circle-of-confusion --features serde,documented
+      - run: cargo rustc --locked -p circle-of-confusion --lib --crate-type rlib --no-default-features
+      - run: cargo rustc --locked -p circle-of-confusion --lib --crate-type rlib --no-default-features --features serde,documented
+      - run: cargo check --locked -p circle-of-confusion --features python-bindings
+      - run: cargo doc --locked --no-deps -p circle-of-confusion --features documented
+      - run: cargo package --locked -p circle-of-confusion
+      - name: Test extracted Cargo package without workspace fixtures
+        run: |
+          mkdir -p "$RUNNER_TEMP/coc-package"
+          tar -xzf target/package/circle-of-confusion-*.crate -C "$RUNNER_TEMP/coc-package"
+          cd "$RUNNER_TEMP/coc-package"/circle-of-confusion-*
+          cargo test --release
+      - run: cargo publish --locked --dry-run -p circle-of-confusion
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: astral-sh/setup-uv@v7
+      - uses: Swatinem/rust-cache@v2
+      - name: Build with maturin and run the Python tests
+        working-directory: crates/circle-of-confusion
+        run: |
+          uv venv --python "$PYTHON_VERSION" .venv
+          uv pip install --python .venv maturin pytest
+          . .venv/bin/activate
+          maturin develop --release
+          pytest test/python
+        env:
+          PYTHON_VERSION: ${{ matrix.python }}
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: astral-sh/setup-uv@v7
+      - name: Build and test sdist outside the monorepo
+        working-directory: crates/circle-of-confusion
+        run: |
+          uvx maturin sdist --out dist
+          mkdir "$RUNNER_TEMP/sdist"
+          tar -xzf dist/*.tar.gz -C "$RUNNER_TEMP/sdist"
+          cd "$RUNNER_TEMP/sdist"/circle_of_confusion-*
+          uv venv .venv
+          uv pip install --python .venv maturin pytest
+          . .venv/bin/activate
+          maturin develop --release
+          pytest crates/circle-of-confusion/test/python
