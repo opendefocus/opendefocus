@@ -1,8 +1,9 @@
 name: Test Natron
 
 # Renders the occlusion scene through the OFX bundle in NatronRenderer and compares it with
-# the CLI render on the same runner (cargo xtask --test-natron, tolerance 1e-6). The runner
-# has no GPU, so both renders use the software Vulkan adapter.
+# the CLI render on the same runner (cargo xtask --test-natron, tolerance 1e-6). The Linux
+# runner has no GPU, so both renders use the software Vulkan adapter; the macOS runner gives
+# both renders its Metal adapter.
 
 on:
   pull_request:
@@ -58,5 +59,44 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: natron-test
+          path: target/natron-test/
+          if-no-files-found: ignore
+
+  natron-macos:
+    name: Natron 2.6 alpha (macOS arm64)
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      NATRON_URL: https://github.com/NatronGitHub/Natron/releases/download/v2.6.0-alpha1/Natron-RB-2.6-202305220414-dc73d01-macOS12-arm64.dmg
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Install the OpenImageIO tools
+        run: brew install openimageio
+      - name: Install Natron
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/natron.dmg" "$NATRON_URL"
+          mount="$RUNNER_TEMP/natron-mount"
+          mkdir -p "$mount"
+          hdiutil attach -nobrowse -readonly -mountpoint "$mount" "$RUNNER_TEMP/natron.dmg"
+          app=$(find "$mount" -maxdepth 2 -name Natron.app -print -quit)
+          test -n "$app"
+          mkdir -p "$HOME/Applications"
+          cp -R "$app" "$HOME/Applications/"
+          hdiutil detach "$mount"
+          xattr -cr "$HOME/Applications/Natron.app"
+          renderer="$HOME/Applications/Natron.app/Contents/MacOS/NatronRenderer"
+          test -x "$renderer"
+          echo "NATRON_RENDERER=$renderer" >> "$GITHUB_ENV"
+      - name: Compare plugin and CLI renders
+        run: cargo xtask --test-natron
+      - name: Upload Natron log and renders
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: natron-test-macos
           path: target/natron-test/
           if-no-files-found: ignore
