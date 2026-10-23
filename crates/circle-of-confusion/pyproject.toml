@@ -1,0 +1,68 @@
+[build-system]
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "circle-of-confusion"
+requires-python = ">=3.9"
+classifiers = [
+    'License :: OSI Approved :: European Union Public Licence 1.2 (EUPL 1.2)',
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
+    "Topic :: Scientific/Engineering",
+    "Topic :: Multimedia :: Graphics",
+]
+dynamic = ["version"]
+description = "Calculator for Circle of Confusion (CoC) to calculate the size in pixels of an area, used for depth of field processing."
+readme = "README.md"
+license = "EUPL-1.2"
+authors = [{ name = "olivebowl", email = "olivebowl@noreply.codeberg.org" }]
+maintainers = [
+    { name = "olivebowl", email = "olivebowl@noreply.codeberg.org" },
+]
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8.3.0", "ty>=0.0.1a26"]
+
+[project.urls]
+Homepage = "https://codeberg.org/olivebowl/circle-of-confusion"
+"Bug Tracker" = "https://codeberg.org/olivebowl/circle-of-confusion/issues"
+Changelog = "https://codeberg.org/olivebowl/circle-of-confusion/src/branch/main/CHANGELOG.md"
+
+[tool.maturin]
+python-source = "python"
+module-name = "circle_of_confusion._native"
+features = ["pyo3/extension-module", "python-bindings"]
+include = [{ path = "test/**", format = "sdist" }]
+
+[tool.uv]
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "Cargo.toml" },
+    { file = "**/*.rs" },
+]
+
+[tool.pytest.ini_options]
+testpaths = ["test/python"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"test/**" = ["S101", "PLR2004", "D103"]
+"python/**/*.pyi" = ["PYI", "D", "A", "ARG", "E501"]

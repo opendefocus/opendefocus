@@ -1,0 +1,29 @@
+[package]
+name = "opendefocus-cli"
+description = "Reproducible command-line OpenDefocus renderer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[features]
+default = ["gpu"]
+gpu = ["opendefocus/wgpu"]
+
+[dependencies]
+anyhow = "1.0.104"
+clap = { version = "4.6.0", default-features = false, features = ["std", "derive", "help", "usage", "error-context"] }
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "tiff", "exr", "hdr"] }
+image-ndarray = { path = "../image-ndarray", version = "0.1.6" }
+ndarray = "0.17.2"
+opendefocus = { path = "../opendefocus", default-features = false, features = ["serde"] }
+bokeh-creator = { path = "../bokeh-creator", version = "0.1.17", default-features = false, features = ["noise"] }
+serde_json = "1.0"
+tokio = { version = "1.53.2", features = ["rt-multi-thread", "macros", "signal"] }
+tempfile = { version = "3", default-features = false }
+
+[dev-dependencies]
+libc = "0.2.190"
+
+[lints]
+workspace = true

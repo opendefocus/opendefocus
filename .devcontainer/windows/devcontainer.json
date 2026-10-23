@@ -31,5 +31,5 @@
       ]
     }
   },
-  "postCreateCommand": "./scripts/devcontainer/init.sh && ./scripts/devcontainer/windows/init.sh"
+  "postCreateCommand": "./.devcontainer/scripts/init.sh && ./.devcontainer/scripts/windows/init.sh"
 }

@@ -6,34 +6,45 @@ Once done, please create a PR to the `main` branch and we can discuss (and hopef
 
 ## Development
 
+### Working with coding agents
+
+Read [AGENTS.md](AGENTS.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
+Agents should start at `AGENTS.md`. Keep project knowledge in these shared documents, record open gaps in
+`AGENTS.md`, and keep personal settings out of Git.
+
 ### Tools Required
 
-- [Rust](https://rustup.rs/)
-- Protoc ([protobuf-compiler on Linux](https://packages.debian.org/sid/protobuf-compiler)/[protobuf on macOS](https://formulae.brew.sh/formula/protobuf)/[protoc on Windows](https://community.chocolatey.org/packages/protoc))
-- [Codeberg](https://codeberg.org/user/sign_up) account
+Install only the tools needed for your task:
 
-### If you want to do some Nuke stuff
+| Task | Additional tools beyond stable Rust 1.95+ and native linker/build tools |
+| --- | --- |
+| Library, CLI or viewer | Nothing beyond stable Rust 1.95+ and native linker/build tools |
+| Validate authored GPU shaders | `cargo xtask --compile --gpu` uses Naga on stable Rust. Shader changes also need hardware correctness and performance checks. The excluded historical SPIR-V utility alone uses its pinned nightly. |
+| Python tests and checks | [uv](https://docs.astral.sh/uv/getting-started/installation/); each Python crate under `crates/` manages its own environment. |
+| Contributor pre-commit hooks | Run `uvx pre-commit run --all-files`; the hook runs `cargo xtask --precommit`, which uses `uvx` for `ty` and validates shaders when kernel files change. |
+| Build or serve documentation | `cargo install --locked cargo-about mdbook mdbook-toc` |
+| Browser viewer | `rustup target add wasm32-unknown-unknown`, then `cargo install --locked wasm-bindgen-cli --version 0.2.129`; build with `cargo xtask --compile --web`. |
+| OpenFX plugin bundle | Nothing beyond stable Rust 1.95+ and native linker/build tools; build with `cargo xtask --bundle-ofx`. |
 
-#### Linux
-- [Zig](https://zig.guide/getting-started/installation/) for C++ builds with glibc 2.17
-- [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild) same but for Rust
+A normal CLI build is `cargo xtask --compile --cli`; a viewer build is
+`cargo xtask --compile --ui`. Neither requires Python tooling or nightly Rust.
+Avoid installing the documentation tools unless you work on documentation.
 
-#### macOS
-- [Command line tools](https://developer.apple.com/documentation/xcode/installing-the-command-line-tools) for C++ builds
+### Checks before a pull request
 
-#### Windows
-- [MSVC build tools 2022](https://visualstudio.microsoft.com/downloads/) for C++ builds
-- [lessmsi](https://community.chocolatey.org/packages/lessmsi) for extraction of Nuke installer
+Run `cargo fmt --all -- --check` and `cargo xtask --test-crates` for Rust changes.
+Use `cargo xtask --compile --gpu` for shader validation; hardware changes also
+need the correctness and performance checks in [AGENTS.md](AGENTS.md).
 
-
-If you can't figure it out, feel free to create an issue!
+The imported Python crates in `crates/` have their own environments, test
+commands, and CI.
 
 ### Getting Started
 
-1. Fork the repository to your **Codeberg** account.
+1. Fork the repository to your **GitHub** account.
 
    ```bash
-   git clone ssh://git@codeberg.org/YOUR_USERNAME/opendefocus.git
+   git clone git@github.com:YOUR_USERNAME/opendefocus.git
    cd opendefocus/
    ```
 2. Create a branch with a descriptive name.
@@ -45,12 +56,9 @@ If you can't figure it out, feel free to create an issue!
 
 3. Commit using the [conventional commits specifications](https://www.conventionalcommits.org/en/v1.0.0/)
 
-3. Run the development environment. Everything is handled through the xtask.
-    - To build for Nuke for example with Zig on Linuz, use `cargo xtask --compile --nuke-versions 15.0 --target-platform linux --use-zig --output-to-package`
-    - If you can't figure it out, take a look at [release_nuke.yaml](https://codeberg.org/opendefocus/opendefocus/src/branch/main/.github/workflows/release_nuke.yaml) how builds are done.
+4. Run the development environment. Everything is handled through the xtask.
 
-4. Create your contribution and test the changes.
-    - If you want to open the changes in Nuke, set the `NUKE_PATH` to the package directory in this cloned local repository.
+5. Create your contribution and test the changes.
 
 ---
 

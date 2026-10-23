@@ -1,0 +1,24 @@
+Visual diagnostics, not correctness oracles
+Backend: Some("Apple M1 - Metal")
+Quality: High; gamma=1; max radius=24px; direct signed CoC
+Checkout HEAD: 97dc6f3de32906abd429f5a8af24248fb263d40a (may include local changes)
+occlusion: RGB max=2.416825, alpha=[1.000000,1.000000]
+  RGB sum input=18977.177526, output=18747.661488 (diagnostic, no conservation assertion)
+  32px stripes: max absolute difference=0.000000000
+  64px stripes: max absolute difference=0.000000000
+focus_ramp: RGB max=0.996094, alpha=[1.000000,1.000000]
+  RGB sum input=34502.559594, output=34541.734175 (diagnostic, no conservation assertion)
+  32px stripes: max absolute difference=0.000000000
+  64px stripes: max absolute difference=0.000000000
+hdr_points: RGB max=18.758368, alpha=[1.000000,1.000000]
+  RGB sum input=5712.732049, output=4846.857632 (diagnostic, no conservation assertion)
+  32px stripes: max absolute difference=0.000000000
+  64px stripes: max absolute difference=0.000000000
+hdr_points_asymmetric: RGB max=18.283817, alpha=[0.978731,1.019276]
+  RGB sum input=5712.732049, output=4789.671057 (diagnostic, no conservation assertion)
+  32px stripes: max absolute difference=0.000000000
+  64px stripes: max absolute difference=0.000000000
+alpha_edges: RGB max=1.924537, alpha=[0.000000,0.962268]
+  RGB sum input=10484.474284, output=11879.094947 (diagnostic, no conservation assertion)
+  32px stripes: max absolute difference=0.000000000
+  64px stripes: max absolute difference=0.000000000

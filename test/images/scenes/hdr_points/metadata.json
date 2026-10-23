@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "scene": "hdr_points",
+  "resolution": [
+    192,
+    128
+  ],
+  "seed": 0,
+  "generator": "cargo xtask fixtures scenes",
+  "license": "CC0-1.0",
+  "provenance": "Original analytic surfaces; no downloaded or renderer-produced source assets.",
+  "camera": {
+    "projection": "orthographic analytic pixel chart",
+    "pixel_aspect": 1,
+    "focus_distance_m": 4
+  },
+  "render": {
+    "sampling": "pixel centers; analytic alpha edge coverage",
+    "engine": "Rust standard library",
+    "denoise": false
+  },
+  "color": {
+    "space": "linear sRGB / Rec.709 primaries",
+    "storage": "OpenEXR FLOAT RGBA",
+    "alpha": "premultiplied",
+    "exposure": 0
+  },
+  "depth": {
+    "units": "meters",
+    "direction": "positive away from camera",
+    "storage_channel": "R (replicated in G/B)",
+    "range": [
+      2.0,
+      8.0
+    ]
+  },
+  "coc": {
+    "units": "pixel radius",
+    "formula": "24 * (1 - 4 / depth_m)",
+    "negative": "foreground",
+    "positive": "background",
+    "range": [
+      -24.0,
+      12.0
+    ],
+    "renderer": "Depth mode, use_direct_math=true, size_multiplier=1, proxy_scale=1, max_size=24; load coc.exr R"
+  },
+  "preview": "Fixed RGB/(1+RGB), then sRGB OETF; alpha composited over linear checker. CoC preview: R=far, B=near, G=focus."
+}

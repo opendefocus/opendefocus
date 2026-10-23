@@ -1,3 +1,3 @@
-pub const REPOSITORY: &str = "olivebowl/opendefocus";
-pub const EMAIL: &str = "olivebowl@noreply.codeberg.org";
-pub const USERNAME: &str = "CI Runner";
+//! Repository-wide constants shared by the release and licensing tasks.
+/// GitHub `owner/name` slug of the project, used to build release API URLs.
+pub const REPOSITORY: &str = "opendefocus/opendefocus";

@@ -7,6 +7,7 @@
 
 - [Download](./download.md)
 - [Installation](./installation.md)
+- [Natron and Resolve](./hosts.md)
 - [User guide](./user_guide.md)
   - [Quickstart](./quickstart/index.md)
     - [Inputs](./quickstart/inputs.md)
@@ -19,7 +20,7 @@
     - [Camera](./detailed/camera_input.md)
     - [Depth](./detailed/depth_math.md)
     - [Size](./detailed/defocus_size.md)
-    - [Focal plane preview](./detailed/focal_plane_setup.md)
+    - [Focal plane](./detailed/focal_plane_setup.md)
     - [Non uniform](./detailed/non_uniform/index.md)
       - [Catseye](./detailed/non_uniform/catseye.md)
       - [Barndoors](./detailed/non_uniform/barndoors.md)
@@ -33,10 +34,6 @@
 - [Developer documentation](./developer/index.md)
   - [Crates](./developer/crates.md)
     - [opendefocus](./developer/opendefocus.md)
-    - [opendefocus-datastructure](./developer/opendefocus_datastructure.md)
-    - [opendefocus-kernel](./developer/opendefocus_kernel.md)
-    - [opendefocus-shared](./developer/opendefocus_shared.md)
-    - [opendefocus-nuke](./developer/opendefocus_nuke.md)
     - [xtask](./developer/xtask.md)
   - [Building](./developer/building.md)
 

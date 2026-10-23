@@ -1,0 +1,103 @@
+[
+    {
+        "coc": 0.0,
+        "settings": {
+            "size": 20.0
+        },
+        "expected": 0.0
+    },
+    {
+        "coc": 10.0,
+        "settings": {
+            "size": 30.0
+        },
+        "expected": -10.0
+    },
+    {
+        "coc": 50.0,
+        "settings": {
+            "math": "REAL",
+            "focal_plane": 50.0,
+            "max_size": 100.0
+        },
+        "expected": 0.0
+    },
+    {
+        "coc": 0.5,
+        "settings": {
+            "math": "ONE_DIVIDED_BY_Z",
+            "focal_plane": 0.0,
+            "max_size": 100.0
+        },
+        "expected": -100.0
+    },
+    {
+        "coc": 10.0,
+        "settings": {
+            "math": "REAL",
+            "focal_plane": 0.0,
+            "max_size": 100.0
+        },
+        "expected": -100.0
+    },
+    {
+        "coc": 10.0,
+        "settings": {
+            "math": "REAL",
+            "focal_plane": 3.0,
+            "size": 1.0,
+            "max_size": 100.0
+        },
+        "expected": 0.7
+    },
+    {
+        "coc": 0.0,
+        "settings": {
+            "math": "ONE_DIVIDED_BY_Z",
+            "focal_plane": 20.0,
+            "size": 3.0,
+            "max_size": 100.0
+        },
+        "expected": 2.9999843
+    },
+    {
+        "coc": 10.0,
+        "settings": {
+            "math": "REAL",
+            "focal_plane": 15.0,
+            "max_size": 10.0,
+            "camera_data": {
+                "f_stop": 2.0
+            }
+        },
+        "expected": -1.4819534
+    },
+    {
+        "coc": 10.0,
+        "settings": {
+            "math": "REAL",
+            "focal_plane": 30.0,
+            "max_size": 100.0,
+            "camera_data": {
+                "f_stop": 2.0,
+                "focal_length": 100.0
+            }
+        },
+        "expected": -11.935
+    },
+    {
+        "coc": 10.0,
+        "settings": {
+            "math": "REAL",
+            "focal_plane": 2.4,
+            "max_size": 50.0,
+            "camera_data": {
+                "f_stop": 2.0,
+                "focal_length": 100.0
+            }
+        },
+        "expected": 50.0
+    }
+]
+
+
