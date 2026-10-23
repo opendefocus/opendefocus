@@ -40,6 +40,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends mesa-vulkan-drivers libvulkan1 xvfb libglu1-mesa libgl1 openimageio-tools
+      - name: Show the OpenImageIO tools
+        run: dpkg -L openimageio-tools | grep /bin/ ; command -v idiff || true
       - name: Install Natron
         run: |
           mkdir -p "$RUNNER_TEMP/natron"
