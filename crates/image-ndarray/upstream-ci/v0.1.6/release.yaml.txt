@@ -1,0 +1,32 @@
+when:
+  event: push
+  branch: main
+  repo: olivebowl/image-ndarray
+
+depends_on: [test]
+
+clone:
+  git:
+    image: woodpeckerci/plugin-git
+    settings:
+      partial: false
+      depth: 0
+
+steps:
+  release:
+    image: rust
+    environment:
+      CODEBERG_TOKEN:
+        from_secret: codeberg_token
+      CARGO_REGISTRY_TOKEN:
+        from_secret: cargo_registry_token
+    commands:
+      - curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh -o /tmp/install-binstall.sh
+      - bash /tmp/install-binstall.sh
+      - cargo binstall --no-confirm --disable-strategies compile release-plz
+      - git checkout -B main "$${CI_COMMIT_SHA}"
+      - git config user.email "olivebowl@noreply.codeberg.org"
+      - git config user.name "release-plz"
+      - git remote set-url origin "https://$${CODEBERG_TOKEN}@codeberg.org/olivebowl/image-ndarray.git"
+      - release-plz release --forge gitea --git-token "$${CODEBERG_TOKEN}"
+      - release-plz release-pr --forge gitea --git-token "$${CODEBERG_TOKEN}"

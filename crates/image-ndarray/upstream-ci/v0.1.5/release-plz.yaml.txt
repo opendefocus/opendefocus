@@ -1,0 +1,53 @@
+name: Release-plz
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  # Release unpublished packages.
+  release-plz-release:
+    if: ${{ github.repository_owner == 'olivebowl' }}
+    name: Release-plz release
+    runs-on: ubuntu-latest
+    steps:
+      - &checkout
+        name: Checkout repository
+        shell: bash
+        run: |
+          branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+          git clone https://codeberg.org/olivebowl/${{ github.event.repository.name }}.git .
+          git checkout ${branch}
+          git config user.email "$(git log -1 --pretty=format:'%ae')"
+          git config user.name "${{ github.actor }}"
+          git remote set-url origin https://${{ secrets.CODEBERG_TOKEN }}@codeberg.org/olivebowl/${{ github.event.repository.name }}.git
+      - &install-rust
+        name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - &install-release-plz
+        name: Install Release-plz
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall release-plz
+
+      - name: Run release-plz
+        run: release-plz release --forge gitea --git-token ${{ secrets.CODEBERG_TOKEN }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  # Create a PR with the new versions and changelog, preparing the next release.
+  release-plz-pr:
+    name: Release-plz PR
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-plz-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - *checkout
+      - *install-rust
+      - *install-release-plz
+      - name: Run release-plz
+        run: release-plz release-pr --forge gitea --git-token ${{ secrets.CODEBERG_TOKEN }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

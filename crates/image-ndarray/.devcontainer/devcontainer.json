@@ -1,0 +1,15 @@
+{
+    "image": "ghcr.io/rust-lang/rust:1.90-trixie",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "streetsidesoftware.code-spell-checker",
+                "rust-lang.rust-analyzer",
+                "VisualStudioExptTeam.vscodeintellicode",
+                "charliermarsh.ruff",
+                "tamasfe.even-better-toml"
+            ]
+        }
+    },
+    "postCreateCommand": "rustup component add clippy"
+}
