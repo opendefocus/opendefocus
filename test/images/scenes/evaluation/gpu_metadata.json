@@ -1,0 +1,16 @@
+{
+  "kind": "Visual diagnostic snapshot, not ground truth",
+  "date": "2026-10-09",
+  "renderer_revision": "c54e2342d2d5551eb5a21e911450198020506cba",
+  "platform": {
+    "system": "Darwin",
+    "release": "25.6.0",
+    "machine": "arm64"
+  },
+  "quality": "High (30 radial samples for maximum radius 24; existing sampling implementation)",
+  "command": "cargo run --release -p opendefocus --example diagnostic_scenes --locked -- ./diagnostic-results-gpu --gpu",
+  "backend": "Apple M1 - Metal",
+  "stripe_max_absolute_difference": 0.0,
+  "known_observation": "Custom aperture with opaque input produces alpha range 0.978731..1.019276. Recorded unchanged; not accepted as correct.",
+  "evaluation_checkout": "97dc6f3de32906abd429f5a8af24248fb263d40a"
+}
