@@ -1,0 +1,37 @@
+[package]
+name = "circle-of-confusion"
+version = "0.2.7"
+edition = "2024"
+license = "EUPL-1.2"
+authors = ["olivebowl <olivebowl@noreply.codeberg.org>"]
+description = "Calculator for Circle of Confusion (CoC) to calculate the size in pixels of an area, used for depth of field processing"
+repository = "https://github.com/opendefocus/opendefocus"
+documentation = "https://docs.rs/circle-of-confusion"
+keywords = ["coc", "camera", "photography", "physically"]
+categories = ["algorithms", "mathematics", "no-std"]
+
+[lib]
+name = "circle_of_confusion"
+crate-type = ["rlib", "cdylib"]
+
+
+[features]
+default = ["std"]
+std = []
+serde = ["dep:serde"]
+documented = ["dep:documented"]
+python-bindings = ["dep:pyo3", "std"]
+
+[dependencies]
+libm = { version = ">=0.2.11, < 0.3", default-features = false }
+serde = { version = ">=1.0, < 1.1", features = ["derive"], optional = true}
+documented = {version = "0.10.0", optional = true}
+pyo3 = { version = "0.30.1", optional = true }
+
+[dev-dependencies]
+serde_json = "1.0.145"
+approx = "0.5.1"
+
+
+[lints]
+workspace = true
