@@ -14,7 +14,52 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      rust: ${{ steps.filter.outputs.rust == 'true' || github.event_name == 'workflow_dispatch' }}
+      python: ${{ steps.filter.outputs.python == 'true' || github.event_name == 'workflow_dispatch' }}
+      docs: ${{ steps.filter.outputs.docs == 'true' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            rust:
+              - 'crates/**'
+              - 'xtask/**'
+              - 'examples/**'
+              - 'test/images/**'
+              - 'test/parity/**'
+              - 'packaging/**'
+              - '.devcontainer/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'rust-toolchain.toml'
+              - 'clippy.toml'
+              - '.cargo/**'
+              - '.github/workflows/test.yaml'
+            python:
+              - 'test/natron/**'
+              - 'ruff.toml'
+              - '.github/workflows/test.yaml'
+            docs:
+              - 'docs/**'
+              - 'about.toml'
+              - 'licenses.hbs'
+              - 'Cargo.lock'
+              - 'xtask/src/release.rs'
+              - 'README.md'
+              - 'CHANGELOG.md'
+              - '.github/workflows/test.yaml'
+
   lint:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -34,6 +79,8 @@ jobs:
       - run: cargo xtask --clippy
 
   test:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -50,6 +97,8 @@ jobs:
       - run: cargo test --release --locked -p opendefocus-cli --no-default-features
 
   docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

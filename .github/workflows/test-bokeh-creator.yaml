@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'crates/bokeh-creator/**'
-      - 'crates/opendefocus*/**'
+      - 'crates/image-ndarray/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'test/images/bokeh-creator/**'
@@ -15,7 +15,7 @@ on:
   pull_request:
     paths:
       - 'crates/bokeh-creator/**'
-      - 'crates/opendefocus*/**'
+      - 'crates/image-ndarray/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'test/images/bokeh-creator/**'
