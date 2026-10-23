@@ -1,0 +1,133 @@
+name: PR preview
+
+# Renders the parity scenes with the pull request build and with the base branch build,
+# publishes the images to the ci-previews branch and keeps one comment on the pull request
+# with the images, timings and pixel differences (cargo xtask preview). The runner has no
+# GPU, so renders use the software Vulkan adapter: timings are only meaningful as a change
+# between base and head. Pull requests from forks are skipped because they cannot publish.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - 'crates/opendefocus/**'
+      - 'crates/opendefocus-cli/**'
+      - 'test/images/scenes/**'
+      - 'test/parity/**'
+      - 'xtask/src/preview*'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/pr-preview.yaml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+
+jobs:
+  render:
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            base -> target
+          cache-on-failure: true
+      - name: Install a software Vulkan driver
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends mesa-vulkan-drivers libvulkan1
+      - name: Build the head and base CLI
+        run: |
+          cargo build --release --locked -p opendefocus-cli
+          cargo build --release --locked -p opendefocus-cli --manifest-path base/Cargo.toml
+      - name: Render the scenes
+        run: >
+          cargo xtask preview
+          --head target/release/opendefocus-cli
+          --base base/target/release/opendefocus-cli
+          --out preview
+          --image-base-url "https://raw.githubusercontent.com/${{ github.repository }}/ci-previews/pr-${{ github.event.pull_request.number }}/${{ github.event.pull_request.head.sha }}"
+      - name: Show the comment in the job summary
+        run: cat preview/comment.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preview
+          path: |
+            preview/comment.md
+            preview/head/*.png
+            preview/base/*.png
+            preview/diff/*.png
+
+  publish:
+    needs: render
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    concurrency:
+      group: ci-previews
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR: ${{ github.event.pull_request.number }}
+      SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: preview
+          path: preview
+      - name: Publish the images to the ci-previews branch
+        run: |
+          git init -q previews
+          cd previews
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch -q --depth 1 origin ci-previews || true
+          git checkout -q FETCH_HEAD 2>/dev/null || true
+          rm -rf "pr-${PR}"
+          mkdir -p "pr-${PR}/${SHA}"
+          cp -R ../preview/head ../preview/base ../preview/diff "pr-${PR}/${SHA}/"
+          git checkout -q --orphan snapshot
+          git add -A
+          git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
+            commit -q -m "Render previews"
+          git push -q --force origin snapshot:ci-previews
+      - name: Update the pull request comment
+        run: gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body-file preview/comment.md --edit-last --create-if-none
+
+  cleanup:
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: ci-previews
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Remove the images of the closed pull request
+        run: |
+          git init -q previews
+          cd previews
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch -q --depth 1 origin ci-previews || exit 0
+          git checkout -q FETCH_HEAD
+          rm -rf "pr-${PR}"
+          git checkout -q --orphan snapshot
+          git add -A
+          git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
+            commit -q --allow-empty -m "Render previews"
+          git push -q --force origin snapshot:ci-previews

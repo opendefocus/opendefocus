@@ -9,6 +9,7 @@ mod natron;
 mod package;
 mod parity;
 mod precommit;
+mod preview;
 mod release;
 mod test;
 mod util;
@@ -129,6 +130,8 @@ enum Command {
     Fixtures(fixtures::Fixtures),
     /// Render the parity scenes with the CLI and compare the OFX plugin against them on this machine
     Parity,
+    /// Render the parity scenes with a head and a base CLI build and write the pull request comment
+    Preview(preview::Args),
     /// Build the standalone evaluation viewer in release mode and launch it
     Ui {
         /// Arguments passed to the viewer
@@ -169,6 +172,7 @@ async fn main() -> Result<()> {
         Some(Command::Bench(bench)) => return bench::run(bench),
         Some(Command::Fixtures(fixtures)) => return fixtures::run(fixtures),
         Some(Command::Parity) => return parity::run_parity(),
+        Some(Command::Preview(preview)) => return preview::run(&preview),
         Some(Command::Ui { arguments }) => return run_ui(&arguments),
         None => {}
     }
