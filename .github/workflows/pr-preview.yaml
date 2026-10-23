@@ -69,6 +69,7 @@ jobs:
             preview/head/*.png
             preview/base/*.png
             preview/diff/*.png
+            preview/sweep/*.png
 
   publish:
     needs: render
@@ -97,7 +98,7 @@ jobs:
           git checkout -q FETCH_HEAD 2>/dev/null || true
           rm -rf "pr-${PR}"
           mkdir -p "pr-${PR}/${SHA}"
-          cp -R ../preview/head ../preview/base ../preview/diff "pr-${PR}/${SHA}/"
+          cp -R ../preview/head ../preview/base ../preview/diff ../preview/sweep "pr-${PR}/${SHA}/"
           git checkout -q --orphan snapshot
           git add -A
           git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com \

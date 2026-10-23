@@ -5815,6 +5815,7 @@ dependencies = [
  "indicatif",
  "log",
  "naga",
+ "png",
  "reqwest",
  "serde",
  "serde_json",

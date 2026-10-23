@@ -9,7 +9,7 @@ for the tools required by each task, and run `cargo xtask --help` for all option
 - standalone renderer CLI: `cargo xtask --compile --cli`
 - shader validation: `cargo xtask --compile --gpu`
 - testing: `cargo xtask --test-crates`
-- render comparison: `cargo xtask preview --head <cli> --base <cli> --out <folder> --image-base-url <url>` renders the parity scenes with two CLI builds and writes the images and the pull request comment
+- render comparison: `cargo xtask preview --head <cli> --base <cli> --out <folder> --image-base-url <url>` renders the parity scenes and a focal-plane sweep of the 3D scene with two CLI builds and writes the images, the looping animations and the pull request comment
 - precommit checks `cargo xtask --precommit`
 - [docs publishing](https://github.com/opendefocus/opendefocus/blob/main/.github/workflows/release_docs.yaml)
 - docs previewing: `cargo xtask --serve-docs`

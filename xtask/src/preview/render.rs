@@ -55,11 +55,21 @@ fn warm_median(report: &Value) -> Result<f64> {
     median(times).context("Report has no timed frames")
 }
 
-/// Renders `workload` with the CLI at `cli` into `folder`.
+/// Files written by one CLI run.
+struct Outputs {
+    /// Float result.
+    exr: PathBuf,
+    /// Tone-mapped PNG preview of the result.
+    png: PathBuf,
+    /// Parsed timing and settings report.
+    report: Value,
+}
+
+/// Runs the CLI at `cli` on `workload`, rendering `frames` frames into `folder`.
 ///
 /// # Errors
 /// Fails when the CLI exits with an error, or its report cannot be read.
-pub fn render(cli: &Path, workload: &Workload, folder: &Path, frames: usize) -> Result<Render> {
+fn invoke(cli: &Path, workload: &Workload, folder: &Path, frames: usize) -> Result<Outputs> {
     fs::create_dir_all(folder)?;
     let stem = &workload.name;
     let exr = folder.join(format!("{stem}.exr"));
@@ -83,11 +93,33 @@ pub fn render(cli: &Path, workload: &Workload, folder: &Path, frames: usize) -> 
         exr.is_file() && png.is_file(),
         "The CLI wrote no image for {stem}"
     );
+    Ok(Outputs { exr, png, report })
+}
+
+/// Renders `workload` with the CLI at `cli` into `folder` and times the warm frames.
+///
+/// # Errors
+/// Fails when the CLI exits with an error, or its report cannot be read.
+pub fn render(cli: &Path, workload: &Workload, folder: &Path, frames: usize) -> Result<Render> {
+    let outputs = invoke(cli, workload, folder, frames)?;
     Ok(Render {
-        exr,
-        median_ms: warm_median(&report)?,
-        device: report["device"].as_str().unwrap_or("unknown").to_owned(),
+        exr: outputs.exr,
+        median_ms: warm_median(&outputs.report)?,
+        device: outputs.report["device"]
+            .as_str()
+            .unwrap_or("unknown")
+            .to_owned(),
     })
+}
+
+/// Renders one untimed frame of `workload` and returns the paths of its float result and its
+/// tone-mapped PNG preview.
+///
+/// # Errors
+/// Fails when the CLI exits with an error, or its report cannot be read.
+pub fn render_once(cli: &Path, workload: &Workload, folder: &Path) -> Result<(PathBuf, PathBuf)> {
+    let outputs = invoke(cli, workload, folder, 1)?;
+    Ok((outputs.exr, outputs.png))
 }
 
 /// Tests for the timing statistics.

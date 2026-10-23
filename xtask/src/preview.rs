@@ -3,6 +3,7 @@
 mod compare;
 mod markdown;
 mod render;
+mod sweep;
 mod workload;
 
 use crate::util::crate_root;
@@ -74,9 +75,10 @@ pub fn run(args: &Args) -> Result<()> {
             difference,
         });
     }
+    let sweep = sweep::run(&root, &args.head, args.base.as_deref(), &args.out)?;
     fs::write(
         args.out.join("comment.md"),
-        markdown::comment(&rows, &args.image_base_url),
+        markdown::comment(&rows, Some(&sweep), &args.image_base_url),
     )?;
     println!("Preview written to {}", args.out.display());
     Ok(())

@@ -1,5 +1,5 @@
 //! Formats the pull request comment from the rendered workloads.
-use super::{compare::Difference, render::Render};
+use super::{compare::Difference, render::Render, sweep};
 /// Width in pixels of each image in the comment table.
 const IMAGE_WIDTH: u32 = 220;
 /// Relative slowdown, in percent, from which a row is flagged.
@@ -66,9 +66,40 @@ fn table_row(row: &Row, url: &str) -> String {
     )
 }
 
+/// Width in pixels of each animation in the comment.
+const ANIMATION_WIDTH: u32 = 360;
+
+/// Formats the focal sweep section: the animations of the available builds side by side and
+/// the largest difference between base and head.
+fn sweep_section(sweep: &sweep::Sweep, url: &str) -> String {
+    let animation = |path: &str| format!("<img src=\"{url}/{path}\" width=\"{ANIMATION_WIDTH}\">");
+    let intro = format!(
+        "\n### Focal sweep\n\nThe 3D scene at {} focal planes from near to far and back, Fast \
+         quality, lossless frames. Watch for flicker, popping and banding while the focus moves.\n\n",
+        sweep.focal_steps
+    );
+    let body = match sweep.max_difference {
+        Some(max) => {
+            let verdict = if max == 0.0 {
+                "identical".to_owned()
+            } else {
+                format!("max {max:.2e}")
+            };
+            format!(
+                "Base against head: {verdict}.\n\n| Base | Head | Difference ×16 |\n| --- | --- | --- |\n| {} | {} | {} |\n",
+                animation(sweep::BASE_ANIMATION),
+                animation(sweep::HEAD_ANIMATION),
+                animation(sweep::DIFFERENCE_ANIMATION),
+            )
+        }
+        None => format!("{}\n", animation(sweep::HEAD_ANIMATION)),
+    };
+    intro + &body
+}
+
 /// Builds the Markdown comment. Image paths are `head/<name>.png`, `base/<name>.png` and
-/// `diff/<name>.png` below `url`.
-pub fn comment(rows: &[Row], url: &str) -> String {
+/// `diff/<name>.png` below `url`; the focal sweep animations are added when `sweep` is given.
+pub fn comment(rows: &[Row], sweep: Option<&sweep::Sweep>, url: &str) -> String {
     let url = url.trim_end_matches('/');
     let device = rows
         .first()
@@ -82,6 +113,9 @@ pub fn comment(rows: &[Row], url: &str) -> String {
     );
     for row in rows {
         text.push_str(&table_row(row, url));
+    }
+    if let Some(sweep) = sweep {
+        text.push_str(&sweep_section(sweep, url));
     }
     text
 }
@@ -113,7 +147,7 @@ mod tests {
                 rms: 0.0,
             }),
         }];
-        let text = comment(&rows, "https://example.test/pr-1/");
+        let text = comment(&rows, None, "https://example.test/pr-1/");
         assert!(text.contains("100.0 → 110.0 ms (+10.0%) ⚠️"));
         assert!(text.contains("identical"));
         assert!(text.contains("https://example.test/pr-1/head/scene_full.png"));
@@ -129,7 +163,7 @@ mod tests {
             base: None,
             difference: None,
         }];
-        let text = comment(&rows, "u");
+        let text = comment(&rows, None, "u");
         assert!(text.contains("12.3 ms"));
         assert!(!text.contains("⚠️ |"));
     }
