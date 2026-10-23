@@ -1,7 +1,7 @@
 name: Documentation
 
 # Builds the documentation book and the web viewer and publishes them to the root of the
-# ci-previews branch, which GitHub Pages serves. The pr-* folders of the pull request previews
+# gh-pages branch, which GitHub Pages serves. The pr-* folders of the pull request previews
 # on the same branch are kept.
 
 on:
@@ -53,7 +53,7 @@ jobs:
     permissions:
       contents: write
     concurrency:
-      group: ci-previews
+      group: gh-pages
       cancel-in-progress: false
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -62,12 +62,12 @@ jobs:
         with:
           name: docs
           path: book
-      - name: Publish the documentation to the ci-previews branch
+      - name: Publish the documentation to the gh-pages branch
         run: |
           git init -q site
           cd site
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git fetch -q --depth 1 origin ci-previews || true
+          git fetch -q --depth 1 origin gh-pages || true
           git checkout -q FETCH_HEAD 2>/dev/null || true
           find . -mindepth 1 -maxdepth 1 ! -name .git ! -name 'pr-*' -exec rm -rf {} +
           cp -R ../book/. .
@@ -76,4 +76,4 @@ jobs:
           git add -A
           git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
             commit -q -m "Publish the documentation"
-          git push -q --force origin snapshot:ci-previews
+          git push -q --force origin snapshot:gh-pages
