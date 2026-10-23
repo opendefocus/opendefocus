@@ -131,7 +131,7 @@ pub(super) fn with<R>(f: impl FnOnce(&mut State) -> R) -> R {
 
 pub(super) fn plugin() -> &'static OfxPlugin {
     // SAFETY: `OfxGetPlugin(0)` returns the static descriptor, which lives for the program.
-    unsafe { &*OfxGetPlugin(0) }
+    unsafe { OfxGetPlugin(0).as_ref() }.expect("OfxGetPlugin(0) returns the static descriptor")
 }
 
 /// Builds a property key from a handle and a NUL-terminated name.
