@@ -594,7 +594,7 @@ dependencies = [
 
 [[package]]
 name = "bokeh-creator"
-version = "0.1.17"
+version = "0.2.0"
 dependencies = [
  "documented",
  "glam",
@@ -737,7 +737,7 @@ dependencies = [
 
 [[package]]
 name = "circle-of-confusion"
-version = "0.2.7"
+version = "0.3.0"
 dependencies = [
  "approx",
  "documented",
@@ -2160,7 +2160,7 @@ dependencies = [
 
 [[package]]
 name = "image-ndarray"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "image",
  "ndarray",

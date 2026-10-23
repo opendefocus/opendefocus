@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7](https://github.com/opendefocus/opendefocus/compare/image-ndarray-v0.1.6...image-ndarray-v0.1.7) - 2026-10-23
+
+### Added
+
+- *(image-ndarray)* add the image-ndarray crate
+
 ### Fixed
 
 - Preserve allocation capacity and pixel order when converting owned sliced or non-standard-layout arrays into images.

@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/opendefocus/opendefocus/compare/v0.1.10...v0.2.0) - 2026-10-23
+
+### Added
+
+- add Nuke version to 12 and higher
+
+### Fixed
+
+- build opendefocus without the wgpu feature
+- *(shader)* avoid pointers to struct members so the SPIR-V writer accepts Accurate
+- sample points are now determined circular to prevent unnecessary calculations and fix the simple shape to be circular
+- Change donate url
+
+### Other
+
+- rewrite the user guide for the OpenFX plugin
+- [**breaking**] replace the Nuke plugin crates with the WGPU renderer
+- update readme
+- update packages to 0.1.10
+- release v0.1.9
+- Merge pull request '#24: Fix simple shape to be circular when using depth' ([#57](https://github.com/opendefocus/opendefocus/pull/57)) from 24-fix-simple-shape-to-be-circular-when-using-depth into main
+- array resizing to always render in 4 channels internally
+- release v0.1.8
+- add optional protoc build to compile protobuf only on linux builds
+- release v0.1.7
+- add donate button in plugin and in readme
+- add issues badge and change order
+- release v0.1.6
+- Set release version from 13+
+- release v0.1.5
+- Add downloads table and changelog page to documentation, add examples and switch interface to expect a ArrayViewMut instead of a reference
+- Add metadata and switch input arrayviewmut object to be the object itself instead of a mut ref of arrayviewmut
+- Update to 0.1.4
+- Remove dev dependency in opendefocus crate and set futures to minor version
+- release v0.1.3
+- Revert link buttons
+- Update changelog link
+- Update to 0.1.2
+- Remove build dependencies opendefocus crate
+- Update crates/opendefocus/CHANGELOG.md
+- release v0.1.1
+- Set glam to 0.30
+- Move shaders and remove doc include
+- Set hard version in cargo.toml for crate deps
+- Update changelog link
+- Remove deny.toml
+- Merge pull request 'Set crate package parameters' ([#18](https://github.com/opendefocus/opendefocus/pull/18)) from develop into main
+- Set crate package parameters
+- Merge pull request 'Set kernel, shared, datastructure as publishable crates' ([#16](https://github.com/opendefocus/opendefocus/pull/16)) from develop into main
+- Set kernel, shared, datastructure as publishable crates
+- Update crates/opendefocus/CHANGELOG.md
+- release v0.1.0
+- Fix argument in cargo xtask in readme
+- Fix username and headers
+- Update badge
+- Add christmas header and add readme
+- Fix release docs and switch to codeberg releases
+- Simplify compilation
+- Add install of uv for test and add pytest as dev dependency
+- Add shader wgsl source in subfolder for crate publication
+- Initial commit
+
 ### Changed
 
 - Quality has two modes: `Fast` (renders at half resolution with sampled gathers and exact discs for bright highlights with a plain aperture, about 3x faster than the old Low and 15x or more faster than Accurate on 1080p frames, within roughly 50 dB PSNR of Accurate on the test scenes) and `Accurate` (exact, default). `Low`, `Medium`, `High`, `Custom` and the Samples parameter are removed.

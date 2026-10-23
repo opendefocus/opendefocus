@@ -34,8 +34,8 @@ wgpu = { version = "30.0.1", default-features = false, features = [
     "wgsl",
     "vulkan-portability",
 ], optional = true }
-circle-of-confusion = { path = "../circle-of-confusion", version = "0.2.7" }
-bokeh-creator = { path = "../bokeh-creator", version = "0.1.17", default-features = false, features = [
+circle-of-confusion = { path = "../circle-of-confusion", version = "0.3.0" }
+bokeh-creator = { path = "../bokeh-creator", version = "0.2.0", default-features = false, features = [
     "renderer",
 ] }
 
@@ -54,7 +54,7 @@ rstest = { version = "0.28.0", default-features = false }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "exr", "hdr", "tiff"] }
 tokio  = {version = "1.53.2", features = ["macros", "rt-multi-thread"]}
 tokio-test = "0.4.6"
-image-ndarray = { path = "../image-ndarray", version = "0.1.6" }
+image-ndarray = { path = "../image-ndarray", version = "0.1.7" }
 anyhow = "1.0.104"
 
 [lints]

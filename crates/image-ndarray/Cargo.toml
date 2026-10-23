@@ -1,6 +1,6 @@
 [package]
 name = "image-ndarray"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2024"
 license = "EUPL-1.2"
 authors = ["olivebowl <olivebowl@noreply.codeberg.org>"]
