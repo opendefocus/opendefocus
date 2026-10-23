@@ -158,6 +158,22 @@ fn add_component(value: ptr<function, vec4<f32>>, channel: u32, x: f32) {
     else { (*value).w += x; }
 }
 
+// Returns `value` with one channel replaced. Used instead of `set_component` on a struct
+// member: naga 30.0.1's SPIR-V writer panics on pointers to struct members passed as call
+// arguments.
+fn with_component(value: vec4<f32>, channel: u32, x: f32) -> vec4<f32> {
+    var updated = value;
+    set_component(&updated, channel, x);
+    return updated;
+}
+
+// Returns `value` with `x` added to one channel; see `with_component` for why this exists.
+fn with_added_component(value: vec4<f32>, channel: u32, x: f32) -> vec4<f32> {
+    var updated = value;
+    add_component(&updated, channel, x);
+    return updated;
+}
+
 fn channel_mask_vec(mask: u32) -> vec4<f32> {
     return vec4<f32>(
         select(0.0, 1.0, (mask & 1u) != 0u),
@@ -700,7 +716,7 @@ fn aperture_node_class(
                 let weight_scale = node_weight_scale(coc_min, coc_max, 1.0);
                 if weight_scale > 0.0 && opacity == 1u {
                     result.accept_mask |= bit;
-                    set_component(&result.coefficient, channel, minimum * search_radius * search_radius * weight_scale);
+                    result.coefficient = with_component(result.coefficient, channel, minimum * search_radius * search_radius * weight_scale);
                 }
             }
         }
@@ -743,7 +759,7 @@ fn aperture_node_class(
                 let weight_scale = node_weight_scale(coc_min, coc_max, scale);
                 if weight_scale > 0.0 && opacity == 1u {
                     result.accept_mask |= bit;
-                    set_component(&result.coefficient, channel, search_radius * search_radius * weight_scale);
+                    result.coefficient = with_component(result.coefficient, channel, search_radius * search_radius * weight_scale);
                 }
             }
             continue;
@@ -782,7 +798,7 @@ fn aperture_node_class(
                 let weight_scale = node_weight_scale(coc_min, coc_max, scale);
                 if weight_scale > 0.0 && opacity == 1u {
                     result.accept_mask |= bit;
-                    set_component(&result.coefficient, channel, minimum * search_radius * search_radius * weight_scale);
+                    result.coefficient = with_component(result.coefficient, channel, minimum * search_radius * search_radius * weight_scale);
                 }
             }
         }
@@ -1116,8 +1132,8 @@ fn integrate_potential(destination: vec2<u32>, radii: vec4<f32>, sign_value: f32
                             let bit = 1u << channel;
                             if (active_mask & bit) != 0u {
                                 let weight = component(aperture_weight(destination, vec2<f32>(position) - vec2<f32>(destination), sign_value * component(radii, channel), 1.0), channel);
-                                add_component(&result.premul, channel, occupancy * weight);
-                                add_component(&result.valid, channel, weight);
+                                result.premul = with_added_component(result.premul, channel, occupancy * weight);
+                                result.valid = with_added_component(result.valid, channel, weight);
                             }
                         }
                     }
@@ -1146,9 +1162,9 @@ fn integrate_potential(destination: vec2<u32>, radii: vec4<f32>, sign_value: f32
                                 let radius = component(radii, channel);
                                 let coefficient = component(classification.coefficient, channel) / max(radius * radius, 0.25);
                                 let area = f32((node.bounds.z - node.bounds.x) * (node.bounds.w - node.bounds.y));
-                                add_component(&result.premul, channel, node.occupied_area * coefficient);
-                                add_component(&result.valid, channel, area * coefficient);
-                                set_component(&result.presence, channel, component(radii, channel));
+                                result.premul = with_added_component(result.premul, channel, node.occupied_area * coefficient);
+                                result.valid = with_added_component(result.valid, channel, area * coefficient);
+                                result.presence = with_component(result.presence, channel, component(radii, channel));
                                 descend &= ~bit;
                             }
                         }
@@ -1678,9 +1694,9 @@ fn stream_integrate_potential(destination: vec2<u32>, radii: vec4<f32>, sign_val
                 let radius = component(radii, channel);
                 if radius > 0.5 {
                     let weight = component(aperture_weight(destination, distance, sign_value * radius, 1.0), channel);
-                    add_component(&result.premul, channel, occupied * weight);
-                    add_component(&result.valid, channel, weight);
-                    if weight > 0.0 { set_component(&result.presence, channel, radius); }
+                    result.premul = with_added_component(result.premul, channel, occupied * weight);
+                    result.valid = with_added_component(result.valid, channel, weight);
+                    if weight > 0.0 { result.presence = with_component(result.presence, channel, radius); }
                 }
             }
         }
@@ -1716,9 +1732,9 @@ fn stream_integrate_potential(destination: vec2<u32>, radii: vec4<f32>, sign_val
                             let bit = 1u << channel;
                             if (active_mask & bit) != 0u {
                                 let weight = component(aperture_weight(destination, vec2<f32>(position) - vec2<f32>(destination), sign_value * component(radii, channel), 1.0), channel);
-                                add_component(&result.premul, channel, pixel.valid * weight);
-                                add_component(&result.valid, channel, weight);
-                                if weight > 0.0 { set_component(&result.presence, channel, component(radii, channel)); }
+                                result.premul = with_added_component(result.premul, channel, pixel.valid * weight);
+                                result.valid = with_added_component(result.valid, channel, weight);
+                                if weight > 0.0 { result.presence = with_component(result.presence, channel, component(radii, channel)); }
                             }
                         }
                     }
@@ -1746,9 +1762,9 @@ fn stream_integrate_potential(destination: vec2<u32>, radii: vec4<f32>, sign_val
                             else if (classification.accept_mask & bit) != 0u {
                                 let coefficient = component(classification.coefficient, channel) / max(radius * radius, 0.25);
                                 let area = f32((node.bounds.z - node.bounds.x) * (node.bounds.w - node.bounds.y));
-                                add_component(&result.premul, channel, node.occupied_area * coefficient);
-                                add_component(&result.valid, channel, area * coefficient);
-                                set_component(&result.presence, channel, radius);
+                                result.premul = with_added_component(result.premul, channel, node.occupied_area * coefficient);
+                                result.valid = with_added_component(result.valid, channel, area * coefficient);
+                                result.presence = with_component(result.presence, channel, radius);
                                 descend &= ~bit;
                             }
                         }
