@@ -12,15 +12,20 @@ accepted = [
     "NCSA",
     "bzip2-1.0.6",
     "OpenSSL",
+    "BSL-1.0",
+    "CDLA-Permissive-2.0",
+    # The viewer embeds bundled fonts; their license text is included in credits.
+    "OFL-1.1",
+    "Ubuntu-font-1.0",
 ]
 ignore-build-dependencies = false
 ignore-dev-dependencies = false
 ignore-transitive-dependencies = false
-filter-noassertion = true
 targets = [
     "x86_64-unknown-linux-gnu",
     "x86_64-unknown-linux-musl",
     "x86_64-pc-windows-msvc",
     "x86_64-apple-darwin",
-    "spirv-unknown-vulkan1.4",
+    "aarch64-apple-darwin",
+    "wasm32-unknown-unknown",
 ]

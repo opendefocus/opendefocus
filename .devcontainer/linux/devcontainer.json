@@ -31,5 +31,5 @@
       ]
     }
   },
-  "postCreateCommand": "./scripts/devcontainer/linux/init.sh"
+  "postCreateCommand": "./.devcontainer/scripts/linux/init.sh"
 }

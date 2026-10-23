@@ -1,0 +1,7 @@
+doc-valid-idents = ["OpenFX", "NumPy", "OpenEXR", "CoC", "DoF", "HDR", "GPU", "CPU", "EXR", "RGBA", "OpenDefocus", "DaVinci", "ImageBuffer", "GitHub", "PyTorch", "..", "WebGPU", "WebAssembly"]
+too-many-lines-threshold = 150
+cognitive-complexity-threshold = 25
+excessive-nesting-threshold = 6
+too-many-arguments-threshold = 10
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
