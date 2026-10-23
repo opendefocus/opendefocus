@@ -6,6 +6,7 @@ members = [
     "crates/opendefocus",
     "crates/opendefocus-ui",
     "crates/opendefocus-cli",
+    "crates/opendefocus-ofx",
     "examples/simple",
 ]
 resolver = "2"
