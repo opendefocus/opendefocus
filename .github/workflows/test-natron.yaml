@@ -32,7 +32,7 @@ jobs:
     env:
       NATRON_URL: https://github.com/NatronGitHub/Natron/releases/download/v2.5.0/Natron-2.5.0-Linux-x86_64-no-installer.tar.xz
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -69,7 +69,7 @@ jobs:
     env:
       NATRON_URL: https://github.com/NatronGitHub/Natron/releases/download/v2.6.0-alpha1/Natron-RB-2.6-202305220414-dc73d01-macOS12-arm64.dmg
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:

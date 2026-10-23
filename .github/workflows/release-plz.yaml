@@ -34,7 +34,7 @@ jobs:
       group: release-pr
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -61,7 +61,7 @@ jobs:
       circle-of-confusion-ref: ${{ steps.circle-of-confusion-ref.outputs.ref }}
       opendefocus-tag: ${{ steps.opendefocus-tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
