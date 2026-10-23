@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -22,19 +22,42 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: lint
+          cache-on-failure: true
       - uses: astral-sh/setup-uv@v7
+      - run: cargo fmt --all -- --check
+      - run: uvx --from ruff==0.14.4 ruff check test/natron
+      - run: uvx --from ruff==0.14.4 ruff format --check test/natron
+      - run: cargo xtask --precommit
+      - run: cargo xtask --compile --gpu
+      - run: cargo xtask --clippy
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: test
+          cache-on-failure: true
       - name: Install a software Vulkan driver
         run: |
           sudo apt-get update
           sudo apt-get install -y mesa-vulkan-drivers libvulkan1
-      - run: cargo fmt --all -- --check
-      - run: uvx --from ruff==0.14.4 ruff check test/natron
-      - run: uvx --from ruff==0.14.4 ruff format --check test/natron
-      - run: cargo xtask --clippy
-      - run: cargo xtask --precommit
-      - run: cargo xtask --compile --gpu
       - run: cargo xtask --test-crates
       - run: cargo test --release --locked -p opendefocus-cli --no-default-features
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: docs
+          cache-on-failure: true
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-about@0.9.2,mdbook@0.5.4,mdbook-toc@0.15.4
