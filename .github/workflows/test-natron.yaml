@@ -50,6 +50,7 @@ jobs:
           test -x "$renderer"
           echo "NATRON_RENDERER=$renderer" >> "$GITHUB_ENV"
           ldd "$(dirname "$renderer")/bin/NatronRenderer" | grep "not found" || true
+          ls -la "$(dirname "$renderer")"
       - name: Compare plugin and CLI renders
         run: xvfb-run -a cargo xtask --test-natron
       - name: Upload Natron log and renders

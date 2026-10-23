@@ -161,7 +161,8 @@ pub fn test_natron() -> Result<()> {
     )
     .stderr_to_stdout()
     .unchecked()
-    .run()?;
+    .run()
+    .with_context(|| format!("Running {}", idiff.display()))?;
     print!("{}", String::from_utf8_lossy(&compared.stdout));
     ensure!(
         compared.status.success(),
