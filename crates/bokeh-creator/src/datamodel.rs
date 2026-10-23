@@ -181,6 +181,10 @@ impl std::error::Error for UnknownEnumValue {}
 
 #[cfg(test)]
 mod tests {
+    extern crate alloc;
+
+    use alloc::string::ToString;
+
     use super::*;
 
     /// Asserts that two `f32` values are equal within `f32::EPSILON`.
