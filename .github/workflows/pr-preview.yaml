@@ -2,9 +2,9 @@ name: PR preview
 
 # Renders the parity scenes with the pull request build and with the base branch build,
 # publishes the images to the gh-pages branch and keeps one comment on the pull request
-# with the images, timings and pixel differences (cargo xtask preview). The runner has no
-# GPU, so renders use the software Vulkan adapter: timings are only meaningful as a change
-# between base and head. The WebAssembly viewer of the pull request is built too and published
+# with the images, timings and pixel differences (cargo xtask preview). The macOS runner gives
+# the renders its virtual Metal adapter, which is far faster than a software Vulkan adapter on
+# Linux; its timings are only meaningful as a change between base and head. The WebAssembly viewer of the pull request is built too and published
 # next to the images, so it can be tried in the browser from GitHub Pages (served from the
 # gh-pages branch). Pull requests from forks are skipped because they cannot publish.
 
@@ -36,7 +36,7 @@ concurrency:
 jobs:
   render:
     if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v6
       - uses: actions/checkout@v6
@@ -50,10 +50,6 @@ jobs:
             . -> target
             base -> target
           cache-on-failure: true
-      - name: Install a software Vulkan driver
-        run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends mesa-vulkan-drivers libvulkan1
       - name: Build the head and base CLI
         run: |
           cargo build --release --locked -p opendefocus-cli

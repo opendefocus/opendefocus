@@ -114,8 +114,8 @@ pub fn comment(
         format!("[Open the web viewer built from this pull request]({link})\n\n")
     });
     let mut text = format!(
-        "## Render preview\n\n{web}Rendered on `{device}`. On a hosted runner this is a software \
-         adapter on shared hardware: timings are noisy and say nothing about GPU speed, only about a change \
+        "## Render preview\n\n{web}Rendered on `{device}` on a hosted runner. The hardware is shared and \
+         virtual, so timings are noisy and say little about real GPU speed, only about a change \
          between base and head. A ⚠️ marks a slowdown of {SLOWDOWN_FLAG_PERCENT}% or more.\n\n\
          | Scene | Median frame | Pixels | Base | Head | Difference ×16 |\n\
          | --- | --- | --- | --- | --- | --- |\n"
