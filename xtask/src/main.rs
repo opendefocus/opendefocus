@@ -4,6 +4,7 @@ mod bench;
 mod compile;
 mod consts;
 mod fixtures;
+mod installer_test;
 mod license;
 mod natron;
 mod package;
@@ -18,6 +19,7 @@ use std::path::PathBuf;
 
 use crate::{
     compile::{compile_cli, compile_ui, compile_web, run_ui, validate_gpu_shaders},
+    installer_test::test_installer,
     license::fetch_licenses,
     natron::test_natron,
     package::package_ofx,
@@ -103,6 +105,11 @@ struct Args {
     #[clap(long, action=ArgAction::SetTrue)]
     test_natron: bool,
 
+    /// Build the OFX installer for this platform, install it into a scratch folder, load the
+    /// installed plugin library and uninstall it again.
+    #[clap(long, action=ArgAction::SetTrue)]
+    test_installer: bool,
+
     /// Run the pre-commit checks. The trailing arguments are passed to them.
     #[clap(long, action=ArgAction::SetTrue)]
     precommit: bool,
@@ -183,6 +190,10 @@ async fn main() -> Result<()> {
 
     if args.test_natron {
         test_natron()?;
+    }
+
+    if args.test_installer {
+        test_installer()?;
     }
 
     if args.clippy {

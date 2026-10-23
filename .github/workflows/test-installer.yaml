@@ -1,0 +1,65 @@
+name: Test installer
+
+# Builds the OFX installer on each platform, installs it into a scratch folder, checks the
+# installed bundle, loads the plugin library and uninstalls it (cargo xtask --test-installer).
+# The macOS package is expanded instead of installed.
+
+on:
+  pull_request:
+    paths:
+      - 'crates/opendefocus-ofx/**'
+      - 'crates/opendefocus/**'
+      - 'packaging/**'
+      - 'xtask/src/installer_test.rs'
+      - 'xtask/src/package.rs'
+      - 'xtask/src/release.rs'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/test-installer.yaml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/opendefocus-ofx/**'
+      - 'packaging/**'
+      - 'xtask/src/installer_test.rs'
+      - 'xtask/src/package.rs'
+      - '.github/workflows/test-installer.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: installer-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  installer:
+    name: ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-24.04  # x86_64
+          - ubuntu-24.04-arm  # aarch64
+          - macos-15  # arm64
+          - macos-15-intel  # x86_64
+          - windows-2025  # x86_64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Install Inno Setup
+        if: runner.os == 'Windows'
+        run: |
+          if ! command -v iscc > /dev/null && [ ! -f "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" ]; then
+            choco install innosetup --no-progress -y
+          fi
+      - run: cargo xtask --test-installer
