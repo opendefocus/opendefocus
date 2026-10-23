@@ -14,7 +14,7 @@ node.connectInput(0, read)
 node.connectInput(1, depth)
 for n, v in [
     ("defocusMode", 1),
-    ("directCoc", True),
+    ("math", 2),
     ("maxSize", 24.0),
     ("cameraMaxSize", 24.0),
     ("quality", 0),

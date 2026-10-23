@@ -149,9 +149,9 @@ pub fn test_natron() -> Result<()> {
     )
     .run()?;
 
-    let idiff = renderer.with_file_name(format!("idiff{}", std::env::consts::EXE_SUFFIX));
+    let idiff = locate_idiff(&renderer);
     let compared = cmd!(
-        idiff,
+        &idiff,
         "-fail",
         TOLERANCE,
         "-warn",
@@ -161,7 +161,8 @@ pub fn test_natron() -> Result<()> {
     )
     .stderr_to_stdout()
     .unchecked()
-    .run()?;
+    .run()
+    .with_context(|| format!("Running {}", Path::new(&idiff).display()))?;
     print!("{}", String::from_utf8_lossy(&compared.stdout));
     ensure!(
         compared.status.success(),
@@ -170,6 +171,20 @@ pub fn test_natron() -> Result<()> {
     );
     println!("PASS: OFX plugin and CLI renders agree within {TOLERANCE}");
     Ok(())
+}
+
+/// Returns the `idiff` that ships next to `renderer`, or plain `idiff` so the `PATH` lookup
+/// finds an `OpenImageIO` install when the Natron package does not include the tool. The
+/// result is an `OsString` because duct searches `PATH` for a bare name only when it is not a
+/// `Path`.
+fn locate_idiff(renderer: &Path) -> OsString {
+    let name = format!("idiff{}", std::env::consts::EXE_SUFFIX);
+    let bundled = renderer.with_file_name(&name);
+    if bundled.is_file() {
+        bundled.into_os_string()
+    } else {
+        OsString::from(name)
+    }
 }
 
 /// Removes the file at `path`; a file that does not exist is not an error.
@@ -206,6 +221,22 @@ mod tests {
         fs::write(&file, "")?;
         remove_file_if_present(&file)?;
         assert!(!file.exists());
+        Ok(())
+    }
+
+    /// Verifies `idiff` is taken from beside the renderer when present and from `PATH`
+    /// otherwise.
+    #[test]
+    fn test_idiff_lookup_prefers_the_bundled_tool() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let renderer = dir.path().join("NatronRenderer");
+        let name = format!("idiff{}", std::env::consts::EXE_SUFFIX);
+        assert_eq!(locate_idiff(&renderer), OsString::from(&name));
+        fs::write(dir.path().join(&name), "")?;
+        assert_eq!(
+            locate_idiff(&renderer),
+            dir.path().join(&name).into_os_string()
+        );
         Ok(())
     }
 
