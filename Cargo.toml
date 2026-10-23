@@ -1,14 +1,9 @@
 [workspace]
 members = [
-    "crates/opendefocus",
-    "crates/opendefocus-shared",
-    "crates/opendefocus-kernel",
-    "crates/opendefocus-datastructure",
-    "crates/opendefocus-nuke",
     "crates/image-ndarray",
     "crates/bokeh-creator",
     "crates/circle-of-confusion",
-    "xtask",
+    "crates/opendefocus",
     "examples/simple",
 ]
 resolver = "2"
@@ -56,12 +51,12 @@ similar_names = "allow"
 
 
 [workspace.package]
-version = "0.1.10"
+version = "0.2.0"
 authors = ["olivebowl <olivebowl@noreply.codeberg.org>"]
 edition = "2024"
 license = "EUPL-1.2"
-repository = "https://codeberg.org/opendefocus/opendefocus"
-homepage = "https://opendefocus.codeberg.page"
+repository = "https://github.com/opendefocus/opendefocus"
+homepage = "https://opendefocus.github.io/opendefocus"
 documentation = "https://docs.rs/opendefocus/"
 keywords = ["defocus", "convolution", "image-processing"]
 categories = ["multimedia", "graphics"]

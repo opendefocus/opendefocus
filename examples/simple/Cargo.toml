@@ -13,12 +13,11 @@ readme.workspace = true
 publish = false
 
 [dependencies]
-anyhow = "1.0"
-image = "0.25.9"
-image-ndarray = "0.1.5"
-ndarray = "0.16"
+anyhow = "1.0.104"
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+image-ndarray = { path = "../../crates/image-ndarray", version = "0.1.6" }
 opendefocus = {path = "../../crates/opendefocus"}
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.53.2", features = ["macros", "rt-multi-thread"] }
 
 [lints]
 workspace = true
