@@ -1,8 +1,10 @@
 name: Crate releases
 
-# Opens the release pull request and publishes the crates. Releases created with the default
-# GITHUB_TOKEN do not start other workflows, so the Python wheels, the OFX installers and the
-# documentation are started here by dispatch.
+# Opens the release pull request on every push to main. Publishing the crates is started by
+# hand (Run workflow) after the release pull request is merged, so nothing is published
+# without a decision. Releases created with the default GITHUB_TOKEN do not start other
+# workflows, so the Python wheels, the OFX installers and the documentation are started here
+# by dispatch.
 
 on:
   push:
@@ -47,7 +49,7 @@ jobs:
 
   release:
     needs: [circle-of-confusion-validation, image-ndarray-validation]
-    if: github.repository == 'opendefocus/opendefocus' && github.ref == 'refs/heads/main'
+    if: github.repository == 'opendefocus/opendefocus' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
