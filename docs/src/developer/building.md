@@ -1,38 +1,47 @@
 # Building
 
-Building is really easy, everything is handled with the included [xtask](./xtask.md).
+Build from the repository root with [xtask](./xtask.md). Normal builds require
+stable Rust 1.95+ and native linker/build tools. Cargo downloads the Rust
+dependencies.
 
-You need to have Rust installed:
-Both the stable version (1.92+) as well as the nightly version listed in [spirv-cli-build/rust-toolchain.toml](./crates/spirv-cli-build/rust-toolchain.toml)
-
-That's it basically.
-
-All compilation is handled through xtasks. Call `cargo xtask --help` for more information.
-
-### Nuke
-For Nuke building you need additional dependencies. As the linking process needs to have the DDImage library and headers installed, the xtask fetches these sources automatically.
-
-For extracting of the archives, `msiextract` needs to be installed for Windows installs.
-
-In theory C++11 is supported so it would work with Nuke 10 and higher, but that is not tested.
-
-When compiling Nuke and fetching sources, to speed up downloading it is recommended to either use a machine in the USA or use a VPN. Because its an AWS bucket in the US-East region which does not have geo-replication enabled.
-
-Example to compile Nuke 15:
-```bash
-cargo xtask \
-  --compile \
-  --nuke-versions 15.1,15.2 \
-  --target-platform linux \
-  --output-to-package
+```sh
+cargo xtask --compile --cli
+cargo xtask --compile --ui
+cargo xtask --compile --gpu
 ```
 
-This will create the package with Linux compiled binaries in the [package](./package/).
+The first two commands build the release CLI and native viewer. `cargo xtask --bundle-ofx`
+builds the OpenFX bundle `OpenDefocus.ofx.bundle`. The last validates
+the authored WGSL shaders with Naga. The renderer embeds WGSL directly; normal
+builds do not use nightly Rust or generated SPIR-V.
 
-Now you are able to copy this folder to some other location, or add it to your `NUKE_PATH` and it should show up.
+Rendering requires a WGPU adapter; initialization errors are returned.
 
-```bash
-export NUKE_PATH=$(pwd)/package
+## Browser viewer
 
-# launch your nuke etc...
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install --locked wasm-bindgen-cli --version 0.2.129
+cargo xtask --compile --web
+python3 -m http.server --directory target/web 8080
 ```
+
+Open `http://localhost:8080/` in a WebGPU-enabled browser. `target/web/` contains
+the HTML/JS/WASM hosting bundle and `opendefocus-evaluation.html` with the module
+embedded. HTTPS or localhost is required for the reliable browser preview.
+The documentation deployment workflow places the viewer under `/demo/`.
+
+## Checks
+
+```sh
+cargo fmt --all -- --check
+cargo xtask --test-crates
+```
+
+Rust tests run the complete workspace in release mode with the locked dependency
+versions.
+Ignored hardware tests must be run explicitly for renderer changes
+(`cargo test --release -p opendefocus --lib --locked -- --ignored --test-threads=1`).
+
+For local documentation, install `cargo-about`, `mdbook`, and `mdbook-toc`, then
+run `cargo xtask --serve-docs`. Use `cargo xtask --help` for the remaining tasks.
