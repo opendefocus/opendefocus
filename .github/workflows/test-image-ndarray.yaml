@@ -5,18 +5,12 @@ on:
     branches: [main]
     paths:
       - 'crates/image-ndarray/**'
-      - 'crates/bokeh-creator/**'
-      - 'crates/opendefocus*/**'
-      - 'examples/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/test-image-ndarray.yaml'
   pull_request:
     paths:
       - 'crates/image-ndarray/**'
-      - 'crates/bokeh-creator/**'
-      - 'crates/opendefocus*/**'
-      - 'examples/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/test-image-ndarray.yaml'
