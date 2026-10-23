@@ -174,7 +174,7 @@ pub fn test_natron() -> Result<()> {
 }
 
 /// Returns the `idiff` that ships next to `renderer`, or plain `idiff` so the `PATH` lookup
-/// finds an OpenImageIO install when the Natron package does not include the tool.
+/// finds an `OpenImageIO` install when the Natron package does not include the tool.
 fn locate_idiff(renderer: &Path) -> PathBuf {
     let name = format!("idiff{}", std::env::consts::EXE_SUFFIX);
     let bundled = renderer.with_file_name(&name);
