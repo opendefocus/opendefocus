@@ -1,11 +1,14 @@
 name: OFX installers
 
-# Builds the OpenFX installers on each host platform and attaches them, with SHA-256
+# Builds the OpenFX installers for Linux and attaches them, with SHA-256
 # checksums and build provenance, to a GitHub release.
 #
 # Note: releases created by release-plz with the default GITHUB_TOKEN do not start other
 # workflows, so release-plz starts this workflow by dispatch with the release tag. The
 # `release` trigger covers releases published by hand.
+#
+# macOS (macos-15, macos-15-intel) and Windows (windows-2025) are not built until those
+# platforms are tested in CI; add them back to the matrix then.
 #
 # Optional signing runs only when the matching secrets are set, so forks and unsigned
 # builds work without configuration. Secrets:
@@ -46,11 +49,8 @@ jobs:
       fail-fast: false
       matrix:
         runner:
-          - macos-15  # arm64
-          - macos-15-intel  # x86_64
           - ubuntu-24.04  # x86_64
           - ubuntu-24.04-arm  # aarch64
-          - windows-2025  # x86_64
     concurrency:
       group: ofx-installer-${{ github.event.release.tag_name || inputs.tag }}-${{ matrix.runner }}
       cancel-in-progress: false

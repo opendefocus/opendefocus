@@ -4,14 +4,13 @@ Download the installer for your system from the [latest release](https://github.
 
 | System | Download | Installs to |
 | --- | --- | --- |
-| macOS | `OpenDefocus-OFX-<version>-macos-<arch>.pkg` | `/Library/OFX/Plugins` |
-| Windows | `OpenDefocus-OFX-<version>-windows-x86_64-setup.exe` | `%CommonProgramFiles%\OFX\Plugins` |
 | Linux | `OpenDefocus-OFX-<version>-linux-<arch>.tar.gz` | `/usr/OFX/Plugins` |
 
-`<arch>` is `arm64` or `x86_64` on macOS, and `x86_64` or `aarch64` on Linux.
+`<arch>` is `x86_64` or `aarch64`.
 
-- **macOS and Windows:** run the installer. The installers may not be signed yet, so your system can warn before opening them. On macOS, right-click the `.pkg` and choose **Open**.
-- **Linux:** extract the archive and run `./install.sh` (use `--prefix DIR` for another location). The folder also contains `uninstall.sh`.
+Extract the archive and run `./install.sh` (use `--prefix DIR` for another location). The folder also contains `uninstall.sh`.
+
+Releases are published for Linux only. On macOS and Windows, build the plugin from source with the [building guide](./developer/building.md).
 
 Each download has a matching `.sha256` file to verify it.
 

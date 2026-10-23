@@ -197,9 +197,11 @@ and limits without claiming production readiness from partial coverage.
 - Baseline EXRs are GPU-specific. On other hardware compare plugin against CLI on
   the same machine.
 - Verified only on Apple M1 / Metal with Natron 2.6 and Resolve Free. Unverified:
-  Linux/Windows, installers and signing, CI workflows (`test-natron`, `release_ofx`
-  have never run), Resolve Studio, Nuke Studio/Indie, animated parameters, save/load,
+  Linux/Windows, installers and signing, CI workflows (`test-natron` and the release
+  workflows have never run), Resolve Studio, Nuke Studio/Indie, animated parameters, save/load,
   abort, 1x1 and odd sizes, non-zero RoD origins, pixel aspect, 8K, multi-plane layers.
+- Releases are Linux only (OFX installers x86_64 and aarch64, Python wheels). macOS and Windows
+  installers and wheels return once those platforms are tested in CI.
 - Source premultiplication is assumed, not requested from the host.
 - Astigmatism tiles request the full RoD and have only unit/mock coverage; clamping
   requests to host bounds changes the frame edge when the host gives less.
