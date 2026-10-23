@@ -9,7 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** the Nuke plugin is replaced by an OpenFX plugin (`opendefocus-ofx`). Rendering now goes through a native WGPU renderer (Vulkan/Metal) instead of the previous kernel crates; there is no CPU or legacy fallback.
 - Quality has two modes: `Fast` (renders at half resolution with sampled gathers and exact discs for bright highlights with a plain aperture, about 3x faster than the old Low and 15x or more faster than Accurate on 1080p frames, within roughly 50 dB PSNR of Accurate on the test scenes) and `Accurate` (exact, default). `Low`, `Medium`, `High`, `Custom` and the Samples parameter are removed.
+- The user guide is rewritten for the OpenFX plugin.
+
+### Added
+
+- OpenFX plugin with tiled rendering and an optional camera input.
+- `opendefocus-cli`, a command line renderer, and `opendefocus-ui`, a viewer.
+- Linux and Windows OFX installers.
+- `circle-of-confusion`, `bokeh-creator` and `image-ndarray` crates inside the workspace.
+- `cargo xtask` automation for building, testing, benchmarking and packaging, plus CI for tests, Natron host rendering, PR render previews and releases.
+- Contributing guide and architecture notes.
+
+### Removed
+
+- The `opendefocus-nuke`, `opendefocus-kernel`, `opendefocus-shared`, `opendefocus-datastructure` and `spirv-cli-build` crates.
+
+### Fixed
+
+- Building `opendefocus` without the `wgpu` feature.
+- Accurate shaders failing SPIR-V validation because of pointers to struct members.
 
 ## [0.1.10](https://codeberg.org/opendefocus/opendefocus/releases/tag/v0.1.10) - 2026-01-29
 
