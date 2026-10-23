@@ -6,9 +6,9 @@ language = "en"
 [output.html]
 preferred-dark-theme = "navy"
 no-section-label = false
-git-repository-url = "https://codeberg.org/opendefocus/opendefocus"
-git-repository-icon = "fab-git-alt"
-edit-url-template = "https://codeberg.org/opendefocus/opendefocus/_edit/main/crates/opendefocus/docs/{path}"
+git-repository-url = "https://github.com/opendefocus/opendefocus"
+git-repository-icon = "fab-github"
+edit-url-template = "https://github.com/opendefocus/opendefocus/edit/main/docs/src/{path}"
 
 [preprocessor.toc]
 command = "mdbook-toc"

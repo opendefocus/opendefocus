@@ -1,18 +1,14 @@
 # <i class="fa-solid fa-gears"></i> Options
 
-The defocus tab is responsible for having the defocus settings, applying focus, setting sizes, setting modes, etc.
+The Defocus tab is responsible for the defocus settings: how the defocus is applied, its size, and the focal plane.
 
-When you open the node, you will see the *main* a.k.a. *defocus* tab. See the image below:
+The most important parameters are:
 
-![defocus tab](../assets/interface.png)
+* **Defocus Mode**: `2D` (the defocus is set by Size only) or `Depth` (the defocus is computed from the Depth input).
+* **Math**: only in Depth mode, defines the type of depth map being used. Either `Real` or `1/Z` (default). ([<i class="fa-solid fa-subscript"></i> Depth math](../detailed/depth_math.md))
+* **Size**: the size of the defocus in pixels (default 5).
+* **Max Size**: in Depth mode, the maximum defocus value (default 10). ([<i class="fa-solid fa-bullseye"></i> Defocus size](../detailed/defocus_size.md))
+* **Focal Plane**: the depth value that stays in focus (default 0). ([<i class="fa-solid fa-arrows-to-eye"></i> Focal plane](../detailed/focal_plane_setup.md))
+* **Quality**: `Fast` or `Accurate` (default). ([<i class="fa-solid fa-star"></i> Quality](./quality.md))
 
-
-The most important options are:
-
-* mode: the mode to apply the defocus. Either *2D*, *depth* or *camera*
-* math: only when performing depth based defocus, define the type of depth map being used. ([<i class="fa-solid fa-subscript"></i> Depth math](../detailed/depth_math.md))
-* size: the size of the defocus in pixels.
-* focus plane (C): define the point of focus, comparable to focussing on a real lens.
-* maximum: when using depth, this will define the maximum defocus value ([<i class="fa-solid fa-bullseye"></i> Defocus size](../detailed/defocus_size.md)).
-
-These controls are made as similar as possible to existing tools, to make it easy to adapt it in your workflow.
+The Defocus tab also has **Protect** (the width of the in-focus band around the focal plane), **Size Multiplier** and **Gamma**.
