@@ -213,3 +213,8 @@ downloads.md
 .xwin-cache
 .ruff_cache
 result.png
+# Local before/after benchmark reports and rendered outputs
+/benchmark-results/
+# Personal agent preferences; shared instructions stay version-controlled.
+/CLAUDE.local.md
+/.claude/settings.local.json

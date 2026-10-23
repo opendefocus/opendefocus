@@ -1,0 +1,10 @@
+when:
+  event: [push, manual]
+  path:
+    include: ["*.rs", "*.toml"]
+steps:
+  test:
+    image: rust
+    commands:
+      - cargo test --no-default-features
+      - cargo test --features image

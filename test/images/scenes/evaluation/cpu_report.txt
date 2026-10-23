@@ -1,0 +1,24 @@
+Visual diagnostics, not correctness oracles
+Backend: Some("CPU - Native")
+Quality: High; gamma=1; max radius=24px; direct signed CoC
+Checkout HEAD: c54e2342d2d5551eb5a21e911450198020506cba (may include local changes)
+occlusion: RGB max=2.415433, alpha=[1.000000,1.000000]
+  RGB sum input=18977.177526, output=18747.000484 (diagnostic, no conservation assertion)
+  32px stripes: max absolute difference=0.000000000
+  64px stripes: max absolute difference=0.000000000
+focus_ramp: RGB max=0.996094, alpha=[1.000000,1.000000]
+  RGB sum input=34502.559594, output=34541.204254 (diagnostic, no conservation assertion)
+  32px stripes: max absolute difference=0.000000000
+  64px stripes: max absolute difference=0.000000000
+hdr_points: RGB max=18.758369, alpha=[1.000000,1.000000]
+  RGB sum input=5712.732049, output=4831.798473 (diagnostic, no conservation assertion)
+  32px stripes: max absolute difference=0.000000000
+  64px stripes: max absolute difference=0.000000000
+hdr_points_asymmetric: RGB max=18.267933, alpha=[0.978598,1.019197]
+  RGB sum input=5712.732049, output=4820.514297 (diagnostic, no conservation assertion)
+  32px stripes: max absolute difference=0.000000000
+  64px stripes: max absolute difference=0.000000000
+alpha_edges: RGB max=1.924537, alpha=[0.000000,0.962268]
+  RGB sum input=10484.474284, output=11887.046302 (diagnostic, no conservation assertion)
+  32px stripes: max absolute difference=0.000000000
+  64px stripes: max absolute difference=0.000000000

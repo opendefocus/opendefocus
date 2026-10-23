@@ -1,30 +1,66 @@
 [workspace]
 members = [
+    "crates/image-ndarray",
+    "crates/bokeh-creator",
+    "crates/circle-of-confusion",
     "crates/opendefocus",
-    "crates/opendefocus-shared",
-    "crates/opendefocus-kernel",
-    "crates/opendefocus-datastructure",
-    "crates/opendefocus-nuke",
+    "crates/opendefocus-ui",
+    "crates/opendefocus-cli",
+    "crates/opendefocus-ofx",
     "xtask",
     "examples/simple",
 ]
-exclude = ["crates/spirv-cli-build"]
 resolver = "2"
 
 
 [workspace.lints.rust]
-unexpected_cfgs = { level = "allow", check-cfg = [
-    'cfg(target_arch, values("spirv"))',
-] }
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+missing_docs_in_private_items = "warn"
+all = { level = "warn", priority = -1 }
+# Packed GPU/OFX signatures are clearer inline than behind aliases.
+type_complexity = "allow"
+# Raw OFX suite function pointers are cast from void pointers with inferred targets.
+missing_transmute_annotations = "allow"
+# Index loops over parallel colour channels read better than zipped iterators.
+needless_range_loop = "allow"
+large_enum_variant = "allow"
+
+pedantic = { level = "warn", priority = -1 }
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+undocumented_unsafe_blocks = "warn"
+allow_attributes_without_reason = "warn"
+# Pixel/texel/index maths casts between u32, i32, usize and f32 everywhere; every cast is
+# range-bounded by image dimensions and GPU limits, and try_from would only add noise.
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+cast_lossless = "allow"
+# Shader and calibration constants are copied from references; grouping digits would hide them.
+unreadable_literal = "allow"
+too_many_lines = "warn"
+cognitive_complexity = "warn"
+excessive_nesting = "warn"
+let_underscore_must_use = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+redundant_clone = "warn"
+needless_pass_by_ref_mut = "warn"
+clone_on_ref_ptr = "warn"
+similar_names = "allow"
 
 
 [workspace.package]
-version = "0.1.10"
+version = "0.2.0"
 authors = ["olivebowl <olivebowl@noreply.codeberg.org>"]
 edition = "2024"
 license = "EUPL-1.2"
-repository = "https://codeberg.org/opendefocus/opendefocus"
-homepage = "https://opendefocus.codeberg.page"
+repository = "https://github.com/opendefocus/opendefocus"
+homepage = "https://opendefocus.github.io/opendefocus"
 documentation = "https://docs.rs/opendefocus/"
 keywords = ["defocus", "convolution", "image-processing"]
 categories = ["multimedia", "graphics"]

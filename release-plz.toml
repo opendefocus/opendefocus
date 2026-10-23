@@ -11,5 +11,33 @@ git_release_enable = true
 git_tag_enable = true
 
 [[package]]
-name = "opendefocus-nuke"
-publish = false
+name = "bokeh-creator"
+changelog_path = "crates/bokeh-creator/CHANGELOG.md"
+git_tag_enable = true
+git_tag_name = "bokeh-creator-v{{ version }}"
+git_release_enable = true
+git_release_name = "bokeh-creator-v{{ version }}"
+git_release_latest = false
+semver_check = true
+
+[[package]]
+name = "circle-of-confusion"
+changelog_path = "crates/circle-of-confusion/CHANGELOG.md"
+git_tag_enable = true
+git_tag_name = "circle-of-confusion-v{{ version }}"
+git_release_enable = true
+git_release_name = "circle-of-confusion v{{ version }}"
+git_release_latest = false
+
+[[package]]
+name = "opendefocus-ofx"
+release = false
+
+[[package]]
+name = "image-ndarray"
+changelog_path = "crates/image-ndarray/CHANGELOG.md"
+git_tag_enable = true
+git_tag_name = "image-ndarray-v{{ version }}"
+git_release_enable = true
+git_release_name = "image-ndarray-v{{ version }}"
+git_release_latest = false

@@ -24,6 +24,4 @@ Best example is to look this image and notice how this would block light rays fr
 
 ## Controlling each side individually
 
-As you can see in the barndoors image, there could be four doors to control. This is top, bottom, left and right. With OpenDefocus you can control these individually in the controls of the barndoors.
-
-![Barndoors controls](../../assets/barndoors_controls.jpg)
+As you can see in the barndoors image, there could be four doors to control. This is top, bottom, left and right. With OpenDefocus each side has its own parameter: **Top**, **Bottom**, **Left** and **Right** (position, default 100). The **Amount**, **Gamma** and **Inverse** parameters apply to the whole effect, and are only enabled when **Enable** is on.

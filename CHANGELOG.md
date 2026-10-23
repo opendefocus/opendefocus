@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Quality has two modes: `Fast` (renders at half resolution with sampled gathers and exact discs for bright highlights with a plain aperture, about 3x faster than the old Low and 15x or more faster than Accurate on 1080p frames, within roughly 50 dB PSNR of Accurate on the test scenes) and `Accurate` (exact, default). `Low`, `Medium`, `High`, `Custom` and the Samples parameter are removed.
+
 ## [0.1.10](https://codeberg.org/opendefocus/opendefocus/releases/tag/v0.1.10) - 2026-01-29
 
 ### Fixed

@@ -1,6 +1,7 @@
-use crate::traits::{TraitBounds};
+//! Focal plane overlay for depth maps. It is used as a reference by the focal plane preview tests.
 use ndarray::{ArrayView2, ArrayViewMut3};
 
+/// Returns one overlay channel for a depth sample. With `output_real_values`, channel 0 is positive depth, channel 1 marks zero depth, channel 2 is the magnitude of negative depth, and other channels are 1.
 fn render_pixel(depth: f32, channel: usize, output_real_values: bool) -> f32 {
     if output_real_values {
         match channel {
@@ -55,25 +56,23 @@ fn render_pixel(depth: f32, channel: usize, output_real_values: bool) -> f32 {
     }
 }
 
-pub fn render_focal_plane_overlay<T: TraitBounds>(
-    mut image: ArrayViewMut3<T>,
+/// Writes the focal plane overlay for `depth` into `image`, one channel at a time as described by `render_pixel`.
+pub fn render_focal_plane_overlay(
+    mut image: ArrayViewMut3<f32>,
     depth: &ArrayView2<f32>,
     output_real_values: bool,
 ) {
     image
         .indexed_iter_mut()
         .for_each(|((y, x, channel), value)| {
-            let alpha = T::from_f32_normalized(render_pixel(depth[[y, x]], 3, output_real_values))
-                .unwrap_or_default();
-            *value =
-                ((T::from_f32_normalized(render_pixel(depth[[y, x]], channel, output_real_values))
-                    .unwrap_or_default())
-                    * alpha)
-                    + (*value * (T::from_f32_normalized(1.0).unwrap_or_default() - alpha))
+            let alpha = render_pixel(depth[[y, x]], 3, output_real_values);
+            *value = (render_pixel(depth[[y, x]], channel, output_real_values) * alpha)
+                + (*value * (1.0 - alpha));
         });
 }
 
 #[cfg(test)]
+/// Tests for the focal plane overlay.
 mod tests {
     use super::*;
     use assert_approx_eq::assert_approx_eq;
@@ -87,7 +86,7 @@ mod tests {
     #[case(false, -10.0, 0.0, 0.0, 1.0, 0.5)] // Test negative depth with output_real_values=false
     #[case(false, 0.0, 0.0, 1.0, 0.0, 0.5)] // Test zero depth with output_real_values=false
 
-    /// Test render_pixel method with different depth values and output_real_values settings
+    /// Test `render_pixel` method with different depth values and `output_real_values` settings
     fn test_render_pixel(
         #[case] output_real_values: bool,
         #[case] depth: f32,

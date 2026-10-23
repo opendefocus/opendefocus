@@ -21,6 +21,6 @@ Below is a video that shows the light ray entering the lens. But each light freq
 
 ---
 
-## What does the axial aberration amount knob do?
+## What does the Amount parameter do?
 It sets the angle light rays enters the lens:
 <video src="../../assets/axial_aberration_offset.webm" controls="controls" width="100%" loop></video>

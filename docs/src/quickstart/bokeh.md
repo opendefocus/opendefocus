@@ -5,32 +5,23 @@ OpenDefocus includes an easy to use and extended bokeh tab. Allowing you to crea
 
 You can find the settings under the tab `Bokeh`.
 
-![bokeh tab](../assets/bokeh.png)
-
-> [!TIP]
-> To see what you are actually doing it is the easiest to select the `preview filter` checkbox and see what the changes to to the kernel.
-
 ---
 
 ### Filter type
-The filter type defines the shape creation. You can select disc for a circle. Bladed is selected by default and sets the bokeh in a shape similar to the `f`-stop blades.
+The **Filter Type** parameter defines the shape creation. The plugin offers three choices:
 
-The other option is image, and will be automatically selected if you connect the filter input to an image. This image can be any size.
-
----
-
-#### Custom image input bounding box
-It is important that the filter input bounding box is cropped to the region of the bokeh, as this defines the sampling patttern for the defocus result, which improves quality massively.
+* **Simple** (default): the fast built-in filter. It ignores the other Bokeh settings, which are greyed out.
+* **Disc**: a round bokeh shape.
+* **Blade**: a polygon shape similar to the `f`-stop blades.
 
 ---
 
-#### Bladed
-When bladed is selected, the blades will be defined by the `blades` knob. The sharpness is defined by the `curvature` knob. Setting a value to 1 will make it entirely circular. Setting the value to 0 will make the corners sharp.
+#### Blade
+When Blade is selected, the number of blades is set by the **Blades** parameter (3 to 16 on the slider, default 5). Blades is greyed out for Disc and Simple. The sharpness is defined by the **Curvature** parameter (default 0.5). Setting a value to 1 will make it entirely circular. Setting the value to 0 will make the corners sharp.
 ![Sharp](../assets/sharp.jpg)
 ![Circular](../assets/circular.jpg)
 > Curvature comparison, curvature 0 and curvature 1
 
-
 ---
 
-
+Under Disc and Blade, the other Bokeh parameters (Radius, Ring Color, Inner Color, Ring Size, Outer Blur, Inner Blur, Angle, Aspect Ratio and the Noise parameters) shape the result.

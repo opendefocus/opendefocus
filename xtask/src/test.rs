@@ -1,25 +1,14 @@
+//! Runs the workspace test suite for `cargo xtask --test-crates`.
 use anyhow::Result;
 use duct::cmd;
 
 use crate::util::crate_root;
+/// Runs `cargo test --release --workspace --locked` from the repository root. Release mode
+/// is used because image-processing tests are too slow in debug builds. Fails when any
+/// test fails.
 pub async fn test_crates() -> Result<()> {
-    cmd!("cargo", "test", "--release").run()?; // we really need the 'release' tag else it will take a long time because of optimizations in ndarray
-    Ok(())
-}
-
-pub async fn test_nuke_plugin_package() -> Result<()> {
-    cmd!(
-        "uv",
-        "run",
-        "--isolated",
-        "--no-project",
-        "--with",
-        "pytest",
-        "pytest",
-        crate_root().join("test").join("test_package")
-    )
-    .env("PYTHONPATH", crate_root().join("package"))
-    .run()?;
-
+    cmd!("cargo", "test", "--release", "--workspace", "--locked")
+        .dir(crate_root())
+        .run()?;
     Ok(())
 }
