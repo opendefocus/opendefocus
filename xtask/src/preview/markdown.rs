@@ -2,8 +2,6 @@
 use super::{compare::Difference, render::Render, sweep};
 /// Width in pixels of each image in the comment table.
 const IMAGE_WIDTH: u32 = 220;
-/// Relative slowdown, in percent, from which a row is flagged.
-const SLOWDOWN_FLAG_PERCENT: f64 = 5.0;
 
 /// The results for one workload.
 pub struct Row {
@@ -29,12 +27,7 @@ fn timing(row: &Row) -> String {
         return format!("{head:.1} ms");
     };
     let change = (head / base - 1.0) * 100.0;
-    let flag = if change >= SLOWDOWN_FLAG_PERCENT {
-        " ⚠️"
-    } else {
-        ""
-    };
-    format!("{base:.1} → {head:.1} ms ({change:+.1}%){flag}")
+    format!("{base:.1} → {head:.1} ms ({change:+.1}%)")
 }
 
 /// Describes the pixel difference of a row.
@@ -115,8 +108,8 @@ pub fn comment(
     });
     let mut text = format!(
         "## Render preview\n\n{web}Rendered on `{device}` on a hosted runner. The hardware is shared and \
-         virtual, so timings are noisy and say little about real GPU speed, only about a change \
-         between base and head. A ⚠️ marks a slowdown of {SLOWDOWN_FLAG_PERCENT}% or more.\n\n\
+         virtual, so timings are noisy: changes of several tens of percent can appear for identical \
+         code, and the pixel columns are the reliable result.\n\n\
          | Scene | Median frame | Pixels | Base | Head | Difference ×16 |\n\
          | --- | --- | --- | --- | --- | --- |\n"
     );
@@ -144,9 +137,9 @@ mod tests {
         }
     }
 
-    /// Verifies the timing text, the slowdown flag and the identical pixel marker.
+    /// Verifies the timing text and the identical pixel marker.
     #[test]
-    fn test_comment_reports_change_and_flags_slowdowns() {
+    fn test_comment_reports_timing_change() {
         let rows = [Row {
             name: "scene_full".into(),
             head: render(110.0),
@@ -157,13 +150,14 @@ mod tests {
             }),
         }];
         let text = comment(&rows, None, "https://example.test/pr-1/", None);
-        assert!(text.contains("100.0 → 110.0 ms (+10.0%) ⚠️"));
+        assert!(text.contains("100.0 → 110.0 ms (+10.0%)"));
+        assert!(!text.contains("⚠️"));
         assert!(text.contains("identical"));
         assert!(text.contains("https://example.test/pr-1/head/scene_full.png"));
         assert!(!text.contains("pr-1//"));
     }
 
-    /// Verifies that a row without a base shows only the head time and no flag.
+    /// Verifies that a row without a base shows only the head time.
     #[test]
     fn test_comment_without_base_shows_head_only() {
         let rows = [Row {
@@ -174,7 +168,6 @@ mod tests {
         }];
         let text = comment(&rows, None, "u", Some("https://web.test/"));
         assert!(text.contains("12.3 ms"));
-        assert!(!text.contains("⚠️ |"));
         assert!(text.contains("(https://web.test/)"));
     }
 }
