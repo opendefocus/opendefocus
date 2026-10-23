@@ -1,0 +1,206 @@
+name: OFX installers
+
+# Builds the OpenFX installers on each host platform and attaches them, with SHA-256
+# checksums and build provenance, to a GitHub release.
+#
+# Note: releases created by release-plz with the default GITHUB_TOKEN do not start other
+# workflows, so release-plz starts this workflow by dispatch with the release tag. The
+# `release` trigger covers releases published by hand.
+#
+# Optional signing runs only when the matching secrets are set, so forks and unsigned
+# builds work without configuration. Secrets:
+#   macOS installer (productsign, notarytool, stapler):
+#     APPLE_INSTALLER_CERT_P12        base64 of the "Developer ID Installer" .p12
+#     APPLE_INSTALLER_CERT_PASSWORD   password of that .p12
+#     APPLE_INSTALLER_IDENTITY        identity name, e.g. "Developer ID Installer: Name (TEAMID)"
+#     APPLE_NOTARY_APPLE_ID           Apple ID used for notarization
+#     APPLE_NOTARY_TEAM_ID            Apple Developer team id
+#     APPLE_NOTARY_PASSWORD           app-specific password for notarization
+#   Windows installer (SignPath): see the commented block below. Requires
+#     SIGNPATH_API_TOKEN, plus the SignPath organization, project and policy values.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to attach the installers to, for example v0.2.0
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  installer:
+    if: github.repository == 'opendefocus/opendefocus'
+    name: ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - macos-15  # arm64
+          - macos-15-intel  # x86_64
+          - ubuntu-24.04  # x86_64
+          - ubuntu-24.04-arm  # aarch64
+          - windows-2025  # x86_64
+    concurrency:
+      group: ofx-installer-${{ github.event.release.tag_name || inputs.tag }}-${{ matrix.runner }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: bash
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check release tag matches the workspace version
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 --locked \
+            | jq -r '.packages[] | select(.name == "xtask") | .version')
+          if [ "$RELEASE_TAG" != "v$version" ]; then
+            echo "Release tag $RELEASE_TAG does not match workspace version v$version" >&2
+            exit 1
+          fi
+
+      - name: Build installer
+        run: cargo xtask --package-ofx
+
+      - name: Locate installer
+        id: installer
+        run: |
+          dir="$(cargo metadata --no-deps --format-version 1 | jq -r .target_directory)/ofx-installers"
+          files=("$dir"/OpenDefocus-OFX-*)
+          if [ "${#files[@]}" -ne 1 ] || [ ! -f "${files[0]}" ]; then
+            echo "Expected exactly one installer in $dir" >&2
+            exit 1
+          fi
+          echo "path=${files[0]}" >> "$GITHUB_OUTPUT"
+
+      # Signing. Each step runs only when its secrets are present.
+      - name: Detect macOS signing secrets
+        id: signing
+        env:
+          APPLE_INSTALLER_CERT_P12: ${{ secrets.APPLE_INSTALLER_CERT_P12 }}
+          APPLE_INSTALLER_CERT_PASSWORD: ${{ secrets.APPLE_INSTALLER_CERT_PASSWORD }}
+          APPLE_INSTALLER_IDENTITY: ${{ secrets.APPLE_INSTALLER_IDENTITY }}
+          APPLE_NOTARY_APPLE_ID: ${{ secrets.APPLE_NOTARY_APPLE_ID }}
+          APPLE_NOTARY_TEAM_ID: ${{ secrets.APPLE_NOTARY_TEAM_ID }}
+          APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
+        run: |
+          if [ -n "$APPLE_INSTALLER_CERT_P12" ] && [ -n "$APPLE_INSTALLER_CERT_PASSWORD" ] \
+            && [ -n "$APPLE_INSTALLER_IDENTITY" ] && [ -n "$APPLE_NOTARY_APPLE_ID" ] \
+            && [ -n "$APPLE_NOTARY_TEAM_ID" ] && [ -n "$APPLE_NOTARY_PASSWORD" ]; then
+            echo "macos=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Import macOS installer certificate
+        if: runner.os == 'macOS' && steps.signing.outputs.macos == 'true'
+        env:
+          APPLE_INSTALLER_CERT_P12: ${{ secrets.APPLE_INSTALLER_CERT_P12 }}
+          APPLE_INSTALLER_CERT_PASSWORD: ${{ secrets.APPLE_INSTALLER_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}-${{ runner.name }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          echo "$APPLE_INSTALLER_CERT_P12" | base64 --decode > "$RUNNER_TEMP/installer.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain"
+          security import "$RUNNER_TEMP/installer.p12" -k "$keychain" \
+            -P "$APPLE_INSTALLER_CERT_PASSWORD" -T /usr/bin/productsign
+          security set-key-partition-list -S apple-tool:,apple: -s \
+            -k "$KEYCHAIN_PASSWORD" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/installer.p12"
+
+      - name: Sign, notarize, and staple macOS installer
+        if: runner.os == 'macOS' && steps.signing.outputs.macos == 'true'
+        env:
+          APPLE_INSTALLER_IDENTITY: ${{ secrets.APPLE_INSTALLER_IDENTITY }}
+          APPLE_NOTARY_APPLE_ID: ${{ secrets.APPLE_NOTARY_APPLE_ID }}
+          APPLE_NOTARY_TEAM_ID: ${{ secrets.APPLE_NOTARY_TEAM_ID }}
+          APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
+          INSTALLER: ${{ steps.installer.outputs.path }}
+        run: |
+          signed="$RUNNER_TEMP/signed.pkg"
+          productsign --sign "$APPLE_INSTALLER_IDENTITY" "$INSTALLER" "$signed"
+          mv "$signed" "$INSTALLER"
+          xcrun notarytool submit "$INSTALLER" \
+            --apple-id "$APPLE_NOTARY_APPLE_ID" \
+            --team-id "$APPLE_NOTARY_TEAM_ID" \
+            --password "$APPLE_NOTARY_PASSWORD" \
+            --wait
+          xcrun stapler staple "$INSTALLER"
+          pkgutil --check-signature "$INSTALLER"
+
+      - name: Remove temporary macOS keychain
+        if: always() && runner.os == 'macOS' && steps.signing.outputs.macos == 'true'
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+
+      # Windows signing with SignPath. Uncomment after the SignPath project is set up. The
+      # action needs the unsigned installer uploaded as a workflow artifact first, and the
+      # signed file must be written back to the same path before the checksum step.
+      #
+      # - name: Upload unsigned Windows installer
+      #   if: runner.os == 'Windows'
+      #   id: unsigned
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: unsigned-windows-installer
+      #     path: ${{ steps.installer.outputs.path }}
+      #
+      # - name: Detect SignPath secrets
+      #   id: signpath
+      #   env:
+      #     SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+      #   run: |
+      #     if [ -n "$SIGNPATH_API_TOKEN" ]; then echo "enabled=true" >> "$GITHUB_OUTPUT"; fi
+      #
+      # - name: Sign Windows installer with SignPath
+      #   if: runner.os == 'Windows' && steps.signpath.outputs.enabled == 'true'
+      #   uses: signpath/github-action-submit-signing-request@v1
+      #   with:
+      #     api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+      #     organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+      #     project-slug: opendefocus
+      #     signing-policy-slug: release-signing
+      #     github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+      #     wait-for-completion: true
+      #     output-artifact-directory: ${{ runner.temp }}/signed
+      #   # Then copy the signed .exe from ${{ runner.temp }}/signed over the installer path.
+
+      - name: Write SHA-256 checksum
+        env:
+          INSTALLER: ${{ steps.installer.outputs.path }}
+        run: |
+          cd "$(dirname "$INSTALLER")"
+          name=$(basename "$INSTALLER")
+          if command -v sha256sum > /dev/null; then
+            sha256sum "$name" > "$name.sha256"
+          else
+            shasum -a 256 "$name" > "$name.sha256"
+          fi
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: ${{ steps.installer.outputs.path }}
+
+      - name: Upload installer and checksum to release
+        env:
+          INSTALLER: ${{ steps.installer.outputs.path }}
+        run: |
+          gh release upload "$RELEASE_TAG" "$INSTALLER" "$INSTALLER.sha256" --clobber --repo "$GITHUB_REPOSITORY"
