@@ -112,4 +112,4 @@ jobs:
           uv pip install --python .venv maturin pytest
           . .venv/bin/activate
           maturin develop --release
-          pytest test/python
+          pytest crates/circle-of-confusion/test/python
