@@ -162,7 +162,7 @@ pub fn test_natron() -> Result<()> {
     .stderr_to_stdout()
     .unchecked()
     .run()
-    .with_context(|| format!("Running {}", idiff.display()))?;
+    .with_context(|| format!("Running {}", Path::new(&idiff).display()))?;
     print!("{}", String::from_utf8_lossy(&compared.stdout));
     ensure!(
         compared.status.success(),
@@ -174,14 +174,16 @@ pub fn test_natron() -> Result<()> {
 }
 
 /// Returns the `idiff` that ships next to `renderer`, or plain `idiff` so the `PATH` lookup
-/// finds an `OpenImageIO` install when the Natron package does not include the tool.
-fn locate_idiff(renderer: &Path) -> PathBuf {
+/// finds an `OpenImageIO` install when the Natron package does not include the tool. The
+/// result is an `OsString` because duct searches `PATH` for a bare name only when it is not a
+/// `Path`.
+fn locate_idiff(renderer: &Path) -> OsString {
     let name = format!("idiff{}", std::env::consts::EXE_SUFFIX);
     let bundled = renderer.with_file_name(&name);
     if bundled.is_file() {
-        bundled
+        bundled.into_os_string()
     } else {
-        PathBuf::from(name)
+        OsString::from(name)
     }
 }
 
@@ -229,9 +231,12 @@ mod tests {
         let dir = tempfile::tempdir()?;
         let renderer = dir.path().join("NatronRenderer");
         let name = format!("idiff{}", std::env::consts::EXE_SUFFIX);
-        assert_eq!(locate_idiff(&renderer), PathBuf::from(&name));
+        assert_eq!(locate_idiff(&renderer), OsString::from(&name));
         fs::write(dir.path().join(&name), "")?;
-        assert_eq!(locate_idiff(&renderer), dir.path().join(&name));
+        assert_eq!(
+            locate_idiff(&renderer),
+            dir.path().join(&name).into_os_string()
+        );
         Ok(())
     }
 
