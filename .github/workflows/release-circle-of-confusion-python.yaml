@@ -115,7 +115,7 @@ jobs:
     needs: sdist
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: circle-of-confusion-wheels-sdist
           path: dist
@@ -161,7 +161,7 @@ jobs:
           version = tomllib.loads(Path('crates/circle-of-confusion/Cargo.toml').read_text())['package']['version']
           assert os.environ['RELEASE_REF'] == f'refs/tags/circle-of-confusion-v{version}'
           PYCODE
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: circle-of-confusion-wheels-*
       - name: Generate artifact attestation
