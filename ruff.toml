@@ -1,0 +1,13 @@
+# Applies to test/natron. crates/circle-of-confusion has its own stricter config.
+extend-exclude = ["crates"]
+# Injected by NatronRenderer.
+builtins = ["app1", "quit"]
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+# Long strings are left to the formatter.
+ignore = ["E501"]
+
+[lint.per-file-ignores]
+# These run inside NatronRenderer's bundled Python; keep the old formatting style.
+"test/natron/*" = ["UP031"]
