@@ -1,20 +1,7 @@
 repos:
-  - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.9.18
-    hooks:
-      - id: uv-lock
-
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.4
-    hooks:
-      # Run the linter.
-      - id: ruff-check
-      # Run the formatter.
-      - id: ruff-format
-
   - repo: local
     hooks:
       - id: ty
-        name: ty check
+        name: repository checks (markdown policy, lint inheritance, ty, fmt, clippy, ruff)
         entry: cargo xtask --precommit --args
         language: rust
