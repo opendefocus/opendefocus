@@ -103,7 +103,7 @@ jobs:
       contents: read
       actions: write
     steps:
-      - uses: actions/github-script@v8
+      - uses: actions/github-script@v9
         env:
           RELEASE_TAG: ${{ needs.release.outputs.opendefocus-tag }}
         with:
@@ -130,7 +130,7 @@ jobs:
       contents: read
       actions: write
     steps:
-      - uses: actions/github-script@v8
+      - uses: actions/github-script@v9
         env:
           RELEASE_REF: ${{ needs.release.outputs.circle-of-confusion-ref }}
         with:
