@@ -2,6 +2,7 @@ name: Tests
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -22,6 +23,10 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - uses: astral-sh/setup-uv@v7
+      - name: Install a software Vulkan driver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mesa-vulkan-drivers libvulkan1
       - run: cargo fmt --all -- --check
       - run: uvx --from ruff==0.14.4 ruff check test/natron
       - run: uvx --from ruff==0.14.4 ruff format --check test/natron
