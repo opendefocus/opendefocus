@@ -151,7 +151,7 @@ pub fn test_natron() -> Result<()> {
 
     let idiff = locate_idiff(&renderer);
     let compared = cmd!(
-        idiff,
+        &idiff,
         "-fail",
         TOLERANCE,
         "-warn",
