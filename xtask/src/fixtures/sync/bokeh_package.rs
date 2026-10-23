@@ -15,14 +15,32 @@ use super::bokeh::Manifest;
 
 /// Name of the crate that is packaged and tested.
 const PACKAGE: &str = "bokeh-creator";
+/// Workspace crate that the packaged crate depends on, relative to the workspace root.
+const DEPENDENCY_PATH: &str = "crates/image-ndarray";
+/// Name of the dependency in the registry.
+const DEPENDENCY: &str = "image-ndarray";
+
+/// Returns the `--config` value that resolves `image-ndarray` to the workspace copy. A release
+/// that bumps it also bumps `bokeh-creator`'s requirement, and the new version is not in the
+/// registry until after the release, so the registry cannot be used to test the package. The
+/// path is a TOML literal string, which needs no escaping of Windows separators.
+fn dependency_patch(root: &Path) -> String {
+    format!(
+        "patch.crates-io.{DEPENDENCY}.path='{}'",
+        root.join(DEPENDENCY_PATH).display()
+    )
+}
 
 /// Packages `bokeh-creator`, extracts the `.crate` archive into a temporary directory,
 /// verifies its fixture hashes and runs its tests with the `documented` and `serde`
 /// features. `root` is the workspace root. Fails when any step fails.
 pub fn test(root: &Path) -> Result<()> {
-    cmd!("cargo", "package", "-p", PACKAGE, "--locked")
-        .dir(root)
-        .run()?;
+    let patch = dependency_patch(root);
+    cmd!(
+        "cargo", "package", "-p", PACKAGE, "--locked", "--config", &patch
+    )
+    .dir(root)
+    .run()?;
     let metadata: serde_json::Value = serde_json::from_str(
         &cmd!("cargo", "metadata", "--format-version=1", "--no-deps")
             .dir(root)
@@ -61,7 +79,9 @@ pub fn test(root: &Path) -> Result<()> {
         "test",
         "--release",
         "--features",
-        "documented,serde"
+        "documented,serde",
+        "--config",
+        &patch
     )
     .dir(&standalone)
     .run()?;
@@ -101,5 +121,19 @@ fn ignore_missing(error: std::io::Error) -> std::io::Result<()> {
         Ok(())
     } else {
         Err(error)
+    }
+}
+
+/// Tests for the dependency patch.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Verifies that the patch points at the workspace crate as a TOML literal string.
+    #[test]
+    fn test_dependency_patch_uses_a_literal_path() {
+        let patch = dependency_patch(Path::new("/work"));
+        assert!(patch.starts_with("patch.crates-io.image-ndarray.path='"));
+        assert!(patch.ends_with("image-ndarray'"));
     }
 }
