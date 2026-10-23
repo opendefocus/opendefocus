@@ -1,12 +1,12 @@
 name: PR preview
 
 # Renders the parity scenes with the pull request build and with the base branch build,
-# publishes the images to the ci-previews branch and keeps one comment on the pull request
+# publishes the images to the gh-pages branch and keeps one comment on the pull request
 # with the images, timings and pixel differences (cargo xtask preview). The runner has no
 # GPU, so renders use the software Vulkan adapter: timings are only meaningful as a change
 # between base and head. The WebAssembly viewer of the pull request is built too and published
 # next to the images, so it can be tried in the browser from GitHub Pages (served from the
-# ci-previews branch). Pull requests from forks are skipped because they cannot publish.
+# gh-pages branch). Pull requests from forks are skipped because they cannot publish.
 
 on:
   pull_request:
@@ -64,7 +64,7 @@ jobs:
           --head target/release/opendefocus-cli
           --base base/target/release/opendefocus-cli
           --out preview
-          --image-base-url "https://raw.githubusercontent.com/${{ github.repository }}/ci-previews/pr-${{ github.event.pull_request.number }}/${{ github.event.pull_request.head.sha }}"
+          --image-base-url "https://raw.githubusercontent.com/${{ github.repository }}/gh-pages/pr-${{ github.event.pull_request.number }}/${{ github.event.pull_request.head.sha }}"
           --web-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}/web/"
       - name: Show the comment in the job summary
         run: cat preview/comment.md >> "$GITHUB_STEP_SUMMARY"
@@ -108,7 +108,7 @@ jobs:
       contents: write
       pull-requests: write
     concurrency:
-      group: ci-previews
+      group: gh-pages
       cancel-in-progress: false
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -123,12 +123,12 @@ jobs:
         with:
           name: web
           path: web
-      - name: Publish the images and the viewer to the ci-previews branch
+      - name: Publish the images and the viewer to the gh-pages branch
         run: |
           git init -q previews
           cd previews
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git fetch -q --depth 1 origin ci-previews || true
+          git fetch -q --depth 1 origin gh-pages || true
           git checkout -q FETCH_HEAD 2>/dev/null || true
           rm -rf "pr-${PR}"
           mkdir -p "pr-${PR}/${SHA}"
@@ -139,7 +139,7 @@ jobs:
           git add -A
           git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
             commit -q -m "Render previews"
-          git push -q --force origin snapshot:ci-previews
+          git push -q --force origin snapshot:gh-pages
       - name: Update the pull request comment
         run: gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body-file preview/comment.md --edit-last --create-if-none
 
@@ -149,7 +149,7 @@ jobs:
     permissions:
       contents: write
     concurrency:
-      group: ci-previews
+      group: gh-pages
       cancel-in-progress: false
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -160,11 +160,11 @@ jobs:
           git init -q previews
           cd previews
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git fetch -q --depth 1 origin ci-previews || exit 0
+          git fetch -q --depth 1 origin gh-pages || exit 0
           git checkout -q FETCH_HEAD
           rm -rf "pr-${PR}"
           git checkout -q --orphan snapshot
           git add -A
           git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
             commit -q --allow-empty -m "Render previews"
-          git push -q --force origin snapshot:ci-previews
+          git push -q --force origin snapshot:gh-pages
