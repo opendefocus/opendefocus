@@ -12,5 +12,5 @@ for the tools required by each task, and run `cargo xtask --help` for all option
 - installer: `cargo xtask --test-installer` builds the OFX installer for this platform, installs it into a scratch folder, loads the installed plugin library and uninstalls it
 - render comparison: `cargo xtask preview --head <cli> --base <cli> --out <folder> --image-base-url <url>` renders the parity scenes and a focal-plane sweep of the 3D scene with two CLI builds and writes the images, the looping animations and the pull request comment
 - precommit checks `cargo xtask --precommit`
-- [docs publishing](https://github.com/opendefocus/opendefocus/blob/main/.github/workflows/release_docs.yaml)
+- [docs publishing](https://github.com/opendefocus/opendefocus/blob/main/.github/workflows/release-docs.yaml)
 - docs previewing: `cargo xtask --serve-docs`
