@@ -1,0 +1,83 @@
+name: Test bokeh-creator
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/bokeh-creator/**'
+      - 'crates/opendefocus*/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'test/images/bokeh-creator/**'
+      - 'xtask/src/fixtures/**'
+      - 'release-plz.toml'
+      - '.github/workflows/test-bokeh-creator.yaml'
+  pull_request:
+    paths:
+      - 'crates/bokeh-creator/**'
+      - 'crates/opendefocus*/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'test/images/bokeh-creator/**'
+      - 'xtask/src/fixtures/**'
+      - 'release-plz.toml'
+      - '.github/workflows/test-bokeh-creator.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  references:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo xtask fixtures sync
+      # Preserve all three current Woodpecker commands, including debug documented tests.
+      - run: cargo build --release -p bokeh-creator --no-default-features --locked
+      - run: cargo test --release -p bokeh-creator --locked
+      - run: cargo test -p bokeh-creator --features documented --locked
+      - run: cargo xtask fixtures sync --test-bokeh-package
+      - if: runner.os == 'Linux'
+        run: cargo test --release -p opendefocus bokeh_import_tests --locked
+
+  features:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features: ['', std, renderer, noise, image, serde, documented, 'renderer,serde,documented', 'image,serde,documented']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # README rendering examples require the image feature; no-image combinations test lib/integration targets.
+      - run: cargo test --release -p bokeh-creator --no-default-features --features '${{ matrix.features }}' --lib --tests --locked
+      - if: contains(matrix.features, 'image')
+        run: cargo test --release -p bokeh-creator --no-default-features --features '${{ matrix.features }}' --doc --locked
+
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: thumbv7em-none-eabi
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt -p bokeh-creator --check
+      - run: cargo clippy -p bokeh-creator --all-targets --features documented,serde --locked -- -D warnings
+      - run: cargo check -p bokeh-creator --no-default-features --target thumbv7em-none-eabi --locked
+      - run: cargo check -p bokeh-creator --all-features --locked
+      - run: cargo doc -p bokeh-creator --features documented,serde --no-deps --locked
+        env:
+          RUSTDOCFLAGS: -D warnings
