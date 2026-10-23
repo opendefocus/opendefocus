@@ -15,7 +15,7 @@ publish = false
 [dependencies]
 anyhow = "1.0.104"
 image = { version = "0.25.10", default-features = false, features = ["png"] }
-image-ndarray = { path = "../../crates/image-ndarray", version = "0.1.6" }
+image-ndarray = { path = "../../crates/image-ndarray", version = "0.1.7" }
 opendefocus = {path = "../../crates/opendefocus"}
 tokio = { version = "1.53.2", features = ["macros", "rt-multi-thread"] }
 
