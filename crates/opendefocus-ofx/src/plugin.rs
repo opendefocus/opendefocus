@@ -402,10 +402,8 @@ mod tests {
     #[test]
     fn exports_one_plugin_with_identifier() {
         assert_eq!(OfxGetNumberOfPlugins(), 1);
-        let plugin = OfxGetPlugin(0);
-        assert!(!plugin.is_null());
-        // SAFETY: the pointer refers to the static descriptor, which is always valid.
-        let plugin = unsafe { &*plugin };
+        // SAFETY: the pointer is null or refers to the static descriptor, which is always valid.
+        let plugin = unsafe { OfxGetPlugin(0).as_ref() }.expect("plugin 0 is exported");
         assert_eq!(plugin.apiVersion, 1);
         // SAFETY: `pluginIdentifier` is a NUL-terminated string literal inside the static
         // descriptor, so it is valid for reads for the rest of the program.
