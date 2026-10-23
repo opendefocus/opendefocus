@@ -4,7 +4,9 @@ name: PR preview
 # publishes the images to the ci-previews branch and keeps one comment on the pull request
 # with the images, timings and pixel differences (cargo xtask preview). The runner has no
 # GPU, so renders use the software Vulkan adapter: timings are only meaningful as a change
-# between base and head. Pull requests from forks are skipped because they cannot publish.
+# between base and head. The WebAssembly viewer of the pull request is built too and published
+# next to the images, so it can be tried in the browser from GitHub Pages (served from the
+# ci-previews branch). Pull requests from forks are skipped because they cannot publish.
 
 on:
   pull_request:
@@ -12,9 +14,13 @@ on:
     paths:
       - 'crates/opendefocus/**'
       - 'crates/opendefocus-cli/**'
-      - 'test/images/scenes/**'
+      - 'crates/opendefocus-ui/**'
+      - 'crates/image-ndarray/**'
+      - 'crates/circle-of-confusion/**'
+      - 'crates/bokeh-creator/**'
+      - 'test/images/**'
       - 'test/parity/**'
-      - 'xtask/src/preview*'
+      - 'xtask/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/pr-preview.yaml'
@@ -59,6 +65,7 @@ jobs:
           --base base/target/release/opendefocus-cli
           --out preview
           --image-base-url "https://raw.githubusercontent.com/${{ github.repository }}/ci-previews/pr-${{ github.event.pull_request.number }}/${{ github.event.pull_request.head.sha }}"
+          --web-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}/web/"
       - name: Show the comment in the job summary
         run: cat preview/comment.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
@@ -71,8 +78,31 @@ jobs:
             preview/diff/*.png
             preview/sweep/*.png
 
+  web:
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen-cli@0.2.129
+      - run: cargo xtask --compile --web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: |
+            target/web/index.html
+            target/web/opendefocus.js
+            target/web/opendefocus_bg.wasm
+
   publish:
-    needs: render
+    needs: [render, web]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -89,7 +119,11 @@ jobs:
         with:
           name: preview
           path: preview
-      - name: Publish the images to the ci-previews branch
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: web
+      - name: Publish the images and the viewer to the ci-previews branch
         run: |
           git init -q previews
           cd previews
@@ -99,6 +133,8 @@ jobs:
           rm -rf "pr-${PR}"
           mkdir -p "pr-${PR}/${SHA}"
           cp -R ../preview/head ../preview/base ../preview/diff ../preview/sweep "pr-${PR}/${SHA}/"
+          cp -R ../web "pr-${PR}/web"
+          touch .nojekyll
           git checkout -q --orphan snapshot
           git add -A
           git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com \

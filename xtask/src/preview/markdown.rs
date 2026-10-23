@@ -98,14 +98,23 @@ fn sweep_section(sweep: &sweep::Sweep, url: &str) -> String {
 }
 
 /// Builds the Markdown comment. Image paths are `head/<name>.png`, `base/<name>.png` and
-/// `diff/<name>.png` below `url`; the focal sweep animations are added when `sweep` is given.
-pub fn comment(rows: &[Row], sweep: Option<&sweep::Sweep>, url: &str) -> String {
+/// `diff/<name>.png` below `url`; the focal sweep animations are added when `sweep` is given and
+/// a link to the web viewer when `web_url` is.
+pub fn comment(
+    rows: &[Row],
+    sweep: Option<&sweep::Sweep>,
+    url: &str,
+    web_url: Option<&str>,
+) -> String {
     let url = url.trim_end_matches('/');
     let device = rows
         .first()
         .map_or("unknown", |row| row.head.device.as_str());
+    let web = web_url.map_or_else(String::new, |link| {
+        format!("[Open the web viewer built from this pull request]({link})\n\n")
+    });
     let mut text = format!(
-        "## Render preview\n\nRendered on `{device}`. On a hosted runner this is a software \
+        "## Render preview\n\n{web}Rendered on `{device}`. On a hosted runner this is a software \
          adapter on shared hardware: timings are noisy and say nothing about GPU speed, only about a change \
          between base and head. A ⚠️ marks a slowdown of {SLOWDOWN_FLAG_PERCENT}% or more.\n\n\
          | Scene | Median frame | Pixels | Base | Head | Difference ×16 |\n\
@@ -147,7 +156,7 @@ mod tests {
                 rms: 0.0,
             }),
         }];
-        let text = comment(&rows, None, "https://example.test/pr-1/");
+        let text = comment(&rows, None, "https://example.test/pr-1/", None);
         assert!(text.contains("100.0 → 110.0 ms (+10.0%) ⚠️"));
         assert!(text.contains("identical"));
         assert!(text.contains("https://example.test/pr-1/head/scene_full.png"));
@@ -163,8 +172,9 @@ mod tests {
             base: None,
             difference: None,
         }];
-        let text = comment(&rows, None, "u");
+        let text = comment(&rows, None, "u", Some("https://web.test/"));
         assert!(text.contains("12.3 ms"));
         assert!(!text.contains("⚠️ |"));
+        assert!(text.contains("(https://web.test/)"));
     }
 }

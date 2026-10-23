@@ -29,6 +29,9 @@ pub struct Args {
     /// URL prefix under which the contents of `--out` will be reachable from the comment.
     #[arg(long)]
     image_base_url: String,
+    /// Address of the web viewer built from the pull request, linked from the comment.
+    #[arg(long)]
+    web_url: Option<String>,
     /// Frames rendered per workload, including the discarded warm-up frames.
     #[arg(long, default_value_t = DEFAULT_FRAMES)]
     frames: usize,
@@ -78,7 +81,12 @@ pub fn run(args: &Args) -> Result<()> {
     let sweep = sweep::run(&root, &args.head, args.base.as_deref(), &args.out)?;
     fs::write(
         args.out.join("comment.md"),
-        markdown::comment(&rows, Some(&sweep), &args.image_base_url),
+        markdown::comment(
+            &rows,
+            Some(&sweep),
+            &args.image_base_url,
+            args.web_url.as_deref(),
+        ),
     )?;
     println!("Preview written to {}", args.out.display());
     Ok(())
