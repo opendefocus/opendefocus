@@ -1,0 +1,28 @@
+name: Dependency review
+
+# Fails a pull request that adds a dependency with a known vulnerability or a license the
+# project cannot use.
+
+on:
+  pull_request:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'crates/**/Cargo.toml'
+      - 'crates/circle-of-confusion/pyproject.toml'
+      - 'crates/circle-of-confusion/uv.lock'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/dependency-review-action@v5.0.0
+        with:
+          fail-on-severity: moderate
