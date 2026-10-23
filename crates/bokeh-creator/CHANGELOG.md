@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/opendefocus/opendefocus/compare/bokeh-creator-v0.1.17...bokeh-creator-v0.2.0) - 2026-10-23
+
+### Added
+
+- *(bokeh-creator)* add the bokeh-creator crate
+
+### Fixed
+
+- *(bokeh-creator)* import ToString in the no_std datamodel test
+
 ### Build
 
 - Remove unused dependencies and align test dependencies with the workspace.

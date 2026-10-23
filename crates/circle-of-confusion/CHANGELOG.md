@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/opendefocus/opendefocus/compare/circle-of-confusion-v0.2.7...circle-of-confusion-v0.3.0) - 2026-10-23
+
+### Added
+
+- *(circle-of-confusion)* add the circle-of-confusion crate
+
 ### Build
 
 - Remove unused dependencies and align test dependencies with the workspace.

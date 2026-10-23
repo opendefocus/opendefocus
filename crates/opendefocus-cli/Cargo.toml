@@ -14,10 +14,10 @@ gpu = ["opendefocus/wgpu"]
 anyhow = "1.0.104"
 clap = { version = "4.6.0", default-features = false, features = ["std", "derive", "help", "usage", "error-context"] }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "tiff", "exr", "hdr"] }
-image-ndarray = { path = "../image-ndarray", version = "0.1.6" }
+image-ndarray = { path = "../image-ndarray", version = "0.1.7" }
 ndarray = "0.17.2"
 opendefocus = { path = "../opendefocus", default-features = false, features = ["serde"] }
-bokeh-creator = { path = "../bokeh-creator", version = "0.1.17", default-features = false, features = ["noise"] }
+bokeh-creator = { path = "../bokeh-creator", version = "0.2.0", default-features = false, features = ["noise"] }
 serde_json = "1.0"
 tokio = { version = "1.53.2", features = ["rt-multi-thread", "macros", "signal"] }
 tempfile = { version = "3", default-features = false }
