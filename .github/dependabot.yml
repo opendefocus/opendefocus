@@ -1,0 +1,38 @@
+version: 2
+
+# Weekly update pull requests for the Rust dependencies, the GitHub Actions the workflows use
+# and the Python tooling of circle-of-confusion. Minor and patch updates arrive as one pull
+# request per ecosystem; major updates are separate so they can be reviewed on their own.
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      cargo-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci(deps)
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: uv
+    directory: /crates/circle-of-confusion
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      python-minor-and-patch:
+        update-types: [minor, patch]
