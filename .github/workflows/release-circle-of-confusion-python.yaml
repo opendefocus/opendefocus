@@ -54,7 +54,7 @@ jobs:
           sccache: ${{ !startsWith(inputs.ref || github.ref, 'refs/tags/') }}
           manylinux: auto
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: circle-of-confusion-wheels-linux-${{ matrix.platform.target }}
           path: crates/circle-of-confusion/dist
@@ -88,7 +88,7 @@ jobs:
           sccache: ${{ !startsWith(inputs.ref || github.ref, 'refs/tags/') }}
           manylinux: musllinux_1_2
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: circle-of-confusion-wheels-musllinux-${{ matrix.platform.target }}
           path: crates/circle-of-confusion/dist
@@ -106,7 +106,7 @@ jobs:
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: circle-of-confusion-wheels-sdist
           path: crates/circle-of-confusion/dist

@@ -64,7 +64,7 @@ jobs:
           --web-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}/web/"
       - name: Show the comment in the job summary
         run: cat preview/comment.md >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: preview
           path: |
@@ -89,7 +89,7 @@ jobs:
         with:
           tool: wasm-bindgen-cli@0.2.129
       - run: cargo xtask --compile --web
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: web
           path: |
