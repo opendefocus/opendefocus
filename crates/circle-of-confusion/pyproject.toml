@@ -1,20 +1,19 @@
 [build-system]
-requires = ["hatchling", "hatch-build-scripts"]
-build-backend = "hatchling.build"
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
 
 [project]
-name = "opendefocus"
-requires-python = ">=3.8"
+name = "circle-of-confusion"
+requires-python = ">=3.9"
 classifiers = [
     'License :: OSI Approved :: European Union Public Licence 1.2 (EUPL 1.2)',
-    "Operating System :: Microsoft :: Windows",
-    "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
@@ -23,57 +22,47 @@ classifiers = [
     'Programming Language :: Python :: 3.14',
     "Topic :: Scientific/Engineering",
     "Topic :: Multimedia :: Graphics",
-    "Topic :: Scientific/Engineering :: Image Processing",
-    "Topic :: Scientific/Engineering :: Mathematics",
 ]
 dynamic = ["version"]
-description = "An advanced open-source convolution library for image post-processing"
+description = "Calculator for Circle of Confusion (CoC) to calculate the size in pixels of an area, used for depth of field processing."
 readme = "README.md"
 license = "EUPL-1.2"
 authors = [{ name = "olivebowl", email = "olivebowl@noreply.codeberg.org" }]
 maintainers = [
     { name = "olivebowl", email = "olivebowl@noreply.codeberg.org" },
 ]
-# dependencies = ["protobuf==6.33.0"]
+dependencies = []
 
+[dependency-groups]
+dev = ["pytest>=8.3.0", "ty>=0.0.1a26"]
 
-[tool.hatch.version]
-path = "Cargo.toml"
-pattern = "version = \"(?P<version>\\d+\\.\\d+\\.\\d+)"
-[tool.hatch.build.targets.wheel]
-packages = ["python/src/opendefocus"]
+[project.urls]
+Homepage = "https://codeberg.org/olivebowl/circle-of-confusion"
+"Bug Tracker" = "https://codeberg.org/olivebowl/circle-of-confusion/issues"
+Changelog = "https://codeberg.org/olivebowl/circle-of-confusion/src/branch/main/CHANGELOG.md"
+
+[tool.maturin]
+python-source = "python"
+module-name = "circle_of_confusion._native"
+features = ["pyo3/extension-module", "python-bindings"]
+include = [{ path = "test/**", format = "sdist" }]
 
 [tool.uv]
 cache-keys = [
     { file = "pyproject.toml" },
     { file = "Cargo.toml" },
     { file = "**/*.rs" },
-    { file = "**/*.proto" },
-
 ]
 
-[tool.uv.sources]
-nuketesting = { git = "https://github.com/cglukas/NukeTesting.git", rev = "main" }
+[tool.pytest.ini_options]
+testpaths = ["test/python"]
 
-[tool.ruff]
-target-version = "py37"
-exclude = ["test", "package/init.py"]
 [tool.ruff.lint]
 select = ["ALL"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
-[tool.ty.rules]
-index-out-of-bounds = "ignore"
-
-[tool.ty.src]
-exclude = ["test/test_package"]
-
-[dependency-groups]
-dev = [
-    "nuketesting",
-    "pytest>=8.3.5",
-]
-
-
+[tool.ruff.lint.per-file-ignores]
+"test/**" = ["S101", "PLR2004", "D103"]
+"python/**/*.pyi" = ["PYI", "D", "A", "ARG", "E501"]
