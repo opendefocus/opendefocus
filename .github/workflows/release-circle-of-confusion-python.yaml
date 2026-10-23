@@ -165,7 +165,7 @@ jobs:
         with:
           pattern: circle-of-confusion-wheels-*
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: 'circle-of-confusion-wheels-*/*'
       - name: Publish to PyPI
