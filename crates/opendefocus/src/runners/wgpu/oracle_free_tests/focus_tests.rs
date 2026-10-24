@@ -285,16 +285,17 @@ async fn hardware_opaque_near_disc_hides_source_and_far_plate() {
     }
 }
 
-/// The centre-blur gate `smoothstep(0.25, 0.75, |coc|)` for a near layer whose
-/// `CoC` is at most 0.5 px (too small to gather, so only the gate acts): the
-/// output is `(1 - g) * source + g * far plate` with `g` the smoothstep. Red
-/// source over a green far plate; tolerance 1e-4.
+/// An opaque near surface whose `CoC` stays below the front regime (2 px) is
+/// the visible surface: it occludes the far plate, so a uniform red near layer
+/// over a green far plate must stay red at every small `CoC`, in the exact and
+/// the sampled gather. The earlier centre-blur gate blended in the far plate
+/// from 0.25 px and drew a line where a receding floor crosses the focal plane.
 #[tokio::test]
 #[ignore = "requires an available hardware GPU"]
-async fn hardware_center_blur_gate_blends_source_and_far_plate_by_smoothstep() {
+async fn hardware_small_coc_near_surface_hides_the_far_plate() {
     let runner = runner().await;
     let source = Array3::from_shape_fn((9, 9, 4), |(_, _, c)| [1.0, 0.0, 0.0, 1.0][c]);
-    for coc in [0.2f32, 0.3, 0.4, 0.5] {
+    for coc in [0.2f32, 0.3, 0.4, 0.5, 0.75, 1.0] {
         let prepared = uniform_layers((9, 9), |_, _| AdaptiveLayerPixel {
             near_rgba: [1.0, 0.0, 0.0, 1.0],
             far_rgba: [0.0, 1.0, 0.0, 1.0],
@@ -303,20 +304,114 @@ async fn hardware_center_blur_gate_blends_source_and_far_plate_by_smoothstep() {
             near_valid: 1.0,
             far_valid: 1.0,
         });
-        let output = runner
-            .gather_adaptive_frame_with_budget(
-                &source,
-                &prepared,
-                &[feature(0.0, coc, 2.0)],
-                4.0,
-                high(),
-            )
+        let features = [feature(0.0, coc, 2.0)];
+        let exact = runner
+            .gather_adaptive_frame_with_budget(&source, &prepared, &features, 4.0, high())
             .await
             .unwrap();
-        let t = ((coc - 0.25) / 0.5).clamp(0.0, 1.0);
-        let gate = t * t * (3.0 - 2.0 * t);
-        let expected =
-            Array3::from_shape_fn((9, 9, 4), |(_, _, c)| [1.0 - gate, gate, 0.0, 1.0][c]);
-        assert_close(&output, &expected, 1e-4, &format!("gate at coc {coc}"));
+        let sampled = runner
+            .gather_adaptive_frame(&source, &prepared, &features, 4.0)
+            .await
+            .unwrap();
+        assert_close(&exact, &source, 1e-4, &format!("exact at coc {coc}"));
+        assert_close(&sampled, &source, 1e-3, &format!("sampled at coc {coc}"));
+    }
+}
+
+/// Row of the receding-surface scenes that lies on the focal plane.
+const FOCUS_ROW: usize = 24;
+/// `CoC` change per row of the receding surface, as on the bundled floor.
+const RAMP_SLOPE: f32 = 0.45;
+
+/// Renders a receding surface whose `CoC` is `RAMP_SLOPE` per row, crossing the
+/// focal plane just above `FOCUS_ROW`, in the exact and the sampled gather.
+async fn render_focus_ramp(color: impl Fn(usize) -> f32) -> (Array3<f32>, [Array3<f32>; 2]) {
+    let runner = runner().await;
+    let (width, height) = (24usize, 2 * FOCUS_ROW);
+    let source = Array3::from_shape_fn(
+        (height, width, 4),
+        |(y, _, c)| {
+            if c == 3 { 1.0 } else { color(y) }
+        },
+    );
+    let coc = Array2::from_shape_fn((height, width), |(y, _)| {
+        RAMP_SLOPE * (y as f32 - FOCUS_ROW as f32) + 0.15
+    });
+    let max_radius = coc
+        .iter()
+        .fold(0.0_f32, |max, value| max.max(value.abs()))
+        .ceil();
+    let prepared = runner
+        .prepare_adaptive_layers(&source, &coc, max_radius, CocPolarity::PositiveForeground)
+        .await
+        .unwrap();
+    let features =
+        vec![feature(-max_radius, max_radius, 2.0); width.div_ceil(16) * height.div_ceil(16)];
+    let exact = runner
+        .gather_adaptive_frame_with_budget(&source, &prepared, &features, max_radius, high())
+        .await
+        .unwrap();
+    let sampled = runner
+        .gather_adaptive_frame(&source, &prepared, &features, max_radius)
+        .await
+        .unwrap();
+    (source, [exact, sampled])
+}
+
+/// A receding surface with a colour edge on its focal plane (issue #49). The
+/// near rows next to focus have discs smaller than their distance to the far
+/// rows, and the far rows' discs never reach the near side, so the edge stays
+/// sharp and no light far colour may leak into the dark near rows. Before the
+/// fix the first near row took the far continuation and showed as a line.
+#[tokio::test]
+#[ignore = "requires an available hardware GPU"]
+async fn hardware_focus_ramp_edge_has_no_line() {
+    let (light, dark) = (0.6, 0.15);
+    let (_, outputs) = render_focus_ramp(|y| if y < FOCUS_ROW { light } else { dark }).await;
+    for (label, output) in ["exact", "sampled"].iter().zip(&outputs) {
+        for x in 4..20 {
+            assert!(
+                (output[[FOCUS_ROW - 1, x, 0]] - light).abs() < 5e-3,
+                "{label}: far focus row ({x}) = {}",
+                output[[FOCUS_ROW - 1, x, 0]]
+            );
+            for y in FOCUS_ROW..FOCUS_ROW + 4 {
+                assert!(
+                    (output[[y, x, 0]] - dark).abs() < 5e-3,
+                    "{label}: far colour leaks into near row {y} ({x}): {}",
+                    output[[y, x, 0]]
+                );
+            }
+        }
+    }
+}
+
+/// A one-pixel line on the focal plane of a receding surface stays sharp and
+/// does not spread: its own disc is smaller than a pixel and the focus band is
+/// several rows wide, so focus reconstruction must leave it alone instead of
+/// interpolating it away or drawing streaks across neighbouring rows. The
+/// antialiased disc of the next row overlaps it slightly (about 6% of 0.3), so
+/// the line keeps 90% while reconstruction would pull it to the surface 0.3.
+#[tokio::test]
+#[ignore = "requires an available hardware GPU"]
+async fn hardware_focus_ramp_keeps_one_pixel_focal_line() {
+    let (surface, line) = (0.3, 1.0);
+    let (_, outputs) = render_focus_ramp(|y| if y == FOCUS_ROW { line } else { surface }).await;
+    // The sampled gather reads filtered layers, so it may spread slightly.
+    for ((label, spread), output) in [("exact", 1e-2), ("sampled", 3e-2)].iter().zip(&outputs) {
+        for x in 4..20 {
+            assert!(
+                output[[FOCUS_ROW, x, 0]] > 0.9 * line,
+                "{label}: focal line softened at {x}: {}",
+                output[[FOCUS_ROW, x, 0]]
+            );
+            for y in (FOCUS_ROW - 8..FOCUS_ROW + 8).filter(|&y| y != FOCUS_ROW) {
+                assert!(
+                    (output[[y, x, 0]] - surface).abs() < *spread,
+                    "{label}: focal line spreads to row {y} ({x}): {}",
+                    output[[y, x, 0]]
+                );
+            }
+        }
     }
 }

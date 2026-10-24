@@ -2,6 +2,13 @@
 use super::{AdaptiveLayerPixel, PreparedLayers};
 use ndarray::Array3;
 
+/// `CoC` magnitude in pixels from which a source pixel is visibly blurred when
+/// measuring how far a focus band extends from its crossing.
+const BLURRED_COC: f32 = 0.75;
+/// Distance in pixels from a pixel centre to the edge of its footprint. A
+/// crossing whose focused band reaches this far on either side is resolvable.
+const HALF_PIXEL: f32 = 0.5;
+
 impl PreparedLayers {
     /// Resolve focus bands narrower than one pixel after either CPU or GPU
     /// gathering. Focused surfaces with a focused neighbor remain sharp.
@@ -86,7 +93,7 @@ pub(crate) fn resolve_subpixel_focus_with<F>(
                 continue;
             }
             let mut crossing = None;
-            let mut narrowest_width = 2.1;
+            let mut narrowest_reach = HALF_PIXEL;
             let center_coc = coc_at(x, y);
             for axis in 0..2 {
                 let (dx, dy) = if axis == 0 { (1, 0) } else { (0, 1) };
@@ -111,10 +118,13 @@ pub(crate) fn resolve_subpixel_focus_with<F>(
                     continue;
                 }
                 // Opposite signs distinguish a focus ramp from an object
-                // contour. Only reconstruct a band too narrow to resolve.
+                // contour. Only reconstruct a band too narrow to resolve: the
+                // pixel footprint must reach visible blur on both sides. A
+                // gentle side is a real focused band; reconstructing it
+                // interpolates across sharp detail and leaves streaks.
                 // shortcut: linear focus bands; use subpixel CoC samples if curved ramps still alias.
-                let focused_width = 0.75 / before.abs().max(0.75) + 0.75 / after.abs().max(0.75);
-                if focused_width >= narrowest_width {
+                let focused_reach = BLURRED_COC / before.abs().min(after.abs());
+                if focused_reach >= narrowest_reach {
                     continue;
                 }
                 // Do not reach across a nearby focused surface or another
@@ -125,7 +135,7 @@ pub(crate) fn resolve_subpixel_focus_with<F>(
                 }) {
                     continue;
                 }
-                narrowest_width = focused_width;
+                narrowest_reach = focused_reach;
                 crossing = Some((dx, dy));
             }
             if let Some((dx, dy)) = crossing {

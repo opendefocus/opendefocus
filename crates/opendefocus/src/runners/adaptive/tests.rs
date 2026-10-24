@@ -76,8 +76,10 @@ fn decontaminated_source_skips_unchanged_frames() {
 fn subpixel_focus_resolve_removes_a_line_without_softening_focused_objects() {
     for (before, after, expected) in [
         (-16.0, 16.0, 0.0),
-        (-0.05, 0.05, 0.0),
-        (-1.0, 1.0, 0.0),
+        (-2.0, 2.0, 0.0),
+        (-16.0, 1.0, 1.0),
+        (-0.05, 0.05, 1.0),
+        (-1.0, 1.0, 1.0),
         (-16.0, 0.0, 1.0),
         (-16.0, -16.0, 1.0),
     ] {
@@ -194,6 +196,50 @@ fn subpixel_focus_repair_matches_an_expanded_roi_across_a_chunk_seam() {
     }
     for y in 0..height {
         assert_eq!(roi[[y, 24 - origin[0], 0]], 6.0);
+    }
+}
+
+#[test]
+/// Verifies a resolvable focus ramp keeps its focused row and detail: a
+/// receding surface whose `CoC` changes by at most one pixel per row has a
+/// focus band at least a pixel wide, so reconstruction must not streak it.
+fn subpixel_focus_resolve_keeps_a_resolvable_focus_ramp() {
+    for slope in [0.2_f32, 0.45, 1.0] {
+        let (width, height) = (5usize, 21usize);
+        let pixels = (0..height)
+            .flat_map(|y| {
+                let coc = slope * (y as f32 - 10.0);
+                (0..width).map(move |_| {
+                    if coc >= 0.0 {
+                        AdaptiveLayerPixel {
+                            near_coc: coc,
+                            near_valid: 1.0,
+                            ..AdaptiveLayerPixel::zeroed()
+                        }
+                    } else {
+                        AdaptiveLayerPixel {
+                            far_coc: coc,
+                            far_valid: 1.0,
+                            ..AdaptiveLayerPixel::zeroed()
+                        }
+                    }
+                })
+            })
+            .collect();
+        let prepared = PreparedLayers {
+            width,
+            height,
+            pixels,
+            near_edge_distance: vec![-1.0; width * height],
+        };
+        let mut output = Array3::from_shape_fn((height, width, 4), |(y, x, c)| match c {
+            3 => 1.0,
+            _ if y == 10 => 4.0,
+            _ => 0.1 * ((x + y) % 3) as f32,
+        });
+        let original = output.clone();
+        prepared.resolve_subpixel_focus(&mut output);
+        assert_eq!(output, original, "slope {slope}");
     }
 }
 
