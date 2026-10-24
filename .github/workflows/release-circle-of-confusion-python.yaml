@@ -10,6 +10,11 @@ on:
     tags:
       - 'circle-of-confusion-v*'
   workflow_dispatch:
+    inputs:
+      ref:
+        description: circle-of-confusion release tag to build, for example refs/tags/circle-of-confusion-v0.3.0
+        required: false
+        type: string
   workflow_call:
     inputs:
       ref:
