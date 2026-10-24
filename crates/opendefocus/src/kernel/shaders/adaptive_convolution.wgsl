@@ -1351,9 +1351,11 @@ const FAR_GAP_FULL_SCALE: f32 = 2.0;
 // scaled down as the open fraction falls to FAR_SOFT_OPEN so that visibility
 // vanishes continuously with the open area.
 const FAR_SOFT_OPEN: f32 = 0.05;
-// Corrected far validity below this fraction of the gathered validity is
-// rounding residue; the uncorrected gather is kept instead.
-const FAR_HIDDEN_RESIDUE: f32 = 1.0e-4;
+// Visible fraction of the gathered far validity below which the remainder of
+// the far gather is cancellation residue and the far surface's own colour is
+// used; above FAR_HIDDEN_TRUSTED the remainder is used as gathered.
+const FAR_HIDDEN_RESIDUE: f32 = 0.01;
+const FAR_HIDDEN_TRUSTED: f32 = 0.05;
 // Bisection steps that invert the circular-segment area to 2^-20 of the radius.
 const CAP_HEIGHT_STEPS: u32 = 20u;
 const PI: f32 = 3.14159265358979;
@@ -1654,7 +1656,7 @@ fn far_hidden_node_class(bounds: vec4<u32>, destination: vec2<u32>, node: Integr
 
 fn far_leaf_hidden(local: vec2<u32>, destination: vec2<u32>, occlusion: FarOcclusion, origin: vec2<u32>, sum: LensIntegral) -> LensIntegral {
     let pixel = load_integral_pixel(local, false);
-    if pixel.valid <= 0.0 || pixel.coc <= 0.5 { return sum; }
+    if pixel.valid <= 0.0 || pixel.coc <= GATHER_MIN_COC { return sum; }
     let offset = vec2<f32>(local + origin) - vec2<f32>(destination);
     let hidden = far_pixel_hidden(pixel.coc, offset, occlusion);
     if hidden <= 0.0 { return sum; }
@@ -1662,12 +1664,19 @@ fn far_leaf_hidden(local: vec2<u32>, destination: vec2<u32>, occlusion: FarOcclu
     return LensIntegral(sum.premul + pixel.premul * (pixel.valid * weight), sum.valid + vec4<f32>(pixel.valid * weight), sum.presence);
 }
 
-// Far gather `far` with the `hidden` far sources removed. A residue left when
-// nearly everything is hidden keeps the ordinary gather.
-fn far_without_hidden(far: LensIntegral, hidden: LensIntegral) -> LensIntegral {
-    let valid = far.valid - hidden.valid;
-    if any(valid <= far.valid * FAR_HIDDEN_RESIDUE) { return far; }
-    return LensIntegral(far.premul - hidden.premul, valid, far.presence);
+// Colour of the far gather whose hidden sources were already removed, leaving
+// `premul` and `valid`; `hidden` is the removed validity, shared by every
+// channel. When nearly everything was hidden the remainder is the difference
+// of nearly equal sums, so the colour blends to the far surface's own colour
+// `surface` rather than to noise or to the hidden background. The exact and
+// streamed gathers share this rule; streaming applies it to the sums over all
+// source chunks.
+fn far_visible_color(premul: vec4<f32>, valid: vec4<f32>, hidden: f32, surface: vec4<f32>) -> vec4<f32> {
+    let remainder = premul / max(valid, vec4<f32>(1.0e-6));
+    if hidden <= 0.0 { return remainder; }
+    let visible = valid / max(valid + vec4<f32>(hidden), vec4<f32>(1.0e-6));
+    let trust = smoothstep(vec4<f32>(FAR_HIDDEN_RESIDUE), vec4<f32>(FAR_HIDDEN_TRUSTED), visible);
+    return select(surface, mix(surface, remainder, trust), trust > vec4<f32>(0.0));
 }
 
 // Conservative far reach of the tile holding the pixel, without the bilinear
@@ -1741,10 +1750,12 @@ fn exact_pixel(position: vec2<u32>) -> vec4<f32> {
     local_result.w = clamp(local_result.w, 0.0, 1.0);
 
     var far = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
+    var hidden = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
     if center_blur > 0.0 {
-        far = far_without_hidden(integrate_disk(position, -1.0, 1.0, false), read_far_hidden(position));
+        far = integrate_disk(position, -1.0, 1.0, false);
+        hidden = read_far_hidden(position);
     }
-    let far_color_value = far.premul / max(far.valid, vec4<f32>(1.0e-6));
+    let far_color_value = far_visible_color(far.premul - hidden.premul, far.valid - hidden.valid, hidden.valid.w, center_far.color);
     var far_background = vec4<f32>(0.0);
     for (var channel = 0u; channel < 4u; channel++) {
         if component(far.presence, channel) > 0.0 {
@@ -2350,7 +2361,6 @@ fn stream_center_phase(position: vec2<u32>, base: u32) {
     let center_near = sample_layer(center, 1.0, settings.samples.x, true);
     let center_far = sample_layer(center, 1.0, 1u, false);
     let global_position = stream.destination_origin + position;
-    let near_radius = tile_radius(global_position.x, global_position.y, 0u);
     let tile_count = settings.frame.z * settings.frame.w;
     let far_radius = max(abs(center_far.coc), tile_radius(global_position.x, global_position.y, tile_count));
     let far_reach = far_tile_reach(global_position.x, global_position.y);
@@ -2361,12 +2371,13 @@ fn stream_center_phase(position: vec2<u32>, base: u32) {
     stream_write_vec4(base, 10u, center_far.color);
     output[base + 14u] = center_far.coc;
     output[base + 15u] = center_far.valid;
-    stream_write_vec4(base, 16u, vec4<f32>(near_radius, far_radius, far_reach, FAR_NO_OPEN_COC));
+    stream_write_vec4(base, 16u, vec4<f32>(0.0, far_radius, far_reach, FAR_NO_OPEN_COC));
 }
 
 // Probe radius of the far occluder at the accumulator `base`, or -1 when no
-// source behind the far surface can reach the pixel. Slot 18 holds the far
-// tile reach and slot 19 the nearest open CoC over the source chunks; the
+// source behind the far surface can reach the pixel. Slot 16 sums the hidden
+// far validity over the source chunks for the final `far_visible_color`, slot
+// 18 holds the far tile reach and slot 19 the nearest open CoC; the
 // cover areas (blocked, total, open moment) accumulate in the result slots 68
 // to 71, which only the final phase overwrites, so the 72-float layout holds.
 fn stream_far_probe_radius(base: u32) -> f32 {
@@ -2415,7 +2426,8 @@ fn adaptive_convolution_stream_high(@builtin(global_invocation_id) gid: vec3<u32
                 let occlusion = far_occlusion_from_cover(probe, FarCover(stream_read_vec4(base, 68u), output[base + 19u]));
                 let hidden = far_hidden_integral(destination, occlusion, stream.source_origin, stream.source_extent);
                 far.premul -= hidden.premul;
-                far.valid = max(far.valid - hidden.valid, vec4<f32>(0.0));
+                far.valid -= hidden.valid;
+                output[base + 16u] += hidden.valid.w;
             }
         }
         stream_add_vec4(base, 32u, potential.premul);
@@ -2460,7 +2472,7 @@ fn adaptive_convolution_stream_high(@builtin(global_invocation_id) gid: vec3<u32
         let far_premul = stream_read_vec4(base, 56u);
         let far_valid = stream_read_vec4(base, 60u);
         let far_presence = stream_read_vec4(base, 64u);
-        let far_color_value = far_premul / max(far_valid, vec4<f32>(1.0e-6));
+        let far_color_value = far_visible_color(far_premul, far_valid, output[base + 16u], center_far.color);
         var far_background = vec4<f32>(0.0);
         for (var channel = 0u; channel < 4u; channel++) {
             if component(far_presence, channel) > 0.0 { set_component(&far_background, channel, component(far_color_value, channel)); }

@@ -128,13 +128,14 @@ impl WgpuRunner {
                 label: Some("Adaptive smooth/detail gathers"),
                 timestamp_writes: None,
             });
+            // Both pipelines of a variant share one explicit layout, so one bind group serves them.
+            let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Adaptive gather bindings"),
+                layout: &pipelines.gather.get_bind_group_layout(0),
+                entries: &bindings.entries(),
+            });
             // The gather reads what the far occlusion pass leaves in its output slots, so that pass runs first.
             for pipeline in pipelines.far_occlusion.iter().chain([&pipelines.gather]) {
-                let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("Adaptive gather bindings"),
-                    layout: &pipeline.get_bind_group_layout(0),
-                    entries: &bindings.entries(),
-                });
                 pass.set_pipeline(pipeline);
                 pass.set_bind_group(0, &bind_group, &[]);
                 pass.dispatch_workgroups(width.div_ceil(8), height.div_ceil(8), 1);

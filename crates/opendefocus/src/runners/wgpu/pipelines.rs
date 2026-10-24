@@ -37,9 +37,16 @@ impl WgpuRunner {
         plain_circle: bool,
         use_fused_capped_circle: bool,
     ) -> GatherPipelines {
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Native adaptive convolution"),
+            source: wgpu::ShaderSource::Wgsl(crate::kernel::ADAPTIVE_CONVOLUTION_WGSL.into()),
+        });
+        let layout = Self::create_adaptive_convolution_layout(device);
         let create = |entry_point| {
             Self::create_adaptive_convolution(
                 device,
+                &shader,
+                &layout,
                 entry_point,
                 plain_circle,
                 use_fused_capped_circle,
@@ -58,17 +65,8 @@ impl WgpuRunner {
         }
     }
 
-    /// Creates the adaptive convolution pipeline for `entry_point` with the plain-circle and fused specializations.
-    fn create_adaptive_convolution(
-        device: &wgpu::Device,
-        entry_point: &str,
-        plain_circle: bool,
-        use_fused_capped_circle: bool,
-    ) -> wgpu::ComputePipeline {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Native adaptive convolution"),
-            source: wgpu::ShaderSource::Wgsl(crate::kernel::ADAPTIVE_CONVOLUTION_WGSL.into()),
-        });
+    /// Creates the explicit pipeline layout shared by every adaptive convolution entry point.
+    fn create_adaptive_convolution_layout(device: &wgpu::Device) -> wgpu::PipelineLayout {
         // Keep one resource contract for circular and spatial aperture kernels.
         let entries: Vec<_> = (0..17)
             .map(|binding| wgpu::BindGroupLayoutEntry {
@@ -101,15 +99,27 @@ impl WgpuRunner {
             label: Some("Native adaptive convolution bindings"),
             entries: &entries,
         });
-        let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Native adaptive convolution layout"),
             bind_group_layouts: &[Some(&bindings)],
             immediate_size: 0,
-        });
+        })
+    }
+
+    /// Creates the adaptive convolution pipeline for `entry_point` of `shader` with the plain-circle and fused
+    /// specializations.
+    fn create_adaptive_convolution(
+        device: &wgpu::Device,
+        shader: &wgpu::ShaderModule,
+        layout: &wgpu::PipelineLayout,
+        entry_point: &str,
+        plain_circle: bool,
+        use_fused_capped_circle: bool,
+    ) -> wgpu::ComputePipeline {
         device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("Native adaptive convolution"),
-            layout: Some(&layout),
-            module: &shader,
+            layout: Some(layout),
+            module: shader,
             entry_point: Some(entry_point),
             compilation_options: wgpu::PipelineCompilationOptions {
                 constants: &[

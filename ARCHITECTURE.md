@@ -74,9 +74,9 @@ Focus reconstruction reads prepared pixels from the owning source cores across c
   sides; a resolvable ramp (receding floor, curved silhouette) keeps its sharp
   row, and rebuilding it draws streaks. A near centre keeps its own source under
   the local layer until it enters the front regime (`CoC` 1 to 2); a far centre
-  hands over to the far gather only above the 0.5 px gather inclusion radius.
-  Earlier, lower thresholds leaked the occluded far continuation into the first
-  near row and drew a line along the focal plane. Fractional alpha
+  hands over to the far gather only above the 0.5 px gather inclusion radius;
+  lower thresholds leak the occluded far continuation into the first near row
+  and draw a line along the focal plane. Fractional alpha
   is premultiplied coverage, not geometric validity. Restore opaque coverage only
   after proving the original source alpha plane is opaque (`alpha >= 1 - 1e-6`
   everywhere). A single opaque point on transparent black must blur its alpha.
@@ -97,7 +97,12 @@ Focus reconstruction reads prepared pixels from the owning source cores across c
   RGBA and the alpha-channel validity, used for every channel) in the pixel's
   five output slots and the exact gather subtracts it. Fast weights its samples
   with a sampled probe disc; streaming accumulates the probe cover in result
-  slots 68 to 71 and the nearest open `CoC` in slot 19.
+  slots 68 to 71, the nearest open `CoC` in slot 19 and the hidden validity in
+  slot 16. When nearly all of the far gather is hidden, the remainder is
+  cancellation residue: exact and streamed gathers blend to the far surface's
+  own colour by the visible fraction of the totals (`far_visible_color`),
+  never back to the uncorrected gather, which is the leak. Streaming must
+  subtract per chunk without clamping and apply that rule once to the sums.
 - No setting, host, or saved state may select a CPU render path; there is none.
   Reproduce the bundled
   depth case with 1/Z, including negative depth and the x=1379 zero column.
