@@ -134,7 +134,7 @@ jobs:
           mkdir source
           tar -xzf dist/*.tar.gz -C source
           cd source/circle_of_confusion-*
-          python -m pytest test/python
+          python -m pytest crates/circle-of-confusion/test/python
 
   release:
     name: Release
