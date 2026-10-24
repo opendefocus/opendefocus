@@ -203,11 +203,82 @@ fn far_occluder_fixture(width: usize, height: usize, seam_x: i32) -> (Array3<f32
     (source, coc)
 }
 
+/// Frame width, largest radius and source core budgets of a streamed seam scene.
+#[derive(Clone, Copy)]
+struct SeamPlan {
+    /// Frame width in pixels; the height is 100.
+    width: usize,
+    /// Largest radius in pixels.
+    max_radius: f32,
+    /// Largest source chunk, core and halo, in pixels.
+    max_pixels: usize,
+    /// Largest source core in pixels.
+    max_core_pixels: usize,
+}
+
+/// Plan of the focus ramp and far occluder scenes.
+const SEAM_PLAN: SeamPlan = SeamPlan {
+    width: 120,
+    max_radius: 8.0,
+    max_pixels: 10_000,
+    max_core_pixels: 10_000,
+};
+/// Largest radius of the nearly hidden scene, in pixels: its background `CoC`.
+const HIDDEN_MAX_RADIUS: f32 = 32.0;
+/// Plan of the nearly hidden scene: a wider frame, so that source chunks with the 130 pixel halo of its radius fit
+/// the chunk budget while the core budget splits the frame.
+const HIDDEN_PLAN: SeamPlan = SeamPlan {
+    width: 480,
+    max_radius: HIDDEN_MAX_RADIUS,
+    max_pixels: 33_000,
+    max_core_pixels: 6_400,
+};
+/// Far `CoC` of the single far pixel of the nearly hidden scene: its probe disc (twice this) lies on the in-focus
+/// plate, and the background is wholly behind it.
+const HIDDEN_PIXEL_COC: f32 = 10.0;
+/// Radius of the in-focus far plate around that pixel; it just covers the pixel's probe disc, so that the hidden
+/// background around it outweighs the pixel's own disc about 150 times.
+const HIDDEN_PLATE_RADIUS: f32 = 21.0;
+/// Far `CoC` of the in-focus plate: valid far geometry that blocks the probe disc but is not gathered.
+const HIDDEN_PLATE_COC: f32 = 0.3;
+/// Colour of the single far pixel.
+const HIDDEN_PIXEL: [f32; 4] = [0.3, 0.6, 0.9, 1.0];
+/// Row of the single far pixel, inside the compared region.
+const HIDDEN_ROW: i32 = 48;
+
+/// Builds a single far pixel on an in-focus far plate in front of a strongly blurred, bright far background, next to
+/// the source seam at `seam_x`. The background is hidden behind the plate, so more than 99% of the pixel's far
+/// gather is hidden and what remains is the pixel's own disc; the background straddles the seam.
+fn nearly_hidden_fixture(width: usize, height: usize, seam_x: i32) -> (Array3<f32>, Array2<f32>) {
+    let target = ((seam_x - 1) as f32, HIDDEN_ROW as f32);
+    let distance = |x: usize, y: usize| (x as f32 - target.0).hypot(y as f32 - target.1);
+    let source = Array3::from_shape_fn((height, width, 4), |(y, x, channel)| {
+        let color = if distance(x, y) == 0.0 {
+            HIDDEN_PIXEL
+        } else if distance(x, y) <= HIDDEN_PLATE_RADIUS {
+            [0.1, 0.1, 0.1, 1.0]
+        } else {
+            [6.0, 2.0, 1.0, 1.0]
+        };
+        color[channel]
+    });
+    let coc = Array2::from_shape_fn((height, width), |(y, x)| {
+        if distance(x, y) == 0.0 {
+            -HIDDEN_PIXEL_COC
+        } else if distance(x, y) <= HIDDEN_PLATE_RADIUS {
+            -HIDDEN_PLATE_COC
+        } else {
+            -HIDDEN_MAX_RADIUS
+        }
+    });
+    (source, coc)
+}
+
 #[tokio::test]
 #[ignore = "requires an available hardware GPU"]
 /// Hardware check that a streamed focus ramp matches the full gather across ROI and source seams.
 async fn hardware_streamed_focus_ramp_matches_full_gather_across_roi_and_source_seams() {
-    assert_streamed_matches_full_gather_at_seam(seam_fixture).await;
+    assert_streamed_matches_full_gather_at_seam(seam_fixture, SEAM_PLAN).await;
 }
 
 #[tokio::test]
@@ -215,19 +286,39 @@ async fn hardware_streamed_focus_ramp_matches_full_gather_across_roi_and_source_
 /// Hardware check that the streamed far occlusion, whose probe cover accumulates over source cores, matches the
 /// full gather's far occlusion pre-pass.
 async fn hardware_streamed_far_occlusion_matches_full_gather_across_source_seams() {
-    assert_streamed_matches_full_gather_at_seam(far_occluder_fixture).await;
+    assert_streamed_matches_full_gather_at_seam(far_occluder_fixture, SEAM_PLAN).await;
 }
 
-/// Renders the scene of `fixture` (source and `CoC` for a frame size and seam column) as one astigmatic Accurate
-/// gather and streamed over source cores, and asserts that an ROI across an internal core seam matches.
+#[tokio::test]
+#[ignore = "requires an available hardware GPU"]
+/// Hardware check of a far gather that is more than 99% hidden: the remainder is the difference of nearly equal sums, so the
+/// exact and the streamed gathers take the far surface's own colour from the totals, never the uncorrected gather,
+/// which is the hidden background, and they agree across the source seam that the background straddles.
+async fn hardware_nearly_hidden_far_gather_keeps_the_surface_colour_exact_and_streamed() {
+    let (full_output, seam_x) =
+        assert_streamed_matches_full_gather_at_seam(nearly_hidden_fixture, HIDDEN_PLAN).await;
+    let pixel = full_output.slice(ndarray::s![HIDDEN_ROW as usize, (seam_x - 1) as usize, ..]);
+    for (channel, expected) in HIDDEN_PIXEL.iter().enumerate() {
+        assert!(
+            (pixel[channel] - expected).abs() <= 1e-3,
+            "channel {channel}: {} != the far pixel's own {expected}",
+            pixel[channel]
+        );
+    }
+}
+
+/// Renders the scene of `fixture` (source and `CoC` for a frame size and seam column) with the radius and source
+/// core budgets of `plan` as one astigmatic Accurate gather and streamed over source cores, and asserts that an ROI
+/// across an internal core seam matches. Returns the full-frame output and the seam column.
 async fn assert_streamed_matches_full_gather_at_seam(
     fixture: impl Fn(usize, usize, i32) -> (Array3<f32>, Array2<f32>),
-) {
+    plan: SeamPlan,
+) -> (Array3<f32>, i32) {
+    let max_radius = plan.max_radius;
     let runner = WgpuRunner::new_adaptive()
         .await
         .expect("hardware GPU required");
-    let (width, height) = (120usize, 100usize);
-    let max_radius = 8.0f32;
+    let (width, height) = (plan.width, 100usize);
     let full = IVector4 {
         x: 0,
         y: 0,
@@ -238,8 +329,8 @@ async fn assert_streamed_matches_full_gather_at_seam(
     let regions = plan_source_regions_with_core_limit(
         &full,
         halo,
-        10_000,
-        10_000,
+        plan.max_pixels,
+        plan.max_core_pixels,
         runner.device.limits().max_texture_dimension_2d as usize,
     )
     .unwrap();
@@ -324,4 +415,5 @@ async fn assert_streamed_matches_full_gather_at_seam(
     )
     .await;
     assert_roi_matches(&full_output, &streamed, &requested, &repair);
+    (full_output, seam_x)
 }

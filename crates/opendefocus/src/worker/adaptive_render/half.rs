@@ -1,4 +1,5 @@
-//! Half-resolution path of the Fast quality: the frame is rendered at half size and upsampled, and pixels the blur does not change keep their full-resolution source.
+//! Half-resolution path of the Fast quality: the frame is rendered at half size and upsampled, and the source detail
+//! the half size lost is added back to pixels that are in focus and not under a blurred foreground.
 use super::{
     SourceFrame, inputs::validated_max_radius, plan::FrameGeometry, region::origin, render_planned,
     scatter,
@@ -7,7 +8,10 @@ use crate::datamodel::{
     IVector4, Settings, UVector2, Vector2,
     render::{Quality, RenderSpecs},
 };
-use crate::{error::Result, runners::WgpuRunner};
+use crate::{
+    error::Result,
+    runners::{GATHER_OUTPUT_CHANNELS, WgpuRunner},
+};
 use ndarray::{Array2, Array3, ArrayViewMut2, ArrayViewMut3, Axis, s};
 
 /// Smallest side in pixels of the frame buffer that is worth rendering at half size. The frame, not the requested region, decides so that every stripe or tile of one image takes the same path.
@@ -16,10 +20,12 @@ const MIN_SIDE: i32 = 64;
 const FOCUS_BELOW: f32 = 0.5;
 /// CoC magnitude in pixels above which the half-resolution result replaces the source.
 const BLUR_ABOVE: f32 = 2.0;
-/// Relative change of the half-resolution render below which a pixel keeps its source.
+/// Relative change of the half-resolution render below which a pixel keeps its source detail.
 const CHANGE_BELOW: f32 = 0.03;
 /// Relative change of the half-resolution render above which the render replaces the source.
 const CHANGE_ABOVE: f32 = 0.2;
+/// Channel of the half-size render that holds the front-layer transmittance of the sampled gather.
+const FRONT_TRANSMITTANCE: usize = 4;
 
 /// Returns whether the frame should be rendered at half size: Fast quality, a large enough frame, and some pixel that is out of focus.
 pub(super) fn applies(settings: &Settings, frame: &FrameGeometry, coc: &Array2<f32>) -> bool {
@@ -30,7 +36,7 @@ pub(super) fn applies(settings: &Settings, frame: &FrameGeometry, coc: &Array2<f
 }
 
 /// Returns `x` scaled to `0..=1` between the two edges, with a smooth ramp.
-fn smoothstep(low: f32, high: f32, x: f32) -> f32 {
+pub(super) fn smoothstep(low: f32, high: f32, x: f32) -> f32 {
     let t = ((x - low) / (high - low)).clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
 }
@@ -141,7 +147,7 @@ struct Inputs<'a> {
     source: &'a SourceFrame,
     /// Half-resolution source, the result of [`downsample`].
     half_source: &'a Array3<f32>,
-    /// Half-resolution render.
+    /// Half-resolution render: RGBA and the front-layer transmittance in channel [`FRONT_TRANSMITTANCE`].
     half_render: &'a Array3<f32>,
     /// Region of the full-size frame in global coordinates.
     full: IVector4,
@@ -158,8 +164,13 @@ fn bilinear(array: &Array3<f32>, (ty, tx): (&Tap, &Tap), channel: usize) -> f32 
     row(ty.first) * (1.0 - ty.weight) + row(ty.second) * ty.weight
 }
 
-/// Blends the upsampled half-size render with the full-resolution source for one pixel.
-/// Pixels that are in focus, and that the render barely changed, keep the source.
+/// Blends the upsampled half-size render with the full-resolution source for one pixel by adding the source detail
+/// the half size lost, `source - half source`, to the render with the part of the source the render keeps.
+///
+/// That part is zero for a blurred pixel and for one the render changed (the change is measured against the 2x2
+/// averaged source), and at most the front-layer transmittance: a blurred foreground covers the source, and over a
+/// textured surface its colour can match the 2x2 average, so the change alone would let the full-resolution detail
+/// through it. A focused pixel under nothing that the render did not change keeps its source.
 fn blend_pixel(inputs: &Inputs<'_>, (gx, gy): (i32, i32), out: &mut [f32]) {
     let (half_height, half_width, _) = inputs.half_render.dim();
     let taps = (
@@ -172,23 +183,26 @@ fn blend_pixel(inputs: &Inputs<'_>, (gx, gy): (i32, i32), out: &mut [f32]) {
     for (channel, value) in render.iter_mut().enumerate() {
         *value = bilinear(inputs.half_render, taps, channel);
     }
-    let mut weight = by_focus;
-    if weight < 1.0 {
-        let mut change = 0.0_f32;
-        let mut brightness = 0.0_f32;
-        for (channel, value) in render.iter().enumerate() {
-            let half_source = bilinear(inputs.half_source, taps, channel);
-            change = change.max((value - half_source).abs());
-            if channel < 3 {
-                brightness = brightness.max(half_source.abs());
-            }
-        }
-        let by_change = smoothstep(CHANGE_BELOW, CHANGE_ABOVE, change / (0.02 + brightness));
-        weight = weight.max(by_change);
+    out[..4].copy_from_slice(&render);
+    // Blurred pixels, most of a defocused frame, take the render without the detail terms.
+    if by_focus >= 1.0 {
+        return;
     }
-    for (channel, value) in render.iter().enumerate() {
-        let source = inputs.source.rgba[[y, x, channel]];
-        out[channel] = source + weight * (value - source);
+    let covered = 1.0 - bilinear(inputs.half_render, taps, FRONT_TRANSMITTANCE).clamp(0.0, 1.0);
+    let mut half_source = [0.0; 4];
+    let mut change = 0.0_f32;
+    let mut brightness = 0.0_f32;
+    for channel in 0..4 {
+        half_source[channel] = bilinear(inputs.half_source, taps, channel);
+        change = change.max((render[channel] - half_source[channel]).abs());
+        if channel < 3 {
+            brightness = brightness.max(half_source[channel].abs());
+        }
+    }
+    let by_change = smoothstep(CHANGE_BELOW, CHANGE_ABOVE, change / (0.02 + brightness));
+    let kept = 1.0 - by_focus.max(by_change).max(covered);
+    for (channel, value) in out.iter_mut().enumerate().take(4) {
+        *value += kept * (inputs.source.rgba[[y, x, channel]] - half_source[channel]);
     }
 }
 
@@ -256,8 +270,11 @@ pub(super) async fn render_half(
         },
         half_dim,
     )?;
+    let mut half_frame = half_frame;
+    // The half render keeps the gather's transmittance channel for the composite.
+    half_frame.channels = GATHER_OUTPUT_CHANNELS;
     let half_settings = half_settings(settings);
-    let mut half_render = Array3::zeros(half_dim);
+    let mut half_render = Array3::zeros((half_dim.0, half_dim.1, GATHER_OUTPUT_CHANNELS));
     let mut gather_rgba = half_rgba.clone();
     let highlights = if scatter::plain_disc(&half_settings) {
         scatter::extract(
@@ -348,8 +365,23 @@ mod tests {
         assert_eq!(coc, Array2::from_elem((3, 3), 4.0));
     }
 
+    /// Returns a half-size render of `rgba` with every pixel's front-layer transmittance set to `transmittance`.
+    fn with_transmittance(rgba: &Array3<f32>, transmittance: f32) -> Array3<f32> {
+        let (height, width, _) = rgba.dim();
+        Array3::from_shape_fn(
+            (height, width, GATHER_OUTPUT_CHANNELS),
+            |(y, x, channel)| {
+                if channel == FRONT_TRANSMITTANCE {
+                    transmittance
+                } else {
+                    rgba[[y, x, channel]]
+                }
+            },
+        )
+    }
+
     #[test]
-    /// Verifies a focused pixel that the render did not change keeps its exact full-resolution source.
+    /// Verifies a focused pixel that the render shows unchanged keeps its full-resolution source, detail included.
     fn unchanged_focused_pixels_keep_the_source() {
         let mut source = flat_source(8, 8, 0.25, 0.0);
         source.rgba[[3, 3, 0]] = 0.9;
@@ -358,13 +390,15 @@ mod tests {
             &Inputs {
                 source: &source,
                 half_source: &half_source,
-                half_render: &half_source,
+                half_render: &with_transmittance(&half_source, 1.0),
                 full: region(0, 0, 8, 8),
                 half_full: region(0, 0, 4, 4),
             },
             &region(0, 0, 8, 8),
         );
-        assert_eq!(blended, source.rgba);
+        for (blended, source) in blended.iter().zip(source.rgba.iter()) {
+            assert!((blended - source).abs() < 1e-6, "{blended} != {source}");
+        }
     }
 
     #[test]
@@ -376,13 +410,35 @@ mod tests {
             &Inputs {
                 source: &source,
                 half_source: &half_source,
-                half_render: &Array3::from_elem((4, 4, 4), 0.75),
+                half_render: &with_transmittance(&Array3::from_elem((4, 4, 4), 0.75), 0.0),
                 full: region(0, 0, 8, 8),
                 half_full: region(0, 0, 4, 4),
             },
             &region(2, 2, 6, 6),
         );
         assert!(blended.iter().all(|value| (value - 0.75).abs() < 1e-6));
+    }
+
+    #[test]
+    /// A focused pixel under an opaque blurred foreground takes the render, even where the render equals the 2x2
+    /// average of the source and so looks unchanged: the full-resolution detail must not show through the foreground.
+    fn focused_pixels_under_a_foreground_take_the_render() {
+        let source = SourceFrame {
+            rgba: Array3::from_shape_fn((8, 8, 4), |(y, _, _)| if y % 2 == 0 { 0.6 } else { 0.2 }),
+            coc: Array2::zeros((8, 8)),
+        };
+        let (half_source, _) = downsample(&source, &region(0, 0, 8, 8), &region(0, 0, 4, 4));
+        let blended = composite(
+            &Inputs {
+                source: &source,
+                half_source: &half_source,
+                half_render: &with_transmittance(&half_source, 0.0),
+                full: region(0, 0, 8, 8),
+                half_full: region(0, 0, 4, 4),
+            },
+            &region(0, 0, 8, 8),
+        );
+        assert!(blended.iter().all(|value| (value - 0.4).abs() < 1e-6));
     }
 
     /// Renders `source` with 2D defocus of `size` pixels at `quality`, in full or as the stripe `rows` of the frame.

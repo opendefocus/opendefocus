@@ -19,6 +19,7 @@ mod preview;
 mod pyramid;
 
 pub(crate) use adaptive_streaming::{StreamGather, StreamSource};
+pub(crate) use gather::GATHER_OUTPUT_CHANNELS;
 use gather::GatherPipelines;
 pub(super) use gather::integral_subtree_ends;
 #[cfg(test)]

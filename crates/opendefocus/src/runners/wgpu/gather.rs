@@ -23,6 +23,17 @@ pub(super) use dispatch::GatherPipelines;
 use ndarray::Array3;
 use resources::{native_lens, source_is_opaque};
 use validation::{capped_pixels_dominate, integral_trees};
+
+/// Channels of every gathered pixel: premultiplied RGBA, then the front-layer transmittance of the sampled gather (the
+/// part of everything under the blurred foreground that stays visible). The exact gathers leave alpha there.
+pub(crate) const GATHER_OUTPUT_CHANNELS: usize = 5;
+
+/// Floats per pixel that exact gathers through apertures whose channels weigh differently (custom images, axial
+/// aberration, lens effects) append after the gathered layout: the red, green and blue validity of the far sources
+/// the far occlusion hides, which the gather subtracts per channel (`FAR_HIDDEN_CHANNEL_FLOATS` in the shader). They
+/// are not read back.
+const FAR_HIDDEN_CHANNEL_FLOATS: u64 = 3;
+
 impl WgpuRunner {
     /// Render caller-provided layers with the default Fast circular sample budget.
     /// Use the settings-aware entry point to supply custom aperture and lens settings.
@@ -98,6 +109,7 @@ impl WgpuRunner {
     ///
     /// # Errors
     /// Returns an error when the inputs are invalid, or when a GPU resource cannot be created or read back.
+    #[cfg(test)]
     pub async fn gather_adaptive_frame_with_aperture(
         &self,
         source: &Array3<f32>,
@@ -121,7 +133,37 @@ impl WgpuRunner {
         .await
     }
 
-    /// Shared implementation of the adaptive gather. `fused_capped_circle` selects the fused plain-circle Accurate specialization when it applies.
+    /// Gathers a frame with the lens `lens` and an optional aperture mip chain, and returns all
+    /// [`GATHER_OUTPUT_CHANNELS`] channels: RGBA and the sampled front-layer transmittance.
+    /// # Errors
+    /// Returns an error when the inputs are invalid or GPU work fails.
+    pub(crate) async fn gather_adaptive_frame_with_transmittance(
+        &self,
+        source: &Array3<f32>,
+        prepared: &PreparedLayers,
+        features: &[TileFeatures],
+        max_radius_px: f32,
+        sample_budget: AdaptiveSampleBudget,
+        lens: &ConvolveSettings,
+        aperture: Option<&MipmapBuffer>,
+    ) -> Result<Array3<f32>> {
+        let request = GatherRequest {
+            lens: Some(lens),
+            aperture,
+            fused_capped_circle: true,
+        };
+        self.gather_all_channels(
+            source,
+            prepared,
+            features,
+            max_radius_px,
+            sample_budget,
+            request,
+        )
+        .await
+    }
+
+    /// Shared implementation of the adaptive gather; returns RGBA. `fused_capped_circle` selects the fused plain-circle Accurate specialization when it applies.
     /// # Errors
     /// Returns an error when the inputs are invalid or GPU work fails.
     pub(super) async fn gather_adaptive_frame_impl(
@@ -135,6 +177,42 @@ impl WgpuRunner {
         aperture: Option<&MipmapBuffer>,
         fused_capped_circle: bool,
     ) -> Result<Array3<f32>> {
+        let request = GatherRequest {
+            lens,
+            aperture,
+            fused_capped_circle,
+        };
+        let gathered = self
+            .gather_all_channels(
+                source,
+                prepared,
+                features,
+                max_radius_px,
+                sample_budget,
+                request,
+            )
+            .await?;
+        Ok(gathered.slice(ndarray::s![.., .., ..4]).to_owned())
+    }
+
+    /// Runs the adaptive gather of `request` and returns all [`GATHER_OUTPUT_CHANNELS`] channels, with the subpixel
+    /// focus crossings of the RGBA channels resolved.
+    /// # Errors
+    /// Returns an error when the inputs are invalid or GPU work fails.
+    async fn gather_all_channels(
+        &self,
+        source: &Array3<f32>,
+        prepared: &PreparedLayers,
+        features: &[TileFeatures],
+        max_radius_px: f32,
+        sample_budget: AdaptiveSampleBudget,
+        request: GatherRequest<'_>,
+    ) -> Result<Array3<f32>> {
+        let GatherRequest {
+            lens,
+            aperture,
+            fused_capped_circle,
+        } = request;
         let use_integrals = sample_budget
             == AdaptiveSampleBudget::for_quality(crate::datamodel::render::Quality::Accurate);
         let sample_offsets = self
@@ -237,12 +315,7 @@ impl WgpuRunner {
                 radius: [max_radius_px, max_mip, disc_shift.x, disc_shift.y],
             }),
         );
-        let output = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Adaptive gathered output"),
-            size: geometry.output_size,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-            mapped_at_creation: false,
-        });
+        let output = self.create_gather_output(&geometry, use_integrals && !plain_circle)?;
         let lens_buffer = self.uniform_buffer(
             "Adaptive lens parameters",
             bytemuck::bytes_of(&native_lens(
@@ -272,13 +345,55 @@ impl WgpuRunner {
             subtree_ends: &subtree_buffer,
         };
         let pipelines = self.gather_pipeline(use_integrals, plain_circle, use_fused_capped_circle);
-        let gathered = self
+        let mut gathered = self
             .run_gather(pipelines, &bindings, (width, height), geometry.output_size)
             .await?;
-        let mut output = gathered.slice(ndarray::s![.., .., ..4]).to_owned();
-        prepared.resolve_subpixel_focus(&mut output);
-        Ok(output)
+        prepared.resolve_subpixel_focus(&mut gathered);
+        Ok(gathered)
     }
+}
+
+impl WgpuRunner {
+    /// Creates the gather output buffer for `geometry`: the gathered layout, followed by the per-channel hidden far
+    /// validity when `per_channel_hidden` (exact gathers through apertures whose channels weigh differently).
+    ///
+    /// # Errors
+    /// Returns `SizeLimitExceeded` when the buffer exceeds one storage binding.
+    fn create_gather_output(
+        &self,
+        geometry: &validation::GatherGeometry,
+        per_channel_hidden: bool,
+    ) -> Result<wgpu::Buffer> {
+        let hidden_channels_size = if per_channel_hidden {
+            u64::from(geometry.width)
+                * u64::from(geometry.height)
+                * FAR_HIDDEN_CHANNEL_FLOATS
+                * std::mem::size_of::<f32>() as u64
+        } else {
+            0
+        };
+        let size = geometry.output_size + hidden_channels_size;
+        if size > geometry.max_storage {
+            return Err(Error::SizeLimitExceeded);
+        }
+        Ok(self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Adaptive gathered output"),
+            size,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        }))
+    }
+}
+
+/// Lens, aperture and specialization choice of one gather.
+#[derive(Clone, Copy)]
+struct GatherRequest<'a> {
+    /// Lens and aperture settings, or `None` for a plain disc without lens effects.
+    lens: Option<&'a ConvolveSettings>,
+    /// Aperture mip chain of an image filter.
+    aperture: Option<&'a MipmapBuffer>,
+    /// Whether the fused plain-circle Accurate specialization may be used.
+    fused_capped_circle: bool,
 }
 
 /// Returns, for each packed node, the index just past its preorder subtree. A single empty root returns `[1]`.
