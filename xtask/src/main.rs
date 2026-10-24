@@ -24,7 +24,7 @@ use crate::{
     natron::test_natron,
     package::package_ofx,
     precommit::{clippy_all, precommit},
-    release::{bundle_ofx, prepare_docs, release_docs, release_package},
+    release::{bundle_ofx, prepare_docs, release_docs},
     test::test_crates,
     util::crate_root,
 };
@@ -74,15 +74,6 @@ struct Args {
     /// Build the `OpenFX` bundle and wrap it in an installer for the host platform
     #[clap(long, action=ArgAction::SetTrue)]
     package_ofx: bool,
-
-    /// Ship the package folder to a public release
-    #[clap(long, action=ArgAction::SetTrue)]
-    release_package: bool,
-
-    /// Destination file for the archive written by `--release-package`. When omitted the
-    /// archive goes to a versioned zip in the system temporary directory.
-    #[clap(long, requires = "release_package")]
-    target_package_path: Option<PathBuf>,
 
     /// Build documentation for GitHub Pages
     #[clap(long, action=ArgAction::SetTrue)]
@@ -145,23 +136,6 @@ enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         arguments: Vec<String>,
     },
-}
-
-/// Validates a Nuke version string such as `16.0`: two non-empty numeric parts separated
-/// by one dot. Returns the input unchanged when it is valid; otherwise returns the
-/// message shown to the user.
-fn parse_nuke_version(value: &str) -> std::result::Result<String, String> {
-    let valid = value.split_once('.').is_some_and(|(major, minor)| {
-        [major, minor].iter().all(|part| {
-            !part.is_empty()
-                && part.bytes().all(|c| c.is_ascii_digit())
-                && part.parse::<u32>().is_ok()
-        })
-    });
-    if !valid {
-        return Err("Nuke versions must use major.minor, for example 16.0".into());
-    }
-    Ok(value.to_owned())
 }
 
 /// Parses the command line and runs the requested tasks in order. The first task that
@@ -234,10 +208,6 @@ async fn main() -> Result<()> {
 
     if args.package_ofx {
         package_ofx()?;
-    }
-
-    if args.release_package {
-        release_package(args.target_package_path).await?;
     }
 
     if args.release_docs {
