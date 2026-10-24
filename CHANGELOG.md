@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/opendefocus/opendefocus/compare/v0.2.0...v0.2.1) - 2026-10-24
+
+### Fixed
+
+- *(render)* make the far occlusion and the front hand-over continuous
+- *(render)* blend a nearly fully hidden far gather to the far surface colour
+- *(render)* hide the far background behind less blurred far surfaces
+- *(render)* remove the sharp line and ticks at the focal plane
+
+### Other
+
+- *(render)* tidy far occlusion and Fast composite code
+
 ## [0.2.0](https://github.com/opendefocus/opendefocus/compare/v0.1.10...v0.2.0) - 2026-10-23
 
 ### Added
