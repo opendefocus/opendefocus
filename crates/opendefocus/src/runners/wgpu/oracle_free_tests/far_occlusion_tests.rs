@@ -24,7 +24,7 @@ const BACKGROUND: [f32; 4] = [4.0, 2.0, 1.0, 1.0];
 /// its probe radius.
 const HIDDEN_DISTANCE: usize = 8;
 
-/// Renders opaque far-only `colors` with far `coc` through the exact and the sampled gather.
+/// Renders opaque far-only `color` with far `coc` through the exact and the sampled gather.
 async fn render_far_layer(
     color: impl Fn(usize, usize) -> [f32; 4],
     coc: impl Fn(usize, usize) -> f32,
