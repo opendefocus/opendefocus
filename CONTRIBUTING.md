@@ -1,16 +1,29 @@
 # Contributing to OpenDefocus
 
-Contributing to OpenDefocus is greatly appreciated and welcome! To start, I'd recommend to look at the open issues. Or create one yourself and start on that if you have some suggestions for improvements.
+Contributing to OpenDefocus is greatly appreciated and welcome!
 
-Once done, please create a PR to the `main` branch and we can discuss (and hopefully) merge it.
+## How work is organised
+
+Work is driven by [GitHub issues](https://github.com/opendefocus/opendefocus/issues).
+
+1. Pick an open issue, or open one with the **Task** or **Bug report** template.
+   A task describes the goal, context, scope, acceptance criteria and how to
+   verify it, so anyone can pick it up. Comment on the issue before you start
+   so work is not duplicated.
+2. Work on a branch named `<type>/<issue>-<slug>`, for example
+   `fix/142-roi-padding`.
+3. Open a pull request against `main` that says `Closes #<issue>` and shows how
+   each acceptance criterion was verified.
+
+Report security vulnerabilities privately, as described in [SECURITY.md](SECURITY.md).
 
 ## Development
 
 ### Working with coding agents
 
-Read [AGENTS.md](AGENTS.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
-Agents should start at `AGENTS.md`. Keep project knowledge in these shared documents, record open gaps in
-`AGENTS.md`, and keep personal settings out of Git.
+Agents start at [AGENTS.md](AGENTS.md), which links to
+[ARCHITECTURE.md](ARCHITECTURE.md), [TESTING.md](TESTING.md) and
+[SECURITY.md](SECURITY.md). Keep personal agent settings out of Git.
 
 ### Tools Required
 
@@ -34,7 +47,7 @@ Avoid installing the documentation tools unless you work on documentation.
 
 Run `cargo fmt --all -- --check` and `cargo xtask --test-crates` for Rust changes.
 Use `cargo xtask --compile --gpu` for shader validation; hardware changes also
-need the correctness and performance checks in [AGENTS.md](AGENTS.md).
+need the correctness and performance checks in [TESTING.md](TESTING.md).
 
 The imported Python crates in `crates/` have their own environments, test
 commands, and CI.
@@ -47,12 +60,7 @@ commands, and CI.
    git clone git@github.com:YOUR_USERNAME/opendefocus.git
    cd opendefocus/
    ```
-2. Create a branch with a descriptive name.
-   - It is recommended to give your branch a meaningful name, relevant to the feature or fix you are working on.
-     - Good examples:
-       - `docs-plugin-installation`
-       - `feature-new-nonuniform-artifact`
-       - `fix-panic-during-this-operation`
+2. Create a branch for the issue, for example `fix/142-roi-padding`.
 
 3. Commit using the [conventional commits specifications](https://www.conventionalcommits.org/en/v1.0.0/)
 

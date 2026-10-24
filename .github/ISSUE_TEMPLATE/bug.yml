@@ -1,0 +1,50 @@
+name: Bug report
+description: Something renders wrong, crashes or behaves unexpectedly.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead. Screenshots help.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Settings, input images (attach or describe), and the exact steps or command.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: OpenDefocus version
+      placeholder: v0.2.0
+    validations:
+      required: true
+  - type: dropdown
+    id: product
+    attributes:
+      label: Used through
+      options:
+        - OFX plugin
+        - CLI
+        - Viewer
+        - Rust library
+        - Python bindings
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Host application and version, operating system, GPU and driver.
+      placeholder: Natron 2.6, macOS 15, Apple M1
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error output
+      render: text

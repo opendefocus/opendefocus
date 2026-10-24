@@ -1,0 +1,73 @@
+name: Task
+description: Work to implement, ready for a contributor or coding agent to pick up.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Write this so someone who missed the discussion can implement and verify it
+        without asking. Link code with paths (`crates/opendefocus/src/...`).
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: The outcome in one or two sentences, from the user's point of view.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why this is needed, current behaviour, and the files, functions or settings involved.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What is in scope and, as important, what is not.
+      value: |
+        In scope:
+        -
+
+        Out of scope:
+        -
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Checkable statements that are all true when the work is done.
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: |
+        Commands, tests to add, hardware gates and measurements (see TESTING.md).
+        Say if a render benchmark is needed.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Renderer / shaders
+        - Settings / public API
+        - OFX plugin
+        - CLI
+        - Viewer
+        - Python bindings / support crates
+        - Build, CI, release
+        - Documentation
+  - type: textarea
+    id: notes
+    attributes:
+      label: Constraints and references
+      description: Invariants from ARCHITECTURE.md that apply, related issues and PRs, fixtures, open questions.

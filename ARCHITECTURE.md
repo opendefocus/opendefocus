@@ -1,8 +1,11 @@
 # Architecture: adaptive GPU renderer
 
-Technical reference for the renderer. User documentation lives in `docs/`.
+Why the renderer is built the way it is: stages, invariants, buffer layouts,
+failure modes and lessons from measured regressions. The rules that follow from
+it are summarised in [AGENTS.md](AGENTS.md#renderer-rules); verification is in
+[TESTING.md](TESTING.md).
 
-All public scene rendering uses the Adaptive WGPU pipeline. Initialization and rendering errors are returned without switching to another algorithm. There is no Legacy algorithm selector, CPU renderer, or runtime algorithm fallback. WGPU owns adapter selection, including its fallback adapter. CPU routines remain test-only references outside the product render path.
+All public scene rendering uses the Adaptive WGPU pipeline. Initialization and rendering errors are returned without switching to another algorithm. There is no Legacy algorithm selector, CPU renderer, or runtime algorithm fallback. WGPU owns adapter selection, including its fallback adapter. Tests compare GPU output with small analytic references (disc coverage, pyramid averages), never with a CPU renderer.
 
 ## Stages
 
@@ -16,7 +19,7 @@ Accurate integrates exact source-pixel weights through conservative integral tre
 
 ## Native shaders
 
-The authored WGSL sources live in `crates/opendefocus/src/kernel/shaders/` and are embedded through constants in the renderer's private kernel module. Preparation, classification, pyramid reduction, packing, convolution, and focal/bokeh preview rendering all use native WGSL. `cargo xtask --compile --gpu` validates all five sources with Naga on stable Rust. There is no runtime SPIR-V generation or interpreter. Rust constructs resources, CoC/aperture inputs, bounds and packed trees; Rust convolution references compile only for tests.
+The authored WGSL sources live in `crates/opendefocus/src/kernel/shaders/` and are embedded through constants in the renderer's private kernel module. Preparation, classification, pyramid reduction, packing, convolution, and focal/bokeh preview rendering all use native WGSL. `cargo xtask --compile --gpu` validates all five sources with Naga on stable Rust. There is no runtime SPIR-V generation or interpreter. Rust constructs resources, CoC/aperture inputs, bounds and packed trees; all convolution runs on the GPU.
 
 Convolution has sampled and exact entry points. Exact plain circles use a compile-time specialization and preorder subtree ends. When Accurate uses a plain circle, the radius exceeds two pixels, and at least half of valid near-layer entries equal the radius cap, a fused specialization walks the near tree once for front radiance and cap-potential occupancy. It uses the fused potential only when front presence equals the cap; other radii use the regular exact potential traversal. Spatial and custom apertures descend uncertain cells rather than discarding them. The explicit gather layout uses eight storage buffers. Gather uniforms occupy 64 bytes, lens uniforms 160 bytes, integral nodes 64 bytes, and aperture bounds 32 bytes. Aperture range queries read appended 32-byte mip-layout records from the existing bounds buffer; the public bounds payload and diagnostic APIs keep their original format. For custom image apertures without spatial or axial effects, a padded UV interval is first rejected only when its closest point lies provably outside the normalized clip disk. Remaining cells use one shared RGBA filter-range query for all channels; uncertain intervals still descend to exact leaves. Spatial and axial cases retain their separate channel calculations. Integral nodes are built directly in their packed GPU layout, avoiding a simultaneous raw-node copy.
 

@@ -42,19 +42,23 @@ fn run_ty_typechecking() -> Result<()> {
 }
 
 /// Markdown files that may sit in the repository root.
-const ROOT_MARKDOWN: [&str; 5] = [
+const ROOT_MARKDOWN: [&str; 7] = [
     "README.md",
     "AGENTS.md",
     "ARCHITECTURE.md",
     "CONTRIBUTING.md",
     "CHANGELOG.md",
+    "SECURITY.md",
+    "TESTING.md",
 ];
 
-/// Whether a tracked Markdown path is in an allowed location: a root document, `docs/src/`,
-/// a test image README, `xtask/README.md`, or a crate-level README or CHANGELOG.
+/// Whether a tracked Markdown path is in an allowed location: a root document, the pull request
+/// template, `docs/src/`, a test image README, `xtask/README.md`, or a crate-level README or
+/// CHANGELOG.
 fn markdown_allowed(path: &str) -> bool {
     let name = path.rsplit('/').next().unwrap_or(path);
     ROOT_MARKDOWN.contains(&path)
+        || path == ".github/pull_request_template.md"
         || path.starts_with("docs/src/")
         || path.starts_with("test/images/") && name == "README.md"
         || path == "xtask/README.md"
@@ -373,6 +377,8 @@ mod tests {
     fn markdown_policy() {
         for ok in [
             "AGENTS.md",
+            "TESTING.md",
+            ".github/pull_request_template.md",
             "docs/src/a/b.md",
             "crates/opendefocus/README.md",
             "test/images/scenes/README.md",
