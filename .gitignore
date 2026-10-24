@@ -198,6 +198,7 @@ cython_debug/
 
 # Prevent GTest testing folder
 *Testing*
+!/TESTING.md
 
 # Visual Studio Code related
 .vscode
