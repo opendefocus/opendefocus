@@ -53,7 +53,7 @@ async fn hardware_high_layer_paths_match_brute_force_references() {
             ),
             "local-only" => local_reference(size, layer_path_color),
             // Alternating 1.1 / 100 px radii force the traversal to descend; the 100 px neighbours lie behind the
-            // 1.1 px destinations across a depth gap, so the far occlusion applies there.
+            // 1.1 px destinations behind a less blurred surface, so the far occlusion applies there.
             "far-forced-descend" => {
                 far_occluded_reference(size, layer_path_color, forced_descend_radius)
             }

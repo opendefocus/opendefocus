@@ -1347,8 +1347,8 @@ fn center_blur_weight(center_near: LayerSample, center_far: LayerSample) -> f32 
 // in the source CoC and the destination's own CoC, so the occlusion never
 // switches on at a contour inside a far surface. A one-sided open area (a
 // straight silhouette) is fitted by a half-plane, which hides exactly the
-// sources whose ray crosses the blocked side. Open area spread around the destination (holes, interleaved detail)
-// gives no direction; it lets the open fraction of every behind source
+// sources whose ray crosses the blocked side. Open area spread around the
+// destination (holes, interleaved detail) gives no direction; it lets the open fraction of every behind source
 // through. The two are blended by how one-sided the open area is. A separate
 // pass integrates the hidden behind sources and the exact gather subtracts
 // them from its ordinary far gather.
@@ -1875,7 +1875,7 @@ fn read_far_hidden(position: vec2<u32>) -> LensIntegral {
 }
 
 // Far sources hidden at `position` by the far surface in front of them, or
-// zero when the far gather there crosses no depth gap.
+// zero when no far source at the pixel lies behind a less blurred far surface.
 fn far_hidden_at(position: vec2<u32>) -> LensIntegral {
     let none = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
     if settings.radius.x <= 0.0 { return none; }

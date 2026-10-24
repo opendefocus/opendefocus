@@ -101,10 +101,9 @@ Focus reconstruction reads prepared pixels from the owning source cores across c
   disc and keeps its reach. Pixels block fully up to 0.8 of the probe radius
   and not at all above it; sources are partly behind above the radius and
   wholly behind from 1.25 times it. Every weight must stay continuous in space
-  and in `CoC`: a gate on the nearest open `CoC` of the disc (a minimum that
-  jumps when one pixel enters it) drew a hard arc inside the blurred blue
-  sphere at focal 5.44 where its probe first reached the ring of farther
-  geometry, and a hard `coc > behind` cut draws one along an iso-`CoC` contour.
+  and in `CoC`: a minimum over the probe disc (such as the nearest open `CoC`)
+  jumps when one pixel enters it, and a hard `coc > behind` cut switches along
+  an iso-`CoC` contour; either draws a hard arc inside a blurred far surface.
   Behind sources are hidden by a half-plane fitted to a one-sided open area
   (silhouettes) or, where the open area surrounds the destination, by the
   blocked fraction. The exact pre-pass leaves the hidden sum (premultiplied
