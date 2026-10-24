@@ -13,10 +13,14 @@ use crate::AdaptiveSampleBudget;
 
 use super::{TileFeatures, WgpuRunner};
 
+/// Brute-force reference of the far gather with the far occlusion model.
+mod far_occlusion_reference;
 /// Hardware tests for the far occlusion of far surfaces.
 mod far_occlusion_tests;
 /// Hardware tests for focus reconstruction.
 mod focus_tests;
+/// Hardware tests for the front layer's normalisation.
+mod front_tests;
 /// Frozen probe values for the lens and layer paths.
 mod frozen;
 /// Hardware tests for the gather against analytic references.

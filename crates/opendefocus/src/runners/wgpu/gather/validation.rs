@@ -9,7 +9,7 @@ use ndarray::Array3;
 /// Edge length in pixels of a gather tile.
 const GATHER_TILE_SIZE: i32 = 16;
 /// Floats per pixel of the gather output: RGBA plus one auxiliary channel.
-const OUTPUT_FLOATS_PER_PIXEL: u64 = 5;
+const OUTPUT_FLOATS_PER_PIXEL: u64 = super::GATHER_OUTPUT_CHANNELS as u64;
 /// Floats per pixel of the prepared layer input.
 const LAYER_FLOATS_PER_PIXEL: u64 = 12;
 /// Bytes per float.

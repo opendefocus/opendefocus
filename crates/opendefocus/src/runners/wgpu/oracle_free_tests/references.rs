@@ -6,13 +6,17 @@ use crate::runners::adaptive::AdaptiveLayerPixel;
 
 use super::scenes::Case;
 
+/// Potential occupancy from which the front layer starts to normalise by its own validity (the shader's
+/// `FRONT_INTERIOR_FROM`).
+const FRONT_INTERIOR_FROM: f64 = 0.9;
+
 /// Returns the anti-aliased coverage in [0, 1] of a disc of `radius` at offset (`dx`, `dy`) from its centre.
 pub(super) fn disc_coverage(radius: f32, dx: f32, dy: f32) -> f32 {
     (radius.abs().max(0.5) - dx.hypot(dy) + 0.5).clamp(0.0, 1.0)
 }
 
 /// Returns the disc coverage normalised by the disc area, with the area floored at 0.25.
-fn disc_weight(radius: f32, dx: f32, dy: f32) -> f32 {
+pub(super) fn disc_weight(radius: f32, dx: f32, dy: f32) -> f32 {
     disc_coverage(radius, dx, dy) / (radius * radius).max(0.25)
 }
 
@@ -72,7 +76,9 @@ pub(super) fn near_reference(
                 }
             }
             let blend = {
-                let t = ((occupied / potential - 0.99) / 0.01).clamp(0.0, 1.0);
+                let t = ((occupied / potential - FRONT_INTERIOR_FROM)
+                    / (1.0 - FRONT_INTERIOR_FROM))
+                    .clamp(0.0, 1.0);
                 t * t * (3.0 - 2.0 * t)
             };
             let denominator = potential * (1.0 - blend) + occupied * blend;

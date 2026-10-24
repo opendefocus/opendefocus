@@ -8,7 +8,7 @@ use super::{
 use crate::{
     datamodel::{IVector4, render::RenderSpecs, settings_to_convolve_settings},
     error::{Error, Result},
-    runners::adaptive::CocPolarity,
+    runners::{GATHER_OUTPUT_CHANNELS, adaptive::CocPolarity},
 };
 use ndarray::{Array3, ArrayViewMut3, s};
 
@@ -70,8 +70,8 @@ pub(super) async fn render_blocks(
     Ok(())
 }
 
-/// Renders `block`, a core plus its halo, and returns the RGBA result for the whole block.
-/// `render_region` is the part of the block that is kept.
+/// Renders `block`, a core plus its halo, and returns the result for the whole block: RGBA and the front-layer
+/// transmittance (see [`GATHER_OUTPUT_CHANNELS`]). `render_region` is the part of the block that is kept.
 ///
 /// # Errors
 /// Returns an error when classification, preparation or the gather fails, or the gather returns an unexpected size.
@@ -115,36 +115,19 @@ async fn render_block(
     );
     let process = grow_clamped(render_region, FOCUS_REPAIR_HALO, block);
     lens.process_region = glam::IVec4::new(process.x, process.y, process.z, process.w);
-    let output = match context.aperture {
-        Some(aperture) => {
-            context
-                .runner
-                .gather_adaptive_frame_with_aperture(
-                    &block_rgba,
-                    &prepared,
-                    &features,
-                    plan.max_radius,
-                    plan.budget,
-                    &lens,
-                    aperture,
-                )
-                .await?
-        }
-        None => {
-            context
-                .runner
-                .gather_adaptive_frame_with_lens(
-                    &block_rgba,
-                    &prepared,
-                    &features,
-                    plan.max_radius,
-                    plan.budget,
-                    Some(&lens),
-                )
-                .await?
-        }
-    };
-    if output.dim() != (block_height, block_width, 4) {
+    let output = context
+        .runner
+        .gather_adaptive_frame_with_transmittance(
+            &block_rgba,
+            &prepared,
+            &features,
+            plan.max_radius,
+            plan.budget,
+            &lens,
+            context.aperture,
+        )
+        .await?;
+    if output.dim() != (block_height, block_width, GATHER_OUTPUT_CHANNELS) {
         return Err(Error::InvalidDimensions);
     }
     Ok(output)

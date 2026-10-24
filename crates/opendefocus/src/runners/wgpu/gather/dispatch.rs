@@ -151,7 +151,11 @@ impl WgpuRunner {
         receiver.await??;
         let view = staging.slice(..).get_mapped_range()?;
         let output = Array3::from_shape_vec(
-            (height as usize, width as usize, 5),
+            (
+                height as usize,
+                width as usize,
+                super::GATHER_OUTPUT_CHANNELS,
+            ),
             bytemuck::cast_slice::<u8, f32>(&view).to_vec(),
         )?;
         drop(view);

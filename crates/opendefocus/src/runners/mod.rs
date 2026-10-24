@@ -9,6 +9,6 @@ pub(crate) mod adaptive_streaming;
 /// WGPU device, pipelines and dispatch.
 mod wgpu;
 #[cfg(feature = "wgpu")]
-pub(crate) use wgpu::{StreamGather, StreamSource};
+pub(crate) use wgpu::{GATHER_OUTPUT_CHANNELS, StreamGather, StreamSource};
 #[cfg(feature = "wgpu")]
 pub use wgpu::{TileFeatures, WgpuRunner};

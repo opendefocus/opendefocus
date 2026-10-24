@@ -15,7 +15,7 @@ All public scene rendering uses the Adaptive WGPU pipeline. Initialization and r
 
 `build_adaptive_pyramid` averages each layer separately. CoC averages only valid pixels within that layer. Odd trailing rows and columns enter the final texel of each floor-sized mip level.
 
-Accurate integrates exact source-pixel weights through conservative integral trees. Fast uses a fixed sample budget and renders at half resolution (`worker/adaptive_render/half.rs`): the source and CoC are averaged on the global 2x2 grid, the shared pipeline runs with halved lens centre, resolution and size, and the result is bilinearly upsampled. Pixels that are in focus and that the half-size render barely changed keep their full-resolution source, so sharp surfaces stay sharp. With a plain disc aperture, small pixels far brighter than their neighbours are removed from the half-size gather and drawn as exact discs (`worker/adaptive_render/scatter.rs`), because a sampled gather hits them with few samples and shows spiral ribs; discs that cross the frame edge stay with the gather, and discs are hidden where a nearer in-focus or foreground surface covers them. Sampled tiers interpolate tile transitions. Far gathers use area-distributed positions; near gathers include a radial Jacobian. Custom RGBA apertures use their mip hierarchy. Spatial lens effects retain Legacy's coordinate, inversion, and axial-channel conventions.
+Accurate integrates exact source-pixel weights through conservative integral trees. Fast uses a fixed sample budget and renders at half resolution (`worker/adaptive_render/half.rs`): the source and CoC are averaged on the global 2x2 grid, the shared pipeline runs with halved lens centre, resolution and size, and the result is bilinearly upsampled. The upsampled render gets back the source detail the half size lost (source minus its 2x2 average) where the pixel is in focus and the half-size render did not change it, bounded by the front transmittance that the sampled gather writes to its fifth output slot, so sharp surfaces stay sharp: a blurred foreground over a textured surface can match the 2x2 average, and the change test alone kept harsh 1 px segments of the focus row under it (focal 18.70). With a plain disc aperture, small pixels far brighter than their neighbours are removed from the half-size gather and drawn as exact discs (`worker/adaptive_render/scatter.rs`), because a sampled gather hits them with few samples and shows spiral ribs; discs that cross the frame edge stay with the gather. A background disc is hidden where an in-focus or nearer foreground surface covers it and, tested on its own ray, behind a less blurred far surface (the far occlusion); a foreground disc belongs to the front layer, in which no near source hides another, so it is never hidden (a highlight on the floor at focal 18.70 lost its lower half to the nearer floor). Sampled tiers interpolate tile transitions. Far gathers use area-distributed positions, and the probe disc around the destination (at most a quarter of the far radius) is sampled separately with the smooth pattern, because inverse-square weights let the least blurred sources near the destination dominate and a wide pattern gave them a few filtered samples. Near gathers include a radial Jacobian. Custom RGBA apertures use their mip hierarchy. Spatial lens effects retain Legacy's coordinate, inversion, and axial-channel conventions.
 
 ## Native shaders
 
@@ -84,25 +84,43 @@ Focus reconstruction reads prepared pixels from the owning source cores across c
   remote cores, and passes it through cached and uncached submissions. Test-only
   render references apply the same coverage policy before focus reconstruction.
   Keep independent transparent-point energy gates alongside those references.
+- The front layer is normalized by the potential disc area at its silhouette
+  (its coverage) and by its own gathered validity inside the surface, where
+  front pixels whose `CoC` is below the potential radius bias that coverage by
+  several percent. The hand-over ramps over potential occupancy 0.9 to 1, the
+  outer quarter of the potential radius; a 0.99 to 1 ramp switched between the
+  two normalizers within about a pixel and drew a ring inside the blurred red
+  sphere at focal 5.44 and hard edges along the near floor at 18.70.
 - The far layer is one normalized gather, so far surfaces need their own
   occlusion: otherwise a strongly blurred far background bleeds through a less
   blurred far surface in front of it, and the hand-over from the sharp source
   to the far gather draws a line where that surface's `CoC` passes 0.5 to 1 px.
   Each far destination probes the far layer on a disc of twice its own far
-  `CoC`. Only a depth gap makes an occluder: the nearest open pixel must lie
-  well above the probe `CoC`, so receding planes and curved rims keep their full
-  far reach. Behind sources are hidden by a half-plane fitted to a one-sided
-  open area (silhouettes) or, where the open area surrounds the destination, by
-  the blocked fraction. The exact pre-pass leaves the hidden sum (premultiplied
-  RGBA and the alpha-channel validity, used for every channel) in the pixel's
-  five output slots and the exact gather subtracts it. Fast weights its samples
-  with a sampled probe disc; streaming accumulates the probe cover in result
-  slots 68 to 71, the nearest open `CoC` in slot 19 and the hidden validity in
-  slot 16. When nearly all of the far gather is hidden, the remainder is
-  cancellation residue: exact and streamed gathers blend to the far surface's
-  own colour by the visible fraction of the totals (`far_visible_color`),
-  never back to the uncorrected gather, which is the leak. Streaming must
-  subtract per chunk without clamping and apply that rule once to the sums.
+  `CoC`, which tests every behind source's ray at the depth of that radius: the
+  farther part of a receding plane or curved rim lies on the open side of the
+  disc and keeps its reach. Pixels block fully up to 0.8 of the probe radius
+  and not at all above it; sources are partly behind above the radius and
+  wholly behind from 1.25 times it. Every weight must stay continuous in space
+  and in `CoC`: a gate on the nearest open `CoC` of the disc (a minimum that
+  jumps when one pixel enters it) drew a hard arc inside the blurred blue
+  sphere at focal 5.44 where its probe first reached the ring of farther
+  geometry, and a hard `coc > behind` cut draws one along an iso-`CoC` contour.
+  Behind sources are hidden by a half-plane fitted to a one-sided open area
+  (silhouettes) or, where the open area surrounds the destination, by the
+  blocked fraction. The exact pre-pass leaves the hidden sum (premultiplied
+  RGBA and the alpha validity) in the pixel's five output slots; apertures
+  whose channels weigh differently (custom images, lens effects, axial
+  aberration) get three more floats per pixel after that layout for the red,
+  green and blue validity, so each channel subtracts its own hidden weights.
+  The exact gather subtracts the sum. Fast weights its samples with a sampled
+  probe disc; streaming accumulates the probe cover in result slots 68 to 71
+  and the hidden alpha validity in slot 16. When nearly all of the far gather
+  is hidden, the remainder is cancellation residue: exact and streamed gathers
+  blend to the far surface's own colour by the visible fraction of the alpha
+  totals (`far_visible_color`), never back to the uncorrected gather, which is
+  the leak. Streaming must subtract per chunk without clamping and apply that
+  rule once to the sums. The probe cover and the hidden sum share one
+  stackless far-tree walk (`far_walk`).
 - No setting, host, or saved state may select a CPU render path; there is none.
   Reproduce the bundled
   depth case with 1/Z, including negative depth and the x=1379 zero column.
