@@ -7,6 +7,10 @@ name: OFX installers
 # workflows, so release-plz starts this workflow by dispatch with the release tag. The
 # `release` trigger covers releases published by hand.
 #
+# The Linux installers are built in AlmaLinux 8, whose glibc 2.28 is the VFX Reference Platform
+# baseline for CY2024-CY2026 (CY2027 raises it to 2.34, which a 2.28 build also satisfies). The
+# build fails if the plugin needs a newer glibc.
+#
 # macOS (macos-15, macos-15-intel) and Windows (windows-2025) are not built until those
 # platforms are tested in CI; add them back to the matrix then.
 #
@@ -60,12 +64,13 @@ jobs:
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      LINUX_BUILD_IMAGE: almalinux:8
+      LINUX_MAX_GLIBC: '2.28'
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
 
       - name: Check release tag matches the workspace version
         run: |
@@ -77,7 +82,32 @@ jobs:
           fi
 
       - name: Build installer
-        run: cargo xtask --package-ofx
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            docker run --rm \
+              --volume "$PWD:/work" --workdir /work \
+              --env HOST_UID="$(id -u)" --env HOST_GID="$(id -g)" \
+              "$LINUX_BUILD_IMAGE" bash -euo pipefail -c '
+                dnf install -y gcc gcc-c++ make binutils
+                curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+                . "$HOME/.cargo/env"
+                cargo xtask --package-ofx
+                chown -R "$HOST_UID:$HOST_GID" target
+              '
+          else
+            cargo xtask --package-ofx
+          fi
+
+      - name: Check the plugin runs on the VFX Reference Platform glibc
+        if: runner.os == 'Linux'
+        run: |
+          binary=$(find target/ofx -name OpenDefocus.ofx -type f)
+          newest=$(objdump -T "$binary" | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -uV | tail -n 1)
+          echo "Highest glibc symbol version: $newest"
+          if [ "$(printf '%s\n%s\n' "$newest" "$LINUX_MAX_GLIBC" | sort -V | tail -n 1)" != "$LINUX_MAX_GLIBC" ]; then
+            echo "$binary needs glibc $newest, newer than $LINUX_MAX_GLIBC" >&2
+            exit 1
+          fi
 
       - name: Locate installer
         id: installer
