@@ -380,7 +380,7 @@ pub const LAYER_PATH: &[(&str, &[[f32; 4]])] = &[
             [0.360000, 0.260000, 0.500000, 1.000000],
             [0.350029, 0.260000, 0.500000, 1.000000],
             [0.330087, 0.260000, 0.500000, 1.000000],
-            // A 1.1 px pixel between 100 px neighbours: a depth gap, so the far occlusion applies.
+            // A 1.1 px pixel between 100 px neighbours: behind a less blurred surface, so the far occlusion applies.
             [0.399920, 0.230060, 0.500000, 1.000000],
         ],
     ),

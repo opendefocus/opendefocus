@@ -24,6 +24,10 @@ const BLUR_ABOVE: f32 = 2.0;
 const CHANGE_BELOW: f32 = 0.03;
 /// Relative change of the half-resolution render above which the render replaces the source.
 const CHANGE_ABOVE: f32 = 0.2;
+/// Number of image channels (RGBA) the composite blends.
+const RGBA_CHANNELS: usize = 4;
+/// Number of colour channels (RGB) that measure a pixel's brightness.
+const COLOR_CHANNELS: usize = 3;
 /// Channel of the half-size render that holds the front-layer transmittance of the sampled gather.
 const FRONT_TRANSMITTANCE: usize = 4;
 
@@ -179,29 +183,29 @@ fn blend_pixel(inputs: &Inputs<'_>, (gx, gy): (i32, i32), out: &mut [f32]) {
     );
     let (y, x) = ((gy - inputs.full.y) as usize, (gx - inputs.full.x) as usize);
     let by_focus = smoothstep(FOCUS_BELOW, BLUR_ABOVE, inputs.source.coc[[y, x]].abs());
-    let mut render = [0.0; 4];
+    let mut render = [0.0; RGBA_CHANNELS];
     for (channel, value) in render.iter_mut().enumerate() {
         *value = bilinear(inputs.half_render, taps, channel);
     }
-    out[..4].copy_from_slice(&render);
+    out[..RGBA_CHANNELS].copy_from_slice(&render);
     // Blurred pixels, most of a defocused frame, take the render without the detail terms.
     if by_focus >= 1.0 {
         return;
     }
     let covered = 1.0 - bilinear(inputs.half_render, taps, FRONT_TRANSMITTANCE).clamp(0.0, 1.0);
-    let mut half_source = [0.0; 4];
+    let mut half_source = [0.0; RGBA_CHANNELS];
     let mut change = 0.0_f32;
     let mut brightness = 0.0_f32;
-    for channel in 0..4 {
+    for channel in 0..RGBA_CHANNELS {
         half_source[channel] = bilinear(inputs.half_source, taps, channel);
         change = change.max((render[channel] - half_source[channel]).abs());
-        if channel < 3 {
+        if channel < COLOR_CHANNELS {
             brightness = brightness.max(half_source[channel].abs());
         }
     }
     let by_change = smoothstep(CHANGE_BELOW, CHANGE_ABOVE, change / (0.02 + brightness));
     let kept = 1.0 - by_focus.max(by_change).max(covered);
-    for (channel, value) in out.iter_mut().enumerate().take(4) {
+    for (channel, value) in out.iter_mut().enumerate().take(RGBA_CHANNELS) {
         *value += kept * (inputs.source.rgba[[y, x, channel]] - half_source[channel]);
     }
 }
@@ -263,14 +267,13 @@ pub(super) async fn render_half(
     let half_requested = grow_by_one(&specs.render_region, &half_full);
     let (half_rgba, half_coc) = downsample(&source, &frame.full, &half_full);
     let half_dim = half_rgba.dim();
-    let half_frame = FrameGeometry::new(
+    let mut half_frame = FrameGeometry::new(
         &RenderSpecs {
             full_region: half_full,
             render_region: half_requested,
         },
         half_dim,
     )?;
-    let mut half_frame = half_frame;
     // The half render keeps the gather's transmittance channel for the composite.
     half_frame.channels = GATHER_OUTPUT_CHANNELS;
     let half_settings = half_settings(settings);
