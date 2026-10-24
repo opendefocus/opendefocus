@@ -50,12 +50,15 @@ fn native_adaptive_shaders_validate() {
         .validate(&module)
         .unwrap_or_else(|error| panic!("{name}: {}", error.emit_to_string(source)));
         if name == "convolution" {
-            assert!(
-                module
-                    .entry_points
-                    .iter()
-                    .any(|entry| entry.name == "adaptive_stream_compact")
-            );
+            for required in ["adaptive_stream_compact", "adaptive_far_occlusion"] {
+                assert!(
+                    module
+                        .entry_points
+                        .iter()
+                        .any(|entry| entry.name == required),
+                    "{required}"
+                );
+            }
         }
     }
     assert_eq!(std::mem::size_of::<super::GatherParams>(), 64);
