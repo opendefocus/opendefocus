@@ -1,5 +1,5 @@
 //! Compute pipeline creation for the adaptive shaders. Each builder loads one embedded WGSL source and returns its pipeline.
-use super::WgpuRunner;
+use super::{GatherPipelines, WgpuRunner};
 use crate::kernel::adaptive_gather_sample_offsets;
 use wgpu::util::DeviceExt;
 impl WgpuRunner {
@@ -29,10 +29,39 @@ impl WgpuRunner {
         })
     }
 
-    /// Creates the sampled, exact Accurate or exact plain-circle gather pipeline, selected by the flags. The fused specialization applies only to the plain-circle case.
-    pub(super) fn create_adaptive_convolution(
+    /// Creates the pipelines of one gather variant: the sampled gather, or the exact Accurate gather with its far
+    /// occlusion pass. The fused specialization applies only to the plain-circle case.
+    pub(super) fn create_gather_pipelines(
         device: &wgpu::Device,
         high: bool,
+        plain_circle: bool,
+        use_fused_capped_circle: bool,
+    ) -> GatherPipelines {
+        let create = |entry_point| {
+            Self::create_adaptive_convolution(
+                device,
+                entry_point,
+                plain_circle,
+                use_fused_capped_circle,
+            )
+        };
+        if high {
+            GatherPipelines {
+                gather: create("adaptive_convolution_high"),
+                far_occlusion: Some(create("adaptive_far_occlusion")),
+            }
+        } else {
+            GatherPipelines {
+                gather: create("adaptive_convolution_sampled"),
+                far_occlusion: None,
+            }
+        }
+    }
+
+    /// Creates the adaptive convolution pipeline for `entry_point` with the plain-circle and fused specializations.
+    fn create_adaptive_convolution(
+        device: &wgpu::Device,
+        entry_point: &str,
         plain_circle: bool,
         use_fused_capped_circle: bool,
     ) -> wgpu::ComputePipeline {
@@ -81,11 +110,7 @@ impl WgpuRunner {
             label: Some("Native adaptive convolution"),
             layout: Some(&layout),
             module: &shader,
-            entry_point: Some(if high {
-                "adaptive_convolution_high"
-            } else {
-                "adaptive_convolution_sampled"
-            }),
+            entry_point: Some(entry_point),
             compilation_options: wgpu::PipelineCompilationOptions {
                 constants: &[
                     ("PLAIN_CIRCLE", if plain_circle { 1.0 } else { 0.0 }),

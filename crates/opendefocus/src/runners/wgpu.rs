@@ -19,11 +19,16 @@ mod preview;
 mod pyramid;
 
 pub(crate) use adaptive_streaming::{StreamGather, StreamSource};
+use gather::GatherPipelines;
 pub(super) use gather::integral_subtree_ends;
 #[cfg(test)]
 #[path = "adaptive_streaming_gpu_tests.rs"]
 /// Hardware tests for streamed gathers.
 mod adaptive_streaming_gpu_tests;
+#[cfg(test)]
+#[path = "adaptive_streaming_seam_gpu_tests.rs"]
+/// Hardware tests for streamed gathers across a source core seam.
+mod adaptive_streaming_seam_gpu_tests;
 #[cfg(test)]
 /// Tests for the tile classifier.
 mod classifier_tests;
@@ -160,13 +165,13 @@ pub struct WgpuRunner {
     /// Packing pipeline that writes the gather layout.
     adaptive_pack: Option<wgpu::ComputePipeline>,
     /// Sampled gather pipeline for Fast, built on first use.
-    adaptive_convolution_sampled: std::sync::OnceLock<wgpu::ComputePipeline>,
-    /// Exact Accurate gather pipeline, built on first use.
-    adaptive_convolution_high: std::sync::OnceLock<wgpu::ComputePipeline>,
+    adaptive_convolution_sampled: std::sync::OnceLock<GatherPipelines>,
+    /// Exact Accurate gather pipelines, built on first use.
+    adaptive_convolution_high: std::sync::OnceLock<GatherPipelines>,
     /// Exact plain-circle Accurate specialization, built on first use.
-    adaptive_convolution_circle: std::sync::OnceLock<wgpu::ComputePipeline>,
+    adaptive_convolution_circle: std::sync::OnceLock<GatherPipelines>,
     /// Fused plain-circle Accurate specialization that walks the near tree once, built on first use.
-    adaptive_convolution_circle_fused: std::sync::OnceLock<wgpu::ComputePipeline>,
+    adaptive_convolution_circle_fused: std::sync::OnceLock<GatherPipelines>,
     /// Accurate gather for streamed source cores, built on first use.
     adaptive_convolution_stream_high: std::sync::OnceLock<wgpu::ComputePipeline>,
     /// Compaction pipeline that packs finalized RGBA into 16 bytes per pixel, built on first use.

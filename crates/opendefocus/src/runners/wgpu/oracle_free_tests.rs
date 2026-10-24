@@ -13,6 +13,8 @@ use crate::AdaptiveSampleBudget;
 
 use super::{TileFeatures, WgpuRunner};
 
+/// Hardware tests for the far occlusion of far surfaces.
+mod far_occlusion_tests;
 /// Hardware tests for focus reconstruction.
 mod focus_tests;
 /// Frozen probe values for the lens and layer paths.
