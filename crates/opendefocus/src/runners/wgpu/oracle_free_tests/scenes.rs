@@ -243,6 +243,16 @@ pub(super) fn layer_path_near_blob(x: usize, y: usize) -> bool {
     (x as i32 - 5).pow(2) + (y as i32 - 4).pow(2) <= 4
 }
 
+/// Far `CoC` radius of the `far-forced-descend` scene at `(x, y)`: alternating 1.1 and 100 px radii force the
+/// traversal to descend.
+pub(super) fn forced_descend_radius(x: usize, y: usize) -> f32 {
+    if (x + y).is_multiple_of(2) {
+        1.1
+    } else {
+        100.0
+    }
+}
+
 /// Plan item 6: far-only, near-only, local-only and forced-descend layer paths.
 pub(super) fn layer_path_cases() -> Vec<Case> {
     let (w, h) = LAYER_PATH_SIZE;
@@ -301,7 +311,7 @@ pub(super) fn layer_path_cases() -> Vec<Case> {
                             near_rgba: [0.0; 4],
                             far_rgba: color,
                             near_coc: 0.0,
-                            far_coc: if (x + y) % 2 == 0 { -1.1 } else { -100.0 },
+                            far_coc: -forced_descend_radius(x, y),
                             near_valid: 0.0,
                             far_valid: 1.0,
                         },

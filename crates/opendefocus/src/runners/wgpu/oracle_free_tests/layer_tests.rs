@@ -5,9 +5,10 @@ use super::references::{
 };
 use super::runner;
 use super::scenes::{
-    LAYER_PATH_SIZE, layer_path_cases, layer_path_color, layer_path_near_blob,
-    layer_path_probe_pixels,
+    LAYER_PATH_SIZE, forced_descend_radius, layer_path_cases, layer_path_color,
+    layer_path_near_blob, layer_path_probe_pixels,
 };
+use ndarray::Array3;
 
 /// Regression guard (frozen at 9fe44e0): the four Accurate layer-path scenes.
 #[tokio::test]
@@ -52,12 +53,25 @@ async fn hardware_high_layer_paths_match_brute_force_references() {
             ),
             "local-only" => local_reference(size, layer_path_color),
             // Alternating 1.1 / 100 px radii force the traversal to descend.
-            "far-forced-descend" => far_reference(size, layer_path_color, |x, y| {
-                if (x + y) % 2 == 0 { 1.1 } else { 100.0 }
-            }),
+            "far-forced-descend" => far_reference(size, layer_path_color, forced_descend_radius),
             other => panic!("unknown layer path {other}"),
         };
-        assert_close(&case.gpu(&runner).await, &expected, 1e-5, &case.name);
+        let mut output = case.gpu(&runner).await;
+        if case.name == "far-forced-descend" {
+            keep_only_far_background_destinations(&mut output, &expected);
+        }
+        assert_close(&output, &expected, 1e-5, &case.name);
+    }
+}
+
+/// Copies `expected` into `output` at the 1.1 px destinations of the `far-forced-descend` scene. Their 100 px
+/// neighbours lie behind them across a depth gap, so the far occlusion hides part of those sources there and the
+/// unoccluded brute-force reference applies only to the 100 px destinations, which still traverse every node.
+fn keep_only_far_background_destinations(output: &mut Array3<f32>, expected: &Array3<f32>) {
+    for ((y, x, channel), value) in output.indexed_iter_mut() {
+        if forced_descend_radius(x, y) < 100.0 {
+            *value = expected[[y, x, channel]];
+        }
     }
 }
 

@@ -21,7 +21,7 @@ Accurate integrates exact source-pixel weights through conservative integral tre
 
 The authored WGSL sources live in `crates/opendefocus/src/kernel/shaders/` and are embedded through constants in the renderer's private kernel module. Preparation, classification, pyramid reduction, packing, convolution, and focal/bokeh preview rendering all use native WGSL. `cargo xtask --compile --gpu` validates all five sources with Naga on stable Rust. There is no runtime SPIR-V generation or interpreter. Rust constructs resources, CoC/aperture inputs, bounds and packed trees; all convolution runs on the GPU.
 
-Convolution has sampled and exact entry points. Exact plain circles use a compile-time specialization and preorder subtree ends. When Accurate uses a plain circle, the radius exceeds two pixels, and at least half of valid near-layer entries equal the radius cap, a fused specialization walks the near tree once for front radiance and cap-potential occupancy. It uses the fused potential only when front presence equals the cap; other radii use the regular exact potential traversal. Spatial and custom apertures descend uncertain cells rather than discarding them. The explicit gather layout uses eight storage buffers. Gather uniforms occupy 64 bytes, lens uniforms 160 bytes, integral nodes 64 bytes, and aperture bounds 32 bytes. Aperture range queries read appended 32-byte mip-layout records from the existing bounds buffer; the public bounds payload and diagnostic APIs keep their original format. For custom image apertures without spatial or axial effects, a padded UV interval is first rejected only when its closest point lies provably outside the normalized clip disk. Remaining cells use one shared RGBA filter-range query for all channels; uncertain intervals still descend to exact leaves. Spatial and axial cases retain their separate channel calculations. Integral nodes are built directly in their packed GPU layout, avoiding a simultaneous raw-node copy.
+Convolution has sampled and exact entry points; Accurate dispatches a far occlusion entry point before the exact one. Exact plain circles use a compile-time specialization and preorder subtree ends. When Accurate uses a plain circle, the radius exceeds two pixels, and at least half of valid near-layer entries equal the radius cap, a fused specialization walks the near tree once for front radiance and cap-potential occupancy. It uses the fused potential only when front presence equals the cap; other radii use the regular exact potential traversal. Spatial and custom apertures descend uncertain cells rather than discarding them. The explicit gather layout uses eight storage buffers. Gather uniforms occupy 64 bytes, lens uniforms 160 bytes, integral nodes 64 bytes, and aperture bounds 32 bytes. Aperture range queries read appended 32-byte mip-layout records from the existing bounds buffer; the public bounds payload and diagnostic APIs keep their original format. For custom image apertures without spatial or axial effects, a padded UV interval is first rejected only when its closest point lies provably outside the normalized clip disk. Remaining cells use one shared RGBA filter-range query for all channels; uncertain intervals still descend to exact leaves. Spatial and axial cases retain their separate channel calculations. Integral nodes are built directly in their packed GPU layout, avoiding a simultaneous raw-node copy.
 
 ## Settings and source context
 
@@ -69,7 +69,14 @@ Focus reconstruction reads prepared pixels from the owning source cores across c
   bindings are required; automatic layout inference can remove unused bindings,
   so convolution uses its explicit shared resource contract.
 - Focus reconstruction must distinguish an isolated subpixel crossing from a
-  real focused surface. Keep opaque focused silhouettes sharp. Fractional alpha
+  real focused surface. Keep opaque focused silhouettes sharp. Rebuild a
+  crossing only when the `CoC` reaches 0.75 px within half a pixel on both
+  sides; a resolvable ramp (receding floor, curved silhouette) keeps its sharp
+  row, and rebuilding it draws streaks. A near centre keeps its own source under
+  the local layer until it enters the front regime (`CoC` 1 to 2); a far centre
+  hands over to the far gather only above the 0.5 px gather inclusion radius;
+  lower thresholds leak the occluded far continuation into the first near row
+  and draw a line along the focal plane. Fractional alpha
   is premultiplied coverage, not geometric validity. Restore opaque coverage only
   after proving the original source alpha plane is opaque (`alpha >= 1 - 1e-6`
   everywhere). A single opaque point on transparent black must blur its alpha.
@@ -77,6 +84,25 @@ Focus reconstruction reads prepared pixels from the owning source cores across c
   remote cores, and passes it through cached and uncached submissions. Test-only
   render references apply the same coverage policy before focus reconstruction.
   Keep independent transparent-point energy gates alongside those references.
+- The far layer is one normalized gather, so far surfaces need their own
+  occlusion: otherwise a strongly blurred far background bleeds through a less
+  blurred far surface in front of it, and the hand-over from the sharp source
+  to the far gather draws a line where that surface's `CoC` passes 0.5 to 1 px.
+  Each far destination probes the far layer on a disc of twice its own far
+  `CoC`. Only a depth gap makes an occluder: the nearest open pixel must lie
+  well above the probe `CoC`, so receding planes and curved rims keep their full
+  far reach. Behind sources are hidden by a half-plane fitted to a one-sided
+  open area (silhouettes) or, where the open area surrounds the destination, by
+  the blocked fraction. The exact pre-pass leaves the hidden sum (premultiplied
+  RGBA and the alpha-channel validity, used for every channel) in the pixel's
+  five output slots and the exact gather subtracts it. Fast weights its samples
+  with a sampled probe disc; streaming accumulates the probe cover in result
+  slots 68 to 71, the nearest open `CoC` in slot 19 and the hidden validity in
+  slot 16. When nearly all of the far gather is hidden, the remainder is
+  cancellation residue: exact and streamed gathers blend to the far surface's
+  own colour by the visible fraction of the totals (`far_visible_color`),
+  never back to the uncorrected gather, which is the leak. Streaming must
+  subtract per chunk without clamping and apply that rule once to the sums.
 - No setting, host, or saved state may select a CPU render path; there is none.
   Reproduce the bundled
   depth case with 1/Z, including negative depth and the x=1379 zero column.
@@ -88,6 +114,12 @@ native Metal case by about 9.7% and was reverted. Fewer operations are not a GPU
 speed measurement: control flow and register pressure require matched hardware
 runs. Native circular scalar/fused specializations preserve exact integration;
 do not turn them into sampled or softened shortcuts.
+
+Folding the far occlusion into the exact gather cost 6% to 14% at 1080p on
+Metal, about 6% of it with the occlusion code present but never executed. As a
+separate pre-pass whose result the gather reads from its output slots it costs
+about 0.2%. Keep work that only a few pixels need out of the exact gather
+pipeline.
 
 The old RustGPU-to-WGSL path had captured-storage-pointer, nested-`continue`,
 `Option` range-result and inclusive-loop failures on Metal. That translation

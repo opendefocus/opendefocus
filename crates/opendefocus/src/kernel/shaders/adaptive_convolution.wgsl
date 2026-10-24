@@ -78,6 +78,31 @@ struct LensIntegral {
     presence: vec4<f32>,
 };
 
+// Far sources whose CoC exceeds `behind` lie behind the destination's own far
+// surface. `state` is FAR_UNOCCLUDED, FAR_HIDDEN or FAR_PARTIAL; a partial
+// occluder is the probe-disc model of radius `probe` described at
+// FAR_PROBE_SCALE, with its edge softened by `softness` pixels. `strength`
+// scales the hidden fraction as a depth gap opens.
+struct FarOcclusion {
+    state: u32,
+    strength: f32,
+    probe: f32,
+    behind: f32,
+    softness: f32,
+    normal: vec2<f32>,
+    edge: f32,
+    one_sided: f32,
+    open: f32,
+};
+
+// Probe-disc statistics: `area` holds the blocked area, the total area and
+// the first moment of the open area about the destination; `nearest_open` is
+// the smallest CoC of an open far pixel in the disc.
+struct FarCover {
+    area: vec4<f32>,
+    nearest_open: f32,
+};
+
 struct LocalIntegral {
     premul: vec4<f32>,
     local_weight: vec4<f32>,
@@ -1279,10 +1304,390 @@ fn tile_radius(x: u32, y: u32, offset: u32) -> f32 {
     return mix(top, bottom, fraction.y);
 }
 
+// Gathers skip source pixels with |CoC| <= GATHER_MIN_COC, so such a centre is
+// present only through its source value; a far centre hands its source to the
+// far gather only above that radius, by FAR_CENTER_BLURRED_COC.
+const GATHER_MIN_COC: f32 = 0.5;
+const FAR_CENTER_BLURRED_COC: f32 = 1.0;
+// A near centre is part of the opaque surface until it becomes a front pixel
+// (the smoothstep(1, 2) front occupancy). Below that its own source, not the
+// far continuation it occludes, lies under the local layer; the sampled local
+// estimate is not exact enough to hide that far colour, which otherwise shows
+// as a line where a receding surface crosses the focal plane.
+const FRONT_MIN_COC: f32 = 1.0;
+const FRONT_FULL_COC: f32 = 2.0;
+
 fn center_blur_weight(center_near: LayerSample, center_far: LayerSample) -> f32 {
-    let near_blur = smoothstep(0.25, 0.75, abs(center_near.coc));
-    let far_blur = smoothstep(0.25, 0.75, abs(center_far.coc));
+    let near_blur = smoothstep(FRONT_MIN_COC, FRONT_FULL_COC, abs(center_near.coc));
+    let far_blur = smoothstep(GATHER_MIN_COC, FAR_CENTER_BLURRED_COC, abs(center_far.coc));
     return far_blur + (near_blur - far_blur) * clamp(center_near.valid, 0.0, 1.0);
+}
+
+// The far layer is one normalized gather, so a strongly blurred background
+// would otherwise bleed through a less blurred far surface in front of it. A
+// ray that reaches the destination from a far source of CoC r crosses the
+// depth of CoC t at offset (t / r) * (source - destination). The model probes
+// the far layer on a disc of radius FAR_PROBE_SCALE times the destination's own
+// far CoC: pixels with a CoC up to that radius block, others are open. Only a
+// depth gap makes an occluder: when the nearest open pixel is barely farther
+// than the probe, the surface just continues past it (a receding plane, the
+// curved rim of an object) and nothing is hidden. Across a gap, sources above
+// FAR_BEHIND_SCALE times the probe radius are behind the surface and remain
+// visible only where their ray crosses the probe disc outside the blocking
+// surface. A one-sided open area (a straight silhouette) is fitted by a
+// half-plane, which hides exactly the sources whose ray crosses the blocked
+// side. Open area spread around the destination (holes, interleaved detail)
+// gives no direction; it lets the open fraction of every behind source
+// through. The two are blended by how one-sided the open area is. A separate
+// pass integrates the hidden behind sources and the exact gather subtracts
+// them from its ordinary far gather.
+const FAR_PROBE_SCALE: f32 = 2.0;
+const FAR_BEHIND_SCALE: f32 = 1.25;
+// The gap is complete once the nearest open CoC reaches this multiple of the
+// behind CoC; the occlusion fades in from the behind CoC so that it never
+// switches on abruptly.
+const FAR_GAP_FULL_SCALE: f32 = 2.0;
+// The fitted occluder edge is softened by up to one pixel on its covered side,
+// scaled down as the open fraction falls to FAR_SOFT_OPEN so that visibility
+// vanishes continuously with the open area.
+const FAR_SOFT_OPEN: f32 = 0.05;
+// Visible fraction of the gathered far validity below which the remainder of
+// the far gather is cancellation residue and the far surface's own colour is
+// used; above FAR_HIDDEN_TRUSTED the remainder is used as gathered.
+const FAR_HIDDEN_RESIDUE: f32 = 0.01;
+const FAR_HIDDEN_TRUSTED: f32 = 0.05;
+// Bisection steps that invert the circular-segment area to 2^-20 of the radius.
+const CAP_HEIGHT_STEPS: u32 = 20u;
+const PI: f32 = 3.14159265358979;
+// Relative tolerance when a node's validity sums prove it holds no in-focus
+// pixel; such pixels count as occupancy but are absent from the CoC range.
+const FAR_COVER_TOLERANCE: f32 = 1.0e-4;
+// Nearest open CoC of a probe disc without open far pixels.
+const FAR_NO_OPEN_COC: f32 = 3.4e38;
+const FAR_UNOCCLUDED: u32 = 0u;
+const FAR_HIDDEN: u32 = 1u;
+const FAR_PARTIAL: u32 = 2u;
+
+fn far_unoccluded() -> FarOcclusion {
+    return FarOcclusion(FAR_UNOCCLUDED, 0.0, 0.0, 0.0, 0.0, vec2<f32>(0.0), 0.0, 0.0, 0.0);
+}
+
+fn far_probe_radius(center_far: LayerSample) -> f32 {
+    return FAR_PROBE_SCALE * max(abs(center_far.coc), GATHER_MIN_COC);
+}
+
+// Whether a far source behind the probed surface can reach a pixel whose far
+// sources reach at most `reach` pixels.
+fn far_behind_reachable(reach: f32, probe: f32) -> bool {
+    return reach > probe * FAR_BEHIND_SCALE;
+}
+
+// Strength of the occluder implied by the nearest open CoC of the probe disc.
+fn far_gap_strength(probe: f32, nearest_open: f32) -> f32 {
+    let behind = probe * FAR_BEHIND_SCALE;
+    return smoothstep(behind, behind * FAR_GAP_FULL_SCALE, nearest_open);
+}
+
+// Height, as a fraction of the radius, of the chord that cuts `fraction` of a
+// disc's area off on its far side.
+fn cap_height(fraction: f32) -> f32 {
+    var low = -1.0;
+    var high = 1.0;
+    for (var step = 0u; step < CAP_HEIGHT_STEPS; step++) {
+        let middle = 0.5 * (low + high);
+        let area = (acos(middle) - middle * sqrt(1.0 - middle * middle)) / PI;
+        if area > fraction { low = middle; } else { high = middle; }
+    }
+    return 0.5 * (low + high);
+}
+
+// Occluder fitted to the `cover` of the probe disc of radius `probe`.
+fn far_occlusion_from_cover(probe: f32, cover: FarCover) -> FarOcclusion {
+    let strength = far_gap_strength(probe, cover.nearest_open);
+    if cover.area.y <= 0.0 || strength <= 0.0 { return far_unoccluded(); }
+    let behind = probe * FAR_BEHIND_SCALE;
+    let open = 1.0 - clamp(cover.area.x / cover.area.y, 0.0, 1.0);
+    if open <= 0.0 {
+        return FarOcclusion(FAR_HIDDEN, strength, probe, behind, 0.0, vec2<f32>(0.0), 0.0, 0.0, 0.0);
+    }
+    let edge = cap_height(open);
+    let moment = cover.area.zw / (cover.area.y * probe);
+    let cap_moment = 2.0 / (3.0 * PI) * pow(1.0 - edge * edge, 1.5);
+    let moment_length = length(moment);
+    var one_sided = 0.0;
+    var normal = vec2<f32>(0.0);
+    if moment_length > 0.0 && cap_moment > 0.0 {
+        one_sided = clamp(moment_length / cap_moment, 0.0, 1.0);
+        normal = moment / moment_length;
+    }
+    let softness = min(open / FAR_SOFT_OPEN, 1.0);
+    return FarOcclusion(FAR_PARTIAL, strength, probe, behind, softness, normal, edge, one_sided, open);
+}
+
+// Hidden fraction of a behind source whose half-plane part is `edge_hidden`
+// (one when the half-plane blocks its ray).
+fn far_hidden_fraction(edge_hidden: f32, occlusion: FarOcclusion) -> f32 {
+    let spread_hidden = 1.0 - occlusion.open;
+    return occlusion.strength * mix(spread_hidden, edge_hidden, occlusion.one_sided);
+}
+
+// Half-plane part of the hidden fraction for a ray crossing the probe disc
+// `along_normal` probe radii along the fitted normal.
+fn far_edge_hidden(along_normal: f32, occlusion: FarOcclusion) -> f32 {
+    return 1.0 - clamp((along_normal - occlusion.edge) * occlusion.probe + occlusion.softness, 0.0, 1.0);
+}
+
+// Hidden fraction of one far source of CoC `coc` at `offset` from the destination.
+fn far_pixel_hidden(coc: f32, offset: vec2<f32>, occlusion: FarOcclusion) -> f32 {
+    if occlusion.state == FAR_UNOCCLUDED || coc <= occlusion.behind { return 0.0; }
+    if occlusion.state == FAR_HIDDEN { return occlusion.strength; }
+    return far_hidden_fraction(far_edge_hidden(dot(occlusion.normal, offset / coc), occlusion), occlusion);
+}
+
+fn scale_interval(value: Interval, factor: f32) -> Interval {
+    return Interval(min(value.lo * factor, value.hi * factor), max(value.lo * factor, value.hi * factor));
+}
+
+// Hidden fraction shared by every source of a far node whose bounds are in
+// full-frame coordinates, or -1 when the node must be descended.
+fn far_node_hidden(node: IntegralNode, bounds: vec4<u32>, destination: vec2<u32>, occlusion: FarOcclusion) -> f32 {
+    if occlusion.state == FAR_UNOCCLUDED || node.coc_max <= occlusion.behind { return 0.0; }
+    if node.coc_min <= occlusion.behind { return -1.0; }
+    if occlusion.state == FAR_HIDDEN { return occlusion.strength; }
+    let radius = Interval(node.coc_min, node.coc_max);
+    let crossing_x = ratio_interval(Interval(f32(bounds.x) - f32(destination.x), f32(bounds.z - 1u) - f32(destination.x)), radius);
+    let crossing_y = ratio_interval(Interval(f32(bounds.y) - f32(destination.y), f32(bounds.w - 1u) - f32(destination.y)), radius);
+    let along_x = scale_interval(crossing_x, occlusion.normal.x);
+    let along_y = scale_interval(crossing_y, occlusion.normal.y);
+    let most_hidden = far_edge_hidden(along_x.lo + along_y.lo, occlusion);
+    let least_hidden = far_edge_hidden(along_x.hi + along_y.hi, occlusion);
+    if most_hidden == least_hidden || occlusion.one_sided == 0.0 {
+        return far_hidden_fraction(most_hidden, occlusion);
+    }
+    return -1.0;
+}
+
+// Blocked area of a fully contained far node, or -1 when its pixels must be
+// visited. In-focus pixels block but are missing from the CoC range; a node
+// above the threshold whose validity exceeds what its blurred pixels can hold
+// contains them and is visited.
+fn far_node_blocked(node: IntegralNode, threshold: f32) -> f32 {
+    if node.coc_max <= threshold { return node.occupied_area; }
+    let blurred_valid_bound = node.weighted_valid * node.coc_max * node.coc_max;
+    if node.coc_min > threshold && node.occupied_area <= blurred_valid_bound * (1.0 + FAR_COVER_TOLERANCE) {
+        return 0.0;
+    }
+    return -1.0;
+}
+
+// Distances from `destination` to the nearest and farthest pixel centre of a
+// node whose bounds are in full-frame coordinates.
+fn node_distance_range(bounds: vec4<u32>, destination: vec2<u32>) -> vec2<f32> {
+    let lower = vec2<f32>(bounds.xy) - vec2<f32>(destination);
+    let upper = vec2<f32>(bounds.zw - vec2<u32>(1u)) - vec2<f32>(destination);
+    let closest = max(max(lower, vec2<f32>(0.0)), -upper);
+    let farthest = max(abs(lower), abs(upper));
+    return vec2<f32>(length(closest), length(farthest));
+}
+
+// Leaf pixels of the far tree are visited at their parent; a one-pixel frame
+// has no node and its single pixel is the leaf at index 0.
+fn far_leaf_position(leaf: u32, extent: vec2<u32>) -> vec2<u32> {
+    let index = leaf & ~LEAF_REF_BIT;
+    return vec2<u32>(index % extent.x, index / extent.x);
+}
+
+fn far_tree_is_single_pixel(extent: vec2<u32>) -> bool {
+    return all(extent == vec2<u32>(1u));
+}
+
+// Smallest CoC above `radius` among the far pixels within the probe disc of
+// `radius` around `destination`, or FAR_NO_OPEN_COC. The search stops at the
+// first CoC no larger than `limit`, which already rules out a depth gap.
+// `origin` and `extent` place the bound far tree and textures in full-frame
+// coordinates. Traversals of the far tree here are stackless preorder walks:
+// a private stack would cost every pixel of the gather occupancy.
+fn far_nearest_open(destination: vec2<u32>, radius: f32, limit: f32, origin: vec2<u32>, extent: vec2<u32>) -> f32 {
+    var nearest = FAR_NO_OPEN_COC;
+    if any(extent == vec2<u32>(0u)) { return nearest; }
+    if far_tree_is_single_pixel(extent) { return far_leaf_nearest_open(vec2<u32>(0u), destination, radius, origin, nearest); }
+    let count = tree_length(false);
+    var reference = 0u;
+    while reference < count && nearest > limit {
+        let node = far_nodes[reference];
+        let distances = node_distance_range(node.bounds + vec4<u32>(origin, origin), destination);
+        if distances.x >= radius + 0.5 || node.weighted_valid <= 0.0 || node.coc_max <= radius || node.coc_min >= nearest {
+            reference = subtree_ends[reference];
+            continue;
+        }
+        for (var child = 0u; child < 4u; child++) {
+            let leaf = node.children[child];
+            if leaf != EMPTY_REF && (leaf & LEAF_REF_BIT) != 0u {
+                nearest = far_leaf_nearest_open(far_leaf_position(leaf, extent), destination, radius, origin, nearest);
+            }
+        }
+        reference += 1u;
+    }
+    return nearest;
+}
+
+fn far_leaf_nearest_open(local: vec2<u32>, destination: vec2<u32>, radius: f32, origin: vec2<u32>, nearest: f32) -> f32 {
+    let offset = vec2<f32>(local + origin) - vec2<f32>(destination);
+    if length(offset) >= radius + 0.5 { return nearest; }
+    let pixel = load_integral_pixel(local, false);
+    if pixel.valid > 0.0 && pixel.coc > radius { return min(nearest, pixel.coc); }
+    return nearest;
+}
+
+// Cover of the plain probe disc of `radius` around `destination`. Blocked area
+// lies on far surfaces whose CoC is at most `radius`; invalid pixels are open.
+// The open part of a contained node is placed at its centre.
+fn far_cover(destination: vec2<u32>, radius: f32, nearest_open: f32, origin: vec2<u32>, extent: vec2<u32>) -> FarCover {
+    var cover = FarCover(vec4<f32>(0.0), nearest_open);
+    if any(extent == vec2<u32>(0u)) { return cover; }
+    if far_tree_is_single_pixel(extent) {
+        cover.area = far_leaf_cover(vec2<u32>(0u), destination, radius, origin);
+        return cover;
+    }
+    let count = tree_length(false);
+    var reference = 0u;
+    while reference < count {
+        let node = far_nodes[reference];
+        let bounds = node.bounds + vec4<u32>(origin, origin);
+        let distances = node_distance_range(bounds, destination);
+        if distances.x >= radius + 0.5 {
+            reference = subtree_ends[reference];
+            continue;
+        }
+        let blocked = far_node_blocked(node, radius);
+        if distances.y <= radius - 0.5 && blocked >= 0.0 {
+            let area = f32((node.bounds.z - node.bounds.x) * (node.bounds.w - node.bounds.y));
+            let center = 0.5 * (vec2<f32>(bounds.xy) + vec2<f32>(bounds.zw - vec2<u32>(1u))) - vec2<f32>(destination);
+            cover.area += vec4<f32>(blocked, area, center * (area - blocked));
+            reference = subtree_ends[reference];
+            continue;
+        }
+        for (var child = 0u; child < 4u; child++) {
+            let leaf = node.children[child];
+            if leaf != EMPTY_REF && (leaf & LEAF_REF_BIT) != 0u {
+                cover.area += far_leaf_cover(far_leaf_position(leaf, extent), destination, radius, origin);
+            }
+        }
+        reference += 1u;
+    }
+    return cover;
+}
+
+fn far_leaf_cover(local: vec2<u32>, destination: vec2<u32>, radius: f32, origin: vec2<u32>) -> vec4<f32> {
+    let offset = vec2<f32>(local + origin) - vec2<f32>(destination);
+    let weight = clamp(radius - length(offset) + 0.5, 0.0, 1.0);
+    if weight <= 0.0 { return vec4<f32>(0.0); }
+    let pixel = load_integral_pixel(local, false);
+    let blocked = select(0.0, weight * pixel.valid, pixel.valid > 0.0 && pixel.coc <= radius);
+    return vec4<f32>(blocked, weight, offset * (weight - blocked));
+}
+
+// Occluder of the far surface at `destination`, probed with `probe`; the
+// cover is integrated only when the nearest open CoC shows a depth gap.
+fn far_occlusion(destination: vec2<u32>, probe: f32, origin: vec2<u32>, extent: vec2<u32>) -> FarOcclusion {
+    let nearest_open = far_nearest_open(destination, probe, probe * FAR_BEHIND_SCALE, origin, extent);
+    if far_gap_strength(probe, nearest_open) <= 0.0 { return far_unoccluded(); }
+    return far_occlusion_from_cover(probe, far_cover(destination, probe, nearest_open, origin, extent));
+}
+
+// Weighted far sources behind the probed surface that the occluder hides, in
+// the units of the ordinary far gather, so that subtracting it from that
+// gather leaves the visible sources. A node is accepted only when every
+// channel is; mixed channels descend to exact leaves.
+fn far_hidden_integral(destination: vec2<u32>, occlusion: FarOcclusion, origin: vec2<u32>, extent: vec2<u32>) -> LensIntegral {
+    var result = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
+    if any(extent == vec2<u32>(0u)) || occlusion.state == FAR_UNOCCLUDED { return result; }
+    if far_tree_is_single_pixel(extent) { return far_leaf_hidden(vec2<u32>(0u), destination, occlusion, origin, result); }
+    let count = tree_length(false);
+    var reference = 0u;
+    while reference < count {
+        let node = far_nodes[reference];
+        let bounds = node.bounds + vec4<u32>(origin, origin);
+        let hidden = far_node_hidden(node, bounds, destination, occlusion);
+        if node.weighted_valid <= 0.0 || hidden == 0.0 {
+            reference = subtree_ends[reference];
+            continue;
+        }
+        let classification = far_hidden_node_class(bounds, destination, node);
+        if classification.empty_mask == CHANNEL_MASK {
+            reference = subtree_ends[reference];
+            continue;
+        }
+        if classification.accept_mask == CHANNEL_MASK && hidden > 0.0 {
+            let weight = classification.coefficient.w * hidden;
+            result.premul += node.weighted_premul * weight;
+            result.valid += vec4<f32>(node.weighted_valid * weight);
+            reference = subtree_ends[reference];
+            continue;
+        }
+        for (var child = 0u; child < 4u; child++) {
+            let leaf = node.children[child];
+            if leaf != EMPTY_REF && (leaf & LEAF_REF_BIT) != 0u {
+                result = far_leaf_hidden(far_leaf_position(leaf, extent), destination, occlusion, origin, result);
+            }
+        }
+        reference += 1u;
+    }
+    return result;
+}
+
+// Far node classification for the hidden integral. A plain circle needs only
+// the disc test (far sources carry no aperture phase shift), which keeps the
+// general aperture classifier out of the plain-circle pipeline.
+fn far_hidden_node_class(bounds: vec4<u32>, destination: vec2<u32>, node: IntegralNode) -> NodeClass {
+    if !PLAIN_CIRCLE {
+        return aperture_node_class(bounds, destination, node.coc_min, node.coc_max, -1.0, 1.0);
+    }
+    var result = NodeClass(0u, 0u, vec4<f32>(0.0));
+    let distances = node_distance_range(bounds, destination);
+    if distances.x >= max(node.coc_max, GATHER_MIN_COC) + 0.5 {
+        result.empty_mask = CHANNEL_MASK;
+    } else if distances.y <= max(node.coc_min - 0.5, 0.0) && node.coc_min >= GATHER_MIN_COC {
+        result.accept_mask = CHANNEL_MASK;
+        result.coefficient = vec4<f32>(1.0);
+    }
+    return result;
+}
+
+fn far_leaf_hidden(local: vec2<u32>, destination: vec2<u32>, occlusion: FarOcclusion, origin: vec2<u32>, sum: LensIntegral) -> LensIntegral {
+    let pixel = load_integral_pixel(local, false);
+    if pixel.valid <= 0.0 || pixel.coc <= GATHER_MIN_COC { return sum; }
+    let offset = vec2<f32>(local + origin) - vec2<f32>(destination);
+    let hidden = far_pixel_hidden(pixel.coc, offset, occlusion);
+    if hidden <= 0.0 { return sum; }
+    let weight = aperture_weight(destination, offset, -pixel.coc, 1.0).w * hidden;
+    return LensIntegral(sum.premul + pixel.premul * (pixel.valid * weight), sum.valid + vec4<f32>(pixel.valid * weight), sum.presence);
+}
+
+// Colour of the far gather whose hidden sources were already removed, leaving
+// `premul` and `valid`; `hidden` is the removed validity, shared by every
+// channel. When nearly everything was hidden the remainder is the difference
+// of nearly equal sums, so the colour blends to the far surface's own colour
+// `surface` rather than to noise or to the hidden background. The exact and
+// streamed gathers share this rule; streaming applies it to the sums over all
+// source chunks.
+fn far_visible_color(premul: vec4<f32>, valid: vec4<f32>, hidden: f32, surface: vec4<f32>) -> vec4<f32> {
+    let remainder = premul / max(valid, vec4<f32>(1.0e-6));
+    if hidden <= 0.0 { return remainder; }
+    let visible = valid / max(valid + vec4<f32>(hidden), vec4<f32>(1.0e-6));
+    let trust = smoothstep(vec4<f32>(FAR_HIDDEN_RESIDUE), vec4<f32>(FAR_HIDDEN_TRUSTED), visible);
+    return select(surface, mix(surface, remainder, trust), trust > vec4<f32>(0.0));
+}
+
+// Conservative far reach of the tile holding the pixel, without the bilinear
+// tile blend: sources behind the far surface can only reach the pixel when it
+// exceeds the behind CoC.
+fn far_tile_reach(x: u32, y: u32) -> f32 {
+    let tile_count = settings.frame.z * settings.frame.w;
+    if arrayLength(&near_search_radii) < tile_count * 2u { return settings.radius.x; }
+    let tile = (vec2<u32>(x, y) + settings.tile_origin) / 16u;
+    let clamped = min(tile, settings.frame.zw - vec2<u32>(1u));
+    return near_search_radii[tile_count + clamped.y * settings.frame.z + clamped.x];
 }
 
 fn exact_pixel(position: vec2<u32>) -> vec4<f32> {
@@ -1345,8 +1750,12 @@ fn exact_pixel(position: vec2<u32>) -> vec4<f32> {
     local_result.w = clamp(local_result.w, 0.0, 1.0);
 
     var far = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
-    if center_blur > 0.0 { far = integrate_disk(position, -1.0, 1.0, false); }
-    let far_color_value = far.premul / max(far.valid, vec4<f32>(1.0e-6));
+    var hidden = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
+    if center_blur > 0.0 {
+        far = integrate_disk(position, -1.0, 1.0, false);
+        hidden = read_far_hidden(position);
+    }
+    let far_color_value = far_visible_color(far.premul - hidden.premul, far.valid - hidden.valid, hidden.valid.w, center_far.color);
     var far_background = vec4<f32>(0.0);
     for (var channel = 0u; channel < 4u; channel++) {
         if component(far.presence, channel) > 0.0 {
@@ -1391,12 +1800,55 @@ fn adaptive_convolution_high(@builtin(global_invocation_id) gid: vec3<u32>) {
     let position = gid.xy;
     if position.x >= settings.frame.x || position.y >= settings.frame.y || !output_requested(position) { return; }
     let color = exact_pixel(position);
-    let index = (position.y * settings.frame.x + position.x) * 5u;
+    let index = exact_output_index(position);
     output[index] = color.x;
     output[index + 1u] = color.y;
     output[index + 2u] = color.z;
     output[index + 3u] = color.w;
     output[index + 4u] = color.w;
+}
+
+fn exact_output_index(position: vec2<u32>) -> u32 {
+    return (position.y * settings.frame.x + position.x) * 5u;
+}
+
+// The far occlusion pass runs before the exact gather and leaves each pixel's
+// hidden far sources in that pixel's five output slots: the premultiplied sum
+// and the alpha-channel validity, which every channel uses (exact for plain
+// discs). The gather reads them before it overwrites the slots with its colour.
+// Keeping this work out of the gather keeps that pipeline's register budget.
+fn read_far_hidden(position: vec2<u32>) -> LensIntegral {
+    let index = exact_output_index(position);
+    let premul = vec4<f32>(output[index], output[index + 1u], output[index + 2u], output[index + 3u]);
+    return LensIntegral(premul, vec4<f32>(output[index + 4u]), vec4<f32>(0.0));
+}
+
+// Far sources hidden at `position` by the far surface in front of them, or
+// zero when the far gather there crosses no depth gap.
+fn far_hidden_at(position: vec2<u32>) -> LensIntegral {
+    let none = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
+    if settings.radius.x <= 0.0 { return none; }
+    let center = vec2<f32>(position) + vec2<f32>(0.5);
+    let center_far = sample_layer(center, 1.0, 1u, false);
+    let probe = far_probe_radius(center_far);
+    if !far_behind_reachable(far_tile_reach(position.x, position.y), probe) { return none; }
+    let center_near = sample_layer(center, 1.0, settings.samples.x, true);
+    if center_blur_weight(center_near, center_far) <= 0.0 { return none; }
+    let occlusion = far_occlusion(position, probe, vec2<u32>(0u), settings.frame.xy);
+    return far_hidden_integral(position, occlusion, vec2<u32>(0u), settings.frame.xy);
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn adaptive_far_occlusion(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let position = gid.xy;
+    if position.x >= settings.frame.x || position.y >= settings.frame.y || !output_requested(position) { return; }
+    let hidden = far_hidden_at(position);
+    let index = exact_output_index(position);
+    output[index] = hidden.premul.x;
+    output[index + 1u] = hidden.premul.y;
+    output[index + 2u] = hidden.premul.z;
+    output[index + 3u] = hidden.premul.w;
+    output[index + 4u] = hidden.valid.w;
 }
 
 
@@ -1423,6 +1875,24 @@ fn sampled_weight(destination: vec2<u32>, distance: vec2<f32>, coc: f32, search_
     }
     return aperture_weight_with_footprint(destination, distance, coc, search_radius, footprint);
 }
+// Sampled counterpart of `far_cover` over the smooth pattern of the budget:
+// each in-frame sample of the far layer inside the probe disc counts once.
+fn sampled_far_cover(center: vec2<f32>, radius: f32) -> FarCover {
+    var cover = FarCover(vec4<f32>(0.0), FAR_NO_OPEN_COC);
+    for (var i = 0u; i < settings.samples.x; i++) {
+        let offset_index = settings.samples.z + i * 2u;
+        let offset = vec2<f32>(sample_offsets[offset_index], sample_offsets[offset_index + 1u]) * radius;
+        let position = center + offset;
+        if position.x >= 0.5 && position.y >= 0.5 && position.x <= f32(settings.frame.x) - 0.5 && position.y <= f32(settings.frame.y) - 0.5 {
+            let sample = sample_layer(position, radius, settings.samples.x, false);
+            let open = sample.valid <= 0.0 || abs(sample.coc) > radius;
+            let blocked = select(sample.valid, 0.0, open);
+            cover.area += vec4<f32>(blocked, 1.0, offset * (1.0 - blocked));
+            if open && sample.valid > 0.0 { cover.nearest_open = min(cover.nearest_open, abs(sample.coc)); }
+        }
+    }
+    return cover;
+}
 fn sampled_gather(destination: vec2<u32>, count: u32, offset_base: u32, near_radius: f32, far_radius: f32, source_value: vec4<f32>, center_near: LayerSample, center_far: LayerSample) -> vec4<f32> {
     let center = vec2<f32>(destination) + vec2<f32>(0.5);
     let lens_active = (lens.flags & (GLOBAL_USE_NON_UNIFORM | GLOBAL_AXIAL_ABERRATION)) != 0u || (lens.flags & GLOBAL_SIMPLE_DISC) == 0u;
@@ -1437,6 +1907,12 @@ fn sampled_gather(destination: vec2<u32>, count: u32, offset_base: u32, near_rad
     var far_sum = vec4<f32>(0.0);
     var far_weight = vec4<f32>(0.0);
     let axis_count = select(1.0, select(8.0, 16.0, count >= 256u), count >= 64u);
+    let center_blur = center_blur_weight(center_near, center_far);
+    var occlusion = far_unoccluded();
+    let probe = far_probe_radius(center_far);
+    if center_blur > 0.0 && far_behind_reachable(far_radius, probe) {
+        occlusion = far_occlusion_from_cover(probe, sampled_far_cover(center, probe));
+    }
     for (var i = 0u; i < count; i++) {
         let offset_index = offset_base + i * 2u;
         let offset = vec2<f32>(sample_offsets[offset_index], sample_offsets[offset_index + 1u]);
@@ -1471,7 +1947,8 @@ fn sampled_gather(destination: vec2<u32>, count: u32, offset_base: u32, near_rad
         let far_offset = offset * far_radius;
         let sample = sample_layer(center + far_offset, far_radius, count, false);
         if sample.valid > 0.0 && abs(sample.coc) > 0.5 {
-            let weight = sampled_weight(destination, far_offset, sample.coc, far_radius, max(far_radius / axis_count, 1.0)) * sample.valid;
+            let weight = sampled_weight(destination, far_offset, sample.coc, far_radius, max(far_radius / axis_count, 1.0))
+                * (sample.valid * (1.0 - far_pixel_hidden(abs(sample.coc), far_offset, occlusion)));
             far_sum += sample.color * weight;
             far_weight += weight;
         }
@@ -1498,7 +1975,6 @@ fn sampled_gather(destination: vec2<u32>, count: u32, offset_base: u32, near_rad
     var far_background = vec4<f32>(0.0);
     if far_weight.w > 0.0 { far_background = far_sum / max(far_weight, vec4<f32>(1.0e-6)); }
     else if center_near.valid > 0.0 && center_far.valid > 0.0 { far_background = center_far.color; }
-    let center_blur = center_blur_weight(center_near, center_far);
     let background = source_value * (1.0 - center_blur) + far_background * center_blur;
     let under = local_result + background * (1.0 - local_result.w);
     var front_result = vec4<f32>(0.0);
@@ -1885,9 +2361,9 @@ fn stream_center_phase(position: vec2<u32>, base: u32) {
     let center_near = sample_layer(center, 1.0, settings.samples.x, true);
     let center_far = sample_layer(center, 1.0, 1u, false);
     let global_position = stream.destination_origin + position;
-    let near_radius = tile_radius(global_position.x, global_position.y, 0u);
     let tile_count = settings.frame.z * settings.frame.w;
     let far_radius = max(abs(center_far.coc), tile_radius(global_position.x, global_position.y, tile_count));
+    let far_reach = far_tile_reach(global_position.x, global_position.y);
     stream_write_vec4(base, 0u, source_value);
     stream_write_vec4(base, 4u, center_near.color);
     output[base + 8u] = center_near.coc;
@@ -1895,7 +2371,22 @@ fn stream_center_phase(position: vec2<u32>, base: u32) {
     stream_write_vec4(base, 10u, center_far.color);
     output[base + 14u] = center_far.coc;
     output[base + 15u] = center_far.valid;
-    stream_write_vec4(base, 16u, vec4<f32>(near_radius, far_radius, 0.0, 0.0));
+    stream_write_vec4(base, 16u, vec4<f32>(0.0, far_radius, far_reach, FAR_NO_OPEN_COC));
+}
+
+// Probe radius of the far occluder at the accumulator `base`, or -1 when no
+// source behind the far surface can reach the pixel. Slot 16 sums the hidden
+// far validity over the source chunks for the final `far_visible_color`, slot
+// 18 holds the far tile reach and slot 19 the nearest open CoC; the
+// cover areas (blocked, total, open moment) accumulate in the result slots 68
+// to 71, which only the final phase overwrites, so the 72-float layout holds.
+fn stream_far_probe_radius(base: u32) -> f32 {
+    let center_near = LayerSample(stream_read_vec4(base, 4u), output[base + 8u], output[base + 9u]);
+    let center_far = LayerSample(stream_read_vec4(base, 10u), output[base + 14u], output[base + 15u]);
+    if center_blur_weight(center_near, center_far) <= 0.0 { return -1.0; }
+    let probe = far_probe_radius(center_far);
+    if !far_behind_reachable(output[base + 18u], probe) { return -1.0; }
+    return probe;
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -1906,6 +2397,17 @@ fn adaptive_convolution_stream_high(@builtin(global_invocation_id) gid: vec3<u32
     let destination = stream.destination_origin + local;
     if stream.phase == 0u {
         let front = stream_integrate_disk(destination, 1.0, 1.0, true);
+        let probe = stream_far_probe_radius(base);
+        if probe > 0.0 {
+            // An open CoC at or below the behind CoC in any chunk rules out the
+            // gap, so such a chunk needs no cover.
+            let nearest_open = far_nearest_open(destination, probe, probe * FAR_BEHIND_SCALE, stream.source_origin, stream.source_extent);
+            output[base + 19u] = min(output[base + 19u], nearest_open);
+            if far_gap_strength(probe, nearest_open) > 0.0 {
+                let cover = far_cover(destination, probe, nearest_open, stream.source_origin, stream.source_extent);
+                stream_add_vec4(base, 68u, cover.area);
+            }
+        }
         stream_add_vec4(base, 20u, front.premul);
         stream_add_vec4(base, 24u, front.valid);
         stream_write_vec4(base, 28u, max(stream_read_vec4(base, 28u), front.presence));
@@ -1917,7 +2419,17 @@ fn adaptive_convolution_stream_high(@builtin(global_invocation_id) gid: vec3<u32
         let center_far = LayerSample(stream_read_vec4(base, 10u), output[base + 14u], output[base + 15u]);
         let center_blur = center_blur_weight(center_near, center_far);
         var far = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
-        if center_blur > 0.0 { far = stream_integrate_disk(destination, -1.0, 1.0, false); }
+        if center_blur > 0.0 {
+            far = stream_integrate_disk(destination, -1.0, 1.0, false);
+            let probe = stream_far_probe_radius(base);
+            if probe > 0.0 {
+                let occlusion = far_occlusion_from_cover(probe, FarCover(stream_read_vec4(base, 68u), output[base + 19u]));
+                let hidden = far_hidden_integral(destination, occlusion, stream.source_origin, stream.source_extent);
+                far.premul -= hidden.premul;
+                far.valid -= hidden.valid;
+                output[base + 16u] += hidden.valid.w;
+            }
+        }
         stream_add_vec4(base, 32u, potential.premul);
         stream_add_vec4(base, 36u, potential.valid);
         stream_add_vec4(base, 40u, local_integral.premul);
@@ -1960,7 +2472,7 @@ fn adaptive_convolution_stream_high(@builtin(global_invocation_id) gid: vec3<u32
         let far_premul = stream_read_vec4(base, 56u);
         let far_valid = stream_read_vec4(base, 60u);
         let far_presence = stream_read_vec4(base, 64u);
-        let far_color_value = far_premul / max(far_valid, vec4<f32>(1.0e-6));
+        let far_color_value = far_visible_color(far_premul, far_valid, output[base + 16u], center_far.color);
         var far_background = vec4<f32>(0.0);
         for (var channel = 0u; channel < 4u; channel++) {
             if component(far_presence, channel) > 0.0 { set_component(&far_background, channel, component(far_color_value, channel)); }

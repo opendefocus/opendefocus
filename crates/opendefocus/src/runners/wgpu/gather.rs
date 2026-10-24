@@ -19,6 +19,7 @@ use crate::runners::adaptive::{
     PreparedLayers, adaptive_gather_tile_class, adaptive_layer_search_radii,
 };
 use dispatch::GatherBindings;
+pub(super) use dispatch::GatherPipelines;
 use ndarray::Array3;
 use resources::{native_lens, source_is_opaque};
 use validation::{capped_pixels_dominate, integral_trees};
@@ -270,9 +271,9 @@ impl WgpuRunner {
             aperture_bounds: &aperture_bounds,
             subtree_ends: &subtree_buffer,
         };
-        let pipeline = self.gather_pipeline(use_integrals, plain_circle, use_fused_capped_circle);
+        let pipelines = self.gather_pipeline(use_integrals, plain_circle, use_fused_capped_circle);
         let gathered = self
-            .run_gather(pipeline, &bindings, (width, height), geometry.output_size)
+            .run_gather(pipelines, &bindings, (width, height), geometry.output_size)
             .await?;
         let mut output = gathered.slice(ndarray::s![.., .., ..4]).to_owned();
         prepared.resolve_subpixel_focus(&mut output);
