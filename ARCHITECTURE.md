@@ -69,7 +69,14 @@ Focus reconstruction reads prepared pixels from the owning source cores across c
   bindings are required; automatic layout inference can remove unused bindings,
   so convolution uses its explicit shared resource contract.
 - Focus reconstruction must distinguish an isolated subpixel crossing from a
-  real focused surface. Keep opaque focused silhouettes sharp. Fractional alpha
+  real focused surface. Keep opaque focused silhouettes sharp. Rebuild a
+  crossing only when the `CoC` reaches 0.75 px within half a pixel on both
+  sides; a resolvable ramp (receding floor, curved silhouette) keeps its sharp
+  row, and rebuilding it draws streaks. A near centre keeps its own source under
+  the local layer until it enters the front regime (`CoC` 1 to 2); a far centre
+  hands over to the far gather only above the 0.5 px gather inclusion radius.
+  Earlier, lower thresholds leaked the occluded far continuation into the first
+  near row and drew a line along the focal plane. Fractional alpha
   is premultiplied coverage, not geometric validity. Restore opaque coverage only
   after proving the original source alpha plane is opaque (`alpha >= 1 - 1e-6`
   everywhere). A single opaque point on transparent black must blur its alpha.

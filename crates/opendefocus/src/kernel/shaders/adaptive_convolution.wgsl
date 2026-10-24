@@ -1279,9 +1279,22 @@ fn tile_radius(x: u32, y: u32, offset: u32) -> f32 {
     return mix(top, bottom, fraction.y);
 }
 
+// Gathers skip source pixels with |CoC| <= GATHER_MIN_COC, so such a centre is
+// present only through its source value; a far centre hands its source to the
+// far gather only above that radius, by FAR_CENTER_BLURRED_COC.
+const GATHER_MIN_COC: f32 = 0.5;
+const FAR_CENTER_BLURRED_COC: f32 = 1.0;
+// A near centre is part of the opaque surface until it becomes a front pixel
+// (the smoothstep(1, 2) front occupancy). Below that its own source, not the
+// far continuation it occludes, lies under the local layer; the sampled local
+// estimate is not exact enough to hide that far colour, which otherwise shows
+// as a line where a receding surface crosses the focal plane.
+const FRONT_MIN_COC: f32 = 1.0;
+const FRONT_FULL_COC: f32 = 2.0;
+
 fn center_blur_weight(center_near: LayerSample, center_far: LayerSample) -> f32 {
-    let near_blur = smoothstep(0.25, 0.75, abs(center_near.coc));
-    let far_blur = smoothstep(0.25, 0.75, abs(center_far.coc));
+    let near_blur = smoothstep(FRONT_MIN_COC, FRONT_FULL_COC, abs(center_near.coc));
+    let far_blur = smoothstep(GATHER_MIN_COC, FAR_CENTER_BLURRED_COC, abs(center_far.coc));
     return far_blur + (near_blur - far_blur) * clamp(center_near.valid, 0.0, 1.0);
 }
 
