@@ -17,6 +17,7 @@ on:
       - 'xtask/src/installer_test.rs'
       - 'xtask/src/package.rs'
       - 'packaging/**'
+      - '.github/actions/**'
       - 'xtask/src/release.rs'
       - '.github/workflows/test-natron.yaml'
   workflow_dispatch:
@@ -120,6 +121,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+      - name: Install a software Vulkan driver
+        uses: ./.github/actions/install-windows-vulkan
       - name: Install Inno Setup
         run: |
           if ! command -v iscc > /dev/null && [ ! -f "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" ]; then

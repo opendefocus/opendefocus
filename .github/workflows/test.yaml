@@ -43,6 +43,7 @@ jobs:
               - 'clippy.toml'
               - '.cargo/**'
               - '.github/workflows/test.yaml'
+              - '.github/actions/**'
             python:
               - 'test/natron/**'
               - 'ruff.toml'
@@ -111,6 +112,8 @@ jobs:
         with:
           shared-key: test-windows
           cache-on-failure: true
+      - name: Install a software Vulkan driver
+        uses: ./.github/actions/install-windows-vulkan
       - run: cargo xtask --test-crates
 
   docs:
