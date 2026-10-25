@@ -113,3 +113,23 @@ jobs:
           . .venv/bin/activate
           maturin develop --release
           pytest crates/circle-of-confusion/test/python
+  python-windows:
+    runs-on: windows-2025
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: astral-sh/setup-uv@v7
+      - uses: Swatinem/rust-cache@v2
+      - name: Build with maturin and run the Python tests
+        working-directory: crates/circle-of-confusion
+        run: |
+          uv venv --python 3.13 .venv
+          uv pip install --python .venv maturin pytest
+          . .venv/Scripts/activate
+          maturin develop --release
+          python -m pytest test/python

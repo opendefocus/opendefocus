@@ -96,6 +96,23 @@ jobs:
       - run: cargo xtask --test-crates
       - run: cargo test --release --locked -p opendefocus-cli --no-default-features
 
+  test-windows:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: windows-2025
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: test-windows
+          cache-on-failure: true
+      - run: cargo xtask --test-crates
+
   docs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'

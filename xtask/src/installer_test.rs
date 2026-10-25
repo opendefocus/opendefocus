@@ -26,6 +26,45 @@ const POLL_INTERVAL: Duration = Duration::from_millis(500);
 /// Number of plugins the library exposes through `OfxGetNumberOfPlugins`.
 const EXPECTED_PLUGIN_COUNT: c_int = 1;
 
+/// A plugin bundle installed from the host's installer into a scratch folder.
+pub struct InstalledPlugin {
+    /// Scratch folder holding the installation; removed when this value is dropped.
+    scratch: tempfile::TempDir,
+    /// The installed (or, on macOS, expanded) bundle.
+    bundle: PathBuf,
+}
+
+impl InstalledPlugin {
+    /// Builds the installer for the host and installs it into a temporary folder.
+    ///
+    /// # Errors
+    /// Fails when the build or the installer fails.
+    pub fn install() -> Result<Self> {
+        let installer = package_ofx()?;
+        let scratch = tempfile::tempdir().context("Creating the scratch folder")?;
+        let bundle = install(&installer, scratch.path())?;
+        Ok(Self { scratch, bundle })
+    }
+
+    /// Folder that contains the installed bundle, usable as `OFX_PLUGIN_PATH`.
+    ///
+    /// # Errors
+    /// Fails when the bundle path has no parent folder.
+    pub fn plugin_directory(&self) -> Result<&Path> {
+        self.bundle
+            .parent()
+            .context("The installed bundle has no parent folder")
+    }
+
+    /// Removes the installation with the platform's own uninstaller and checks it is gone.
+    ///
+    /// # Errors
+    /// Fails when the uninstaller fails or leaves the bundle behind.
+    pub fn uninstall(self) -> Result<()> {
+        uninstall(self.scratch.path(), &self.bundle)
+    }
+}
+
 /// Builds the installer for the host, installs it into a temporary folder, verifies the
 /// installed bundle, loads its library and removes it again.
 ///
@@ -33,13 +72,11 @@ const EXPECTED_PLUGIN_COUNT: c_int = 1;
 /// Fails when the build or the installer fails, the installed bundle is incomplete, the
 /// library does not load, or the uninstaller leaves the bundle behind.
 pub fn test_installer() -> Result<()> {
-    let installer = package_ofx()?;
-    let scratch = tempfile::tempdir().context("Creating the scratch folder")?;
-    let bundle = install(&installer, scratch.path())?;
-    check_bundle(&bundle)?;
-    load_plugin(&bundle)?;
-    uninstall(scratch.path(), &bundle)?;
-    log::info!("Installer test passed for {}", installer.display());
+    let installed = InstalledPlugin::install()?;
+    check_bundle(&installed.bundle)?;
+    load_plugin(&installed.bundle)?;
+    installed.uninstall()?;
+    log::info!("Installer test passed");
     Ok(())
 }
 

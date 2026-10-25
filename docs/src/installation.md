@@ -5,12 +5,15 @@ Download the installer for your system from the [latest release](https://github.
 | System | Download | Installs to |
 | --- | --- | --- |
 | Linux | `OpenDefocus-OFX-<version>-linux-<arch>.tar.gz` | `/usr/OFX/Plugins` |
+| Windows | `OpenDefocus-OFX-<version>-windows-x86_64-setup.exe` | `%CommonProgramFiles%\OFX\Plugins` |
 
-`<arch>` is `x86_64` or `aarch64`.
+`<arch>` is `x86_64` or `aarch64` on Linux.
 
-Extract the archive and run `./install.sh` (use `--prefix DIR` for another location). The folder also contains `uninstall.sh`.
+**Linux:** extract the archive and run `./install.sh` (use `--prefix DIR` for another location). The folder also contains `uninstall.sh`.
 
-Releases are published for Linux only. On macOS and Windows, build the plugin from source with the [building guide](./developer/building.md).
+**Windows:** run the setup `.exe`. The installer is not signed yet, so Windows SmartScreen shows "Windows protected your PC". Click **More info**, then **Run anyway**. Uninstall it from **Settings > Apps**.
+
+Releases are published for Linux and Windows. On macOS, build the plugin from source with the [building guide](./developer/building.md).
 
 Each download has a matching `.sha256` file to verify it.
 
