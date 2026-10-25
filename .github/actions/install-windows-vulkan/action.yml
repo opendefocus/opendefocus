@@ -1,0 +1,19 @@
+name: Install a software Vulkan driver (Windows)
+description: >
+  Installs the Mesa lavapipe software Vulkan driver, because Windows runners have no GPU, and
+  points the Vulkan loader at it. The latest mesa-dist-win release is used.
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        dir="$RUNNER_TEMP/mesa"
+        mkdir -p "$dir"
+        gh release download --repo pal1000/mesa-dist-win --pattern '*release-msvc.7z' --dir "$dir"
+        7z x -y -o"$dir" "$dir"/*release-msvc.7z > /dev/null
+        icd=$(find "$dir" -name lvp_icd.x64.json -type f -print -quit)
+        test -n "$icd"
+        echo "VK_DRIVER_FILES=$(cygpath -w "$icd")" >> "$GITHUB_ENV"
