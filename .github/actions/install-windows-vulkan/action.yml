@@ -1,7 +1,8 @@
 name: Install a software Vulkan driver (Windows)
 description: >
   Installs the Vulkan loader and the Mesa lavapipe software Vulkan driver, because Windows
-  runners have no GPU and so no Vulkan runtime, and points the loader at the driver. The latest
+  runners have no GPU and so no Vulkan runtime, and registers the driver with the loader
+  (an elevated process ignores the VK_DRIVER_FILES override). The latest
   mesa-dist-win release is used.
 
 runs:
@@ -26,6 +27,7 @@ runs:
         7z x -y -o"$dir" "$dir"/*release-msvc.7z > /dev/null
         icd=$(find "$dir" -name lvp_icd.x86_64.json -type f -print -quit)
         test -n "$icd"
-        echo "VK_DRIVER_FILES=$(cygpath -w "$icd")" >> "$GITHUB_ENV"
+        MSYS_NO_PATHCONV=1 reg add 'HKLM\SOFTWARE\Khronos\Vulkan\Drivers' \
+          /v "$(cygpath -w "$icd")" /t REG_DWORD /d 0 /f
     - shell: bash
       run: vulkaninfo --summary
