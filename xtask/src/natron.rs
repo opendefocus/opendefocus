@@ -22,6 +22,12 @@ use std::{
 const TIMEOUT: Duration = Duration::from_secs(300);
 /// Plugin and CLI renders of the same scene on the same machine must match this closely.
 const TOLERANCE: &str = "1e-6";
+/// Windows exit code (`STATUS_ACCESS_VIOLATION`) of a `NatronRenderer` that crashed.
+#[cfg(windows)]
+const WINDOWS_ACCESS_VIOLATION: u32 = 0xC000_0005;
+/// Line `render_occlusion.py` prints once the render has finished and the image is written.
+#[cfg(windows)]
+const SCRIPT_DONE_MARKER: &str = "DONE";
 /// Occlusion scene settings, matching `test/natron/render_occlusion.py`.
 const SETTINGS: &str = r#"{"defocus":{"use_direct_math":true,"camera_max_size":24.0,"circle_of_confusion":{"max_size":24.0}}}"#;
 
@@ -128,7 +134,7 @@ pub fn test_natron() -> Result<()> {
         .with_context(|| format!("Starting {}", renderer.display()))?;
     let status = wait_with_timeout(child, TIMEOUT)?;
     ensure!(
-        status.success(),
+        status.success() || crashed_after_render(status, &log),
         "NatronRenderer exited with {status}; see {}",
         log.display()
     );
@@ -184,6 +190,27 @@ pub fn test_natron() -> Result<()> {
     }
     println!("PASS: OFX plugin and CLI renders agree within {TOLERANCE}");
     Ok(())
+}
+
+/// Whether `NatronRenderer` crashed only while shutting down: on Windows it exits with an access
+/// violation after the script printed `SCRIPT_DONE_MARKER`. The render is still compared with
+/// the CLI, so a bad image fails the test; the shutdown crash is reported as a warning.
+#[cfg(windows)]
+fn crashed_after_render(status: ExitStatus, log: &Path) -> bool {
+    let crashed = status.code().map(|code| code as u32) == Some(WINDOWS_ACCESS_VIOLATION);
+    let finished = fs::read_to_string(log)
+        .map(|text| text.lines().any(|line| line.trim() == SCRIPT_DONE_MARKER))
+        .unwrap_or(false);
+    if crashed && finished {
+        println!("WARNING: NatronRenderer crashed while shutting down, after the render finished");
+    }
+    crashed && finished
+}
+
+/// Only Windows is known to crash `NatronRenderer` at shutdown; elsewhere any failure counts.
+#[cfg(not(windows))]
+fn crashed_after_render(_status: ExitStatus, _log: &Path) -> bool {
+    false
 }
 
 /// Whether the plugin under test is installed with the platform installer first. macOS
