@@ -3033,7 +3033,7 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "opendefocus"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "assert_approx_eq",
@@ -3057,7 +3057,7 @@ dependencies = [
 
 [[package]]
 name = "opendefocus-cli"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "bokeh-creator",
@@ -3074,7 +3074,7 @@ dependencies = [
 
 [[package]]
 name = "opendefocus-ofx"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "image",
  "libloading 0.9.0",
@@ -3086,7 +3086,7 @@ dependencies = [
 
 [[package]]
 name = "opendefocus-ui"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "eframe",
@@ -4299,7 +4299,7 @@ checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
 
 [[package]]
 name = "simple"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "image",
@@ -5798,7 +5798,7 @@ checksum = "e450f9b2ed1dff33c94c12589a87338689467b9c4f5d8a5710bd09a847d2c8a7"
 
 [[package]]
 name = "xtask"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "astral-tokio-tar",
