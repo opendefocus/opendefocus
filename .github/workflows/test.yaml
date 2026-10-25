@@ -78,7 +78,7 @@ jobs:
       - run: cargo xtask --compile --gpu
       - run: cargo xtask --clippy
 
-  test:
+  test-linux:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
@@ -87,7 +87,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: test
+          shared-key: test-linux
           cache-on-failure: true
       - name: Install a software Vulkan driver
         run: |
