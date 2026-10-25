@@ -8,7 +8,14 @@ runs:
   using: composite
   steps:
     - shell: bash
-      run: choco install vulkan-runtime --no-progress -y
+      run: |
+        dir="$RUNNER_TEMP/vulkan-runtime"
+        mkdir -p "$dir"
+        curl -fsSL -o "$dir/runtime.zip" https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-runtime-components.zip
+        unzip -q "$dir/runtime.zip" -d "$dir"
+        loader=$(find "$dir" -path '*/x64/vulkan-1.dll' -type f -print -quit)
+        test -n "$loader"
+        cygpath -w "$(dirname "$loader")" >> "$GITHUB_PATH"
     - shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
@@ -20,3 +27,5 @@ runs:
         icd=$(find "$dir" -name lvp_icd.x86_64.json -type f -print -quit)
         test -n "$icd"
         echo "VK_DRIVER_FILES=$(cygpath -w "$icd")" >> "$GITHUB_ENV"
+    - shell: bash
+      run: vulkaninfo --summary
