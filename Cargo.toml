@@ -55,7 +55,7 @@ similar_names = "allow"
 
 
 [workspace.package]
-version = "0.2.1"
+version = "0.2.2"
 authors = ["olivebowl <olivebowl@noreply.codeberg.org>"]
 edition = "2024"
 license = "EUPL-1.2"
