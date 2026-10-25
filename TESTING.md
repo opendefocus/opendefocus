@@ -66,5 +66,6 @@ Studio/Indie (Nuke Non-Commercial does not load OFX), the Nuke camera input
 (`NukeOfxCameraSuite`), animated parameters, save/load, abort, 1x1 and odd
 sizes, non-zero RoD origins, pixel aspect, 8K, multi-plane layers.
 
-**Releases** are Linux only (OFX installers for x86_64 and aarch64, Python
-wheels) until macOS and Windows are tested in CI.
+**Releases** are Linux and Windows (OFX installers for Linux x86_64 and aarch64
+and Windows x86_64, Python wheels). The Windows installer is unsigned. macOS
+follows once it is tested in CI.
