@@ -270,7 +270,10 @@ mod tests {
             Ok(path)
         };
         let app_binary = touch(dir.path().join("app/NatronRenderer"))?;
-        let path_binary = touch(dir.path().join("bin/NatronRenderer"))?;
+        let path_binary = touch(dir.path().join(format!(
+            "bin/NatronRenderer{}",
+            std::env::consts::EXE_SUFFIX
+        )))?;
         let env_binary = touch(dir.path().join("env/NatronRenderer"))?;
         let path_value = std::env::join_paths([dir.path().join("bin")])?;
         let apps = vec![dir.path().join("app/NatronRenderer")];
