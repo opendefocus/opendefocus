@@ -1,9 +1,9 @@
 name: Circle of Confusion Python distributions
 
-# Builds the Linux wheels and the source distribution and publishes them to PyPI
+# Builds the Linux and Windows wheels and the source distribution and publishes them to PyPI
 # for a circle-of-confusion release tag. The test-circle-of-confusion workflow covers pull
-# requests and main, so this workflow only runs for releases. Windows and macOS wheels are
-# not built until those platforms are tested in CI.
+# requests and main, so this workflow only runs for releases. macOS wheels are not built
+# until that platform is tested in CI.
 
 on:
   push:
@@ -98,6 +98,29 @@ jobs:
           name: circle-of-confusion-wheels-musllinux-${{ matrix.platform.target }}
           path: crates/circle-of-confusion/dist
 
+  windows:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          architecture: x64
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: crates/circle-of-confusion
+          target: x64
+          args: --release --out dist --find-interpreter
+          sccache: ${{ !startsWith(inputs.ref || github.ref, 'refs/tags/') }}
+      - name: Upload wheels
+        uses: actions/upload-artifact@v7
+        with:
+          name: circle-of-confusion-wheels-windows-x64
+          path: crates/circle-of-confusion/dist
+
   sdist:
     runs-on: ubuntu-latest
     steps:
@@ -140,7 +163,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     if: github.repository == 'opendefocus/opendefocus' && (startsWith(inputs.ref || github.ref, 'refs/tags/circle-of-confusion-v') || github.event_name == 'workflow_dispatch')
-    needs: [linux, musllinux, sdist, test-sdist]
+    needs: [linux, musllinux, windows, sdist, test-sdist]
     permissions:
       # Use to sign the release artifacts
       id-token: write

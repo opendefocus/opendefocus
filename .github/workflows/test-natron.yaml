@@ -1,9 +1,10 @@
 name: Test Natron
 
-# Renders the occlusion scene through the OFX bundle in NatronRenderer and compares it with
+# Renders the occlusion scene through the OFX bundle in NatronRenderer (on Linux and Windows the
+# bundle comes from the installer, which is installed first and uninstalled afterwards) and compares it with
 # the CLI render on the same runner (cargo xtask --test-natron, tolerance 1e-6). The Linux
 # runner has no GPU, so both renders use the software Vulkan adapter; the macOS runner gives
-# both renders its Metal adapter.
+# both renders its Metal adapter and the Windows runner uses the WARP software adapter.
 
 on:
   pull_request:
@@ -13,6 +14,9 @@ on:
       - 'test/natron/**'
       - 'test/images/scenes/occlusion/**'
       - 'xtask/src/natron.rs'
+      - 'xtask/src/installer_test.rs'
+      - 'xtask/src/package.rs'
+      - 'packaging/**'
       - 'xtask/src/release.rs'
       - '.github/workflows/test-natron.yaml'
   workflow_dispatch:
@@ -98,5 +102,53 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: natron-test-macos
+          path: target/natron-test/
+          if-no-files-found: ignore
+
+  natron-windows:
+    name: Natron 2.5.0 (Windows x86_64)
+    runs-on: windows-2025
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    env:
+      NATRON_URL: https://github.com/NatronGitHub/Natron/releases/download/v2.5.0/Natron-2.5.0-Windows-x86_64-no-installer.zip
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Install Inno Setup
+        run: |
+          if ! command -v iscc > /dev/null && [ ! -f "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" ]; then
+            choco install innosetup --no-progress -y
+          fi
+      - name: Install the OpenImageIO tools
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          channels: conda-forge
+          miniconda-version: latest
+      - name: Add idiff to PATH
+        shell: bash -el {0}
+        run: |
+          conda install -y -c conda-forge openimageio
+          echo "$CONDA_PREFIX/Library/bin" >> "$GITHUB_PATH"
+      - name: Install Natron
+        run: |
+          mkdir -p "$RUNNER_TEMP/natron"
+          curl -fsSL -o "$RUNNER_TEMP/natron.zip" "$NATRON_URL"
+          unzip -q "$RUNNER_TEMP/natron.zip" -d "$RUNNER_TEMP/natron"
+          renderer=$(find "$RUNNER_TEMP/natron" -name NatronRenderer.exe -type f -print -quit)
+          test -n "$renderer"
+          echo "NATRON_RENDERER=$renderer" >> "$GITHUB_ENV"
+      - name: Compare plugin and CLI renders
+        run: cargo xtask --test-natron
+      - name: Upload Natron log and renders
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: natron-test-windows
           path: target/natron-test/
           if-no-files-found: ignore

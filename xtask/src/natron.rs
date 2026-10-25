@@ -1,7 +1,9 @@
 //! Integration check that renders the occlusion scene through the OFX bundle in
-//! `NatronRenderer` and through the CLI, then compares the two images.
+//! `NatronRenderer` and through the CLI, then compares the two images. On Linux and Windows the
+//! plugin is first installed with the platform installer, so the installed bundle is rendered.
 use crate::{
     compile::compile_cli,
+    installer_test::InstalledPlugin,
     release::bundle_ofx,
     util::{crate_root, target_directory, validation_lock},
 };
@@ -91,10 +93,18 @@ pub fn test_natron() -> Result<()> {
         std::env::var_os("PATH").as_deref(),
     )?;
     println!("NatronRenderer: {}", renderer.display());
-    let plugin_path = bundle_ofx()?
-        .parent()
-        .context("OFX bundle has no parent folder")?
-        .to_path_buf();
+    let installed = if installs_from_installer() {
+        Some(InstalledPlugin::install()?)
+    } else {
+        None
+    };
+    let plugin_path = match &installed {
+        Some(installed) => installed.plugin_directory()?.to_path_buf(),
+        None => bundle_ofx()?
+            .parent()
+            .context("OFX bundle has no parent folder")?
+            .to_path_buf(),
+    };
 
     let out = target_directory().join("natron-test");
     fs::create_dir_all(&out)?;
@@ -169,8 +179,17 @@ pub fn test_natron() -> Result<()> {
         "Plugin and CLI renders differ by more than {TOLERANCE} (idiff exit {})",
         compared.status
     );
+    if let Some(installed) = installed {
+        installed.uninstall()?;
+    }
     println!("PASS: OFX plugin and CLI renders agree within {TOLERANCE}");
     Ok(())
+}
+
+/// Whether the plugin under test is installed with the platform installer first. macOS
+/// packages are only expanded, never installed, so there the build output is used directly.
+fn installs_from_installer() -> bool {
+    !cfg!(target_os = "macos")
 }
 
 /// Returns the `idiff` that ships next to `renderer`, or plain `idiff` so the `PATH` lookup

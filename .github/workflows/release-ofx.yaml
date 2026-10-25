@@ -1,6 +1,6 @@
 name: OFX installers
 
-# Builds the OpenFX installers for Linux and attaches them, with SHA-256
+# Builds the OpenFX installers for Linux and Windows and attaches them, with SHA-256
 # checksums and build provenance, to a GitHub release.
 #
 # Note: releases created by release-plz with the default GITHUB_TOKEN do not start other
@@ -11,8 +11,8 @@ name: OFX installers
 # baseline for CY2024-CY2026 (CY2027 raises it to 2.34, which a 2.28 build also satisfies). The
 # build fails if the plugin needs a newer glibc.
 #
-# macOS (macos-15, macos-15-intel) and Windows (windows-2025) are not built until those
-# platforms are tested in CI; add them back to the matrix then.
+# macOS (macos-15, macos-15-intel) is not built until that platform is tested in CI; add it
+# back to the matrix then. The Windows installer is unsigned until SignPath is set up.
 #
 # Optional signing runs only when the matching secrets are set, so forks and unsigned
 # builds work without configuration. Secrets:
@@ -55,6 +55,7 @@ jobs:
         runner:
           - ubuntu-24.04  # x86_64
           - ubuntu-24.04-arm  # aarch64
+          - windows-2025  # x86_64
     concurrency:
       group: ofx-installer-${{ github.event.release.tag_name || inputs.tag }}-${{ matrix.runner }}
       cancel-in-progress: false
@@ -71,6 +72,13 @@ jobs:
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Inno Setup
+        if: runner.os == 'Windows'
+        run: |
+          if ! command -v iscc > /dev/null && [ ! -f "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" ]; then
+            choco install innosetup --no-progress -y
+          fi
 
       - name: Check release tag matches the workspace version
         run: |
