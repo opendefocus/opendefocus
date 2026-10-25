@@ -1,11 +1,14 @@
 name: Install a software Vulkan driver (Windows)
 description: >
-  Installs the Mesa lavapipe software Vulkan driver, because Windows runners have no GPU, and
-  points the Vulkan loader at it. The latest mesa-dist-win release is used.
+  Installs the Vulkan loader and the Mesa lavapipe software Vulkan driver, because Windows
+  runners have no GPU and so no Vulkan runtime, and points the loader at the driver. The latest
+  mesa-dist-win release is used.
 
 runs:
   using: composite
   steps:
+    - shell: bash
+      run: choco install vulkan-runtime --no-progress -y
     - shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
