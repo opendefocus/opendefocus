@@ -113,7 +113,7 @@ jobs:
       run:
         shell: bash
     env:
-      NATRON_URL: https://github.com/NatronGitHub/Natron/releases/download/v2.5.0/Natron-2.5.0-Windows-x86_64-no-installer.zip
+      NATRON_URL: https://github.com/NatronGitHub/Natron/releases/download/v2.5.0/Natron-2.5.0-Windows-x86_64.zip
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable

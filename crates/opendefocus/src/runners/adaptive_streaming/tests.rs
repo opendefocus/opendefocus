@@ -106,7 +106,7 @@ fn source_cache_selection_prefers_largest_then_lowest_index() {
         [false, false, true, false]
     );
     assert_eq!(plan_stream_source_cache(&[5, 5], 5), [true, false]);
-    assert_eq!(plan_stream_source_cache(&[], 10), vec![]);
+    assert_eq!(plan_stream_source_cache(&[], 10), Vec::<bool>::new());
 }
 
 #[test]
