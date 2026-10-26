@@ -129,7 +129,7 @@ jobs:
             choco install innosetup --no-progress -y
           fi
       - name: Install the OpenImageIO tools
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           channels: conda-forge
           miniconda-version: latest
