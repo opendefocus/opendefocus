@@ -9,8 +9,9 @@ use crate::util::crate_root;
 /// Prefix of the installer archives attached to a release.
 const INSTALLER_PREFIX: &str = "OpenDefocus-OFX-";
 
-/// Suffix of the installer archives; the `.sha256` files next to them do not match it.
-const INSTALLER_SUFFIX: &str = ".tar.gz";
+/// Suffixes of the installers (Linux archive, Windows setup); the `.sha256` files next to them
+/// do not match any of them.
+const INSTALLER_SUFFIXES: [&str; 2] = [".tar.gz", "-setup.exe"];
 
 /// Tag prefix of OpenDefocus releases; the other crates are released under their own prefix.
 const RELEASE_TAG_PREFIX: &str = "v";
@@ -89,7 +90,10 @@ impl Release {
             .assets
             .into_iter()
             .filter(|asset| {
-                asset.name.starts_with(INSTALLER_PREFIX) && asset.name.ends_with(INSTALLER_SUFFIX)
+                asset.name.starts_with(INSTALLER_PREFIX)
+                    && INSTALLER_SUFFIXES
+                        .iter()
+                        .any(|suffix| asset.name.ends_with(suffix))
             })
             .map(|asset| (asset.name, asset.browser_download_url))
             .collect();
@@ -201,12 +205,15 @@ mod tests {
                 "OpenDefocus-OFX-0.2.0-linux-x86_64.tar.gz",
                 "OpenDefocus-OFX-0.2.0-linux-x86_64.tar.gz.sha256",
                 "OpenDefocus-OFX-0.2.0-linux-aarch64.tar.gz",
+                "OpenDefocus-OFX-0.2.0-windows-x86_64-setup.exe",
+                "OpenDefocus-OFX-0.2.0-windows-x86_64-setup.exe.sha256",
             ],
         ))
         .unwrap();
         let markdown = releases_to_markdown(&[release]);
         assert!(markdown.contains("| v0.2.0 | 24-10-2026 |"));
         assert!(markdown.contains("[OpenDefocus-OFX-0.2.0-linux-aarch64.tar.gz](https://example.test/OpenDefocus-OFX-0.2.0-linux-aarch64.tar.gz)"));
+        assert!(markdown.contains("[OpenDefocus-OFX-0.2.0-windows-x86_64-setup.exe](https://example.test/OpenDefocus-OFX-0.2.0-windows-x86_64-setup.exe)"));
         assert!(!markdown.contains(".sha256"));
         assert!(
             markdown.contains("[Source](https://github.com/opendefocus/opendefocus/tree/v0.2.0)")
