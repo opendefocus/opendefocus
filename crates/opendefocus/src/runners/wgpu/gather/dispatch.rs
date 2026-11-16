@@ -1,5 +1,5 @@
 //! Binds the adaptive gather resources, selects its pipeline and runs the pass with readback.
-use super::super::{WgpuRunner, buffer_entry, view_entry};
+use super::super::{LensSpecialization, WgpuRunner, buffer_entry, view_entry};
 use crate::error::Result;
 use ndarray::Array3;
 
@@ -86,7 +86,8 @@ impl WgpuRunner {
         use_integrals: bool,
         plain_circle: bool,
         fused_capped_circle: bool,
-    ) -> &GatherPipelines {
+        lens: LensSpecialization,
+    ) -> GatherPipelines {
         let (cell, high, plain, fused) = if use_integrals && plain_circle {
             if fused_capped_circle {
                 (&self.adaptive_convolution_circle_fused, true, true, true)
@@ -94,11 +95,22 @@ impl WgpuRunner {
                 (&self.adaptive_convolution_circle, true, true, false)
             }
         } else if use_integrals {
-            (&self.adaptive_convolution_high, true, false, false)
+            // A poisoned lock still holds a valid cache: entries are inserted whole.
+            let mut specialized = self
+                .adaptive_convolution_high
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            return specialized
+                .entry(lens)
+                .or_insert_with(|| {
+                    Self::create_gather_pipelines(&self.device, true, false, false, Some(lens))
+                })
+                .clone();
         } else {
             (&self.adaptive_convolution_sampled, false, false, false)
         };
-        cell.get_or_init(|| Self::create_gather_pipelines(&self.device, high, plain, fused))
+        cell.get_or_init(|| Self::create_gather_pipelines(&self.device, high, plain, fused, None))
+            .clone()
     }
 
     /// Dispatches the gather over a `width` by `height` frame and reads the five-channel result back.

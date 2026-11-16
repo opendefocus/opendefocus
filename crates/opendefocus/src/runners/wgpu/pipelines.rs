@@ -1,7 +1,11 @@
 //! Compute pipeline creation for the adaptive shaders. Each builder loads one embedded WGSL source and returns its pipeline.
 use super::{GatherPipelines, WgpuRunner};
 use crate::kernel::adaptive_gather_sample_offsets;
+pub(super) use specialization::LensSpecialization;
 use wgpu::util::DeviceExt;
+
+/// Lens flags of a specialized exact gather pipeline.
+mod specialization;
 impl WgpuRunner {
     /// Creates the focal and bokeh preview compute pipeline.
     pub(super) fn create_adaptive_preview(device: &wgpu::Device) -> wgpu::ComputePipeline {
@@ -31,11 +35,13 @@ impl WgpuRunner {
 
     /// Creates the pipelines of one gather variant: the sampled gather, or the exact Accurate gather with its far
     /// occlusion pass. The fused specialization applies only to the plain-circle case.
+    /// With `lens`, the lens flags become pipeline constants; see [`LensSpecialization`].
     pub(super) fn create_gather_pipelines(
         device: &wgpu::Device,
         high: bool,
         plain_circle: bool,
         use_fused_capped_circle: bool,
+        lens: Option<LensSpecialization>,
     ) -> GatherPipelines {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Native adaptive convolution"),
@@ -50,6 +56,7 @@ impl WgpuRunner {
                 entry_point,
                 plain_circle,
                 use_fused_capped_circle,
+                lens,
             )
         };
         if high {
@@ -115,7 +122,9 @@ impl WgpuRunner {
         entry_point: &str,
         plain_circle: bool,
         use_fused_capped_circle: bool,
+        lens: Option<LensSpecialization>,
     ) -> wgpu::ComputePipeline {
+        let flags = lens.unwrap_or_default();
         device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("Native adaptive convolution"),
             layout: Some(layout),
@@ -128,6 +137,9 @@ impl WgpuRunner {
                         "FUSED_CAPPED_CIRCLE",
                         if use_fused_capped_circle { 1.0 } else { 0.0 },
                     ),
+                    ("LENS_SPECIALIZED", if lens.is_some() { 1.0 } else { 0.0 }),
+                    ("LENS_FLAGS", f64::from(flags.flags)),
+                    ("NON_UNIFORM_FLAGS", f64::from(flags.non_uniform_flags)),
                 ],
                 ..Default::default()
             },

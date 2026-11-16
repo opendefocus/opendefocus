@@ -22,6 +22,7 @@ pub(crate) use adaptive_streaming::{StreamGather, StreamSource};
 pub(crate) use gather::GATHER_OUTPUT_CHANNELS;
 use gather::GatherPipelines;
 pub(super) use gather::integral_subtree_ends;
+use pipelines::LensSpecialization;
 #[cfg(test)]
 #[path = "adaptive_streaming_gpu_tests.rs"]
 /// Hardware tests for streamed gathers.
@@ -167,8 +168,11 @@ pub struct WgpuRunner {
     adaptive_pack: Option<wgpu::ComputePipeline>,
     /// Sampled gather pipeline for Fast, built on first use.
     adaptive_convolution_sampled: std::sync::OnceLock<GatherPipelines>,
-    /// Exact Accurate gather pipelines, built on first use.
-    adaptive_convolution_high: std::sync::OnceLock<GatherPipelines>,
+    /// Exact Accurate gather pipelines, one per lens flag combination, built on first use. Clones of the runner
+    /// share the cache.
+    adaptive_convolution_high: std::sync::Arc<
+        std::sync::Mutex<std::collections::HashMap<LensSpecialization, GatherPipelines>>,
+    >,
     /// Exact plain-circle Accurate specialization, built on first use.
     adaptive_convolution_circle: std::sync::OnceLock<GatherPipelines>,
     /// Fused plain-circle Accurate specialization that walks the near tree once, built on first use.
@@ -394,7 +398,7 @@ impl WgpuRunner {
             adaptive_pyramid: None,
             adaptive_pack: None,
             adaptive_convolution_sampled: std::sync::OnceLock::new(),
-            adaptive_convolution_high: std::sync::OnceLock::new(),
+            adaptive_convolution_high: std::sync::Arc::default(),
             adaptive_convolution_circle: std::sync::OnceLock::new(),
             adaptive_convolution_circle_fused: std::sync::OnceLock::new(),
             adaptive_convolution_stream_high: std::sync::OnceLock::new(),
