@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3](https://github.com/opendefocus/opendefocus/compare/v0.2.2...v0.2.3) - 2026-11-16
+
+### Other
+
+- *(renderer)* specialize the exact gather per lens feature ([#78](https://github.com/opendefocus/opendefocus/pull/78))
+
 ## [0.2.2](https://github.com/opendefocus/opendefocus/compare/v0.2.1...v0.2.2) - 2026-10-25
 
 ### Fixed
