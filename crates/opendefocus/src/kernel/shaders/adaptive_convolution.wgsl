@@ -147,6 +147,9 @@ override FUSED_CAPPED_CIRCLE: bool = false;
 // lens features as constants, so the paths of disabled features are compiled
 // out; that measured 36% to 67% of an Accurate frame on Metal. The other flags,
 // and every flag of other pipelines, are read from the uniform.
+// The streamed gather binds one source chunk; `circle_tree` walks the whole
+// frame and must not serve it.
+override STREAMED: bool = false;
 override LENS_SPECIALIZED: bool = false;
 override LENS_FLAGS: u32 = 0u;
 override NON_UNIFORM_FLAGS: u32 = 0u;
@@ -1104,15 +1107,18 @@ fn integrate_fused_capped_circle(destination: vec2<u32>) -> FusedCircleIntegral 
     return FusedCircleIntegral(front, potential);
 }
 
-fn integrate_disk(destination: vec2<u32>, sign_value: f32, search_radius: f32, near_tree: bool) -> LensIntegral {
+// `origin` and `extent` place the bound tree and layer textures in the
+// coordinates of `destination`: the whole frame for a block gather, one source
+// chunk for a streamed one.
+fn integrate_disk(destination: vec2<u32>, sign_value: f32, search_radius: f32, near_tree: bool, origin: vec2<u32>, extent: vec2<u32>) -> LensIntegral {
     var result = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
-    let frame = settings.frame.xy;
+    let frame = extent;
     if frame.x == 0u || frame.y == 0u { return result; }
-    if PLAIN_CIRCLE || ((lens_flags() & (GLOBAL_SIMPLE_DISC | GLOBAL_USE_NON_UNIFORM | GLOBAL_AXIAL_ABERRATION)) == GLOBAL_SIMPLE_DISC && (frame.x > 1u || frame.y > 1u)) {
+    if PLAIN_CIRCLE || (!STREAMED && (lens_flags() & (GLOBAL_SIMPLE_DISC | GLOBAL_USE_NON_UNIFORM | GLOBAL_AXIAL_ABERRATION)) == GLOBAL_SIMPLE_DISC && (frame.x > 1u || frame.y > 1u)) {
         return circle_tree(destination, sign_value, near_tree, 0.0);
     }
     if frame.x == 1u && frame.y == 1u {
-        return disk_leaf(vec2<u32>(0u), destination, sign_value, search_radius, near_tree, CHANNEL_MASK);
+        return disk_leaf(vec2<u32>(0u), origin, destination, sign_value, search_radius, near_tree, CHANNEL_MASK);
     }
     // Stackless preorder walk: `skip` holds, per channel, the end of the
     // subtree that channel has already settled. A private stack costs every
@@ -1128,7 +1134,7 @@ fn integrate_disk(destination: vec2<u32>, sign_value: f32, search_radius: f32, n
             continue;
         }
         let active_mask = active_channels(reference, skip);
-        let classification = aperture_node_class(node.bounds, destination, node.coc_min, node.coc_max, sign_value, search_radius);
+        let classification = aperture_node_class(node.bounds + vec4<u32>(origin, origin), destination, node.coc_min, node.coc_max, sign_value, search_radius);
         let active_after_empty = active_mask & ~classification.empty_mask;
         let descend = active_after_empty & ~classification.accept_mask;
         let accepted = active_after_empty & classification.accept_mask;
@@ -1145,7 +1151,7 @@ fn integrate_disk(destination: vec2<u32>, sign_value: f32, search_radius: f32, n
             let leaf = node.children[child];
             if leaf != EMPTY_REF && (leaf & LEAF_REF_BIT) != 0u {
                 let index = leaf & ~LEAF_REF_BIT;
-                let leaf_result = disk_leaf(vec2<u32>(index % frame.x, index / frame.x), destination, sign_value, search_radius, near_tree, descend);
+                let leaf_result = disk_leaf(vec2<u32>(index % frame.x, index / frame.x), origin, destination, sign_value, search_radius, near_tree, descend);
                 result.premul += leaf_result.premul;
                 result.valid += leaf_result.valid;
                 result.presence = max(result.presence, leaf_result.presence);
@@ -1168,13 +1174,13 @@ fn settle_channels(skip: vec4<u32>, settled: u32, subtree_end: u32) -> vec4<u32>
     return select(skip, vec4<u32>(subtree_end), channel_mask_vec(settled) > vec4<f32>(0.0));
 }
 
-// Contribution of the prepared pixel at `position` to the channels of
+// Contribution of the prepared pixel at `position` of the tree at `origin` to the channels of
 // `active_mask` of the disk integral around `destination`.
-fn disk_leaf(position: vec2<u32>, destination: vec2<u32>, sign_value: f32, search_radius: f32, near_tree: bool, active_mask: u32) -> LensIntegral {
+fn disk_leaf(position: vec2<u32>, origin: vec2<u32>, destination: vec2<u32>, sign_value: f32, search_radius: f32, near_tree: bool, active_mask: u32) -> LensIntegral {
     var result = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
     let pixel = load_integral_pixel(position, near_tree);
     if pixel.valid > 0.0 && pixel.coc > 0.5 {
-        let weights = aperture_weight(destination, vec2<f32>(position) - vec2<f32>(destination), sign_value * pixel.coc, search_radius);
+        let weights = aperture_weight(destination, vec2<f32>(position + origin) - vec2<f32>(destination), sign_value * pixel.coc, search_radius);
         let active_weights = weights * channel_mask_vec(active_mask);
         result.premul = pixel.premul * pixel.valid * active_weights;
         result.valid = vec4<f32>(pixel.valid) * active_weights;
@@ -1183,12 +1189,12 @@ fn disk_leaf(position: vec2<u32>, destination: vec2<u32>, sign_value: f32, searc
     return result;
 }
 
-fn integrate_potential(destination: vec2<u32>, radii: vec4<f32>, sign_value: f32) -> LensIntegral {
+fn integrate_potential(destination: vec2<u32>, radii: vec4<f32>, sign_value: f32, origin: vec2<u32>, extent: vec2<u32>) -> LensIntegral {
     var result = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
-    let frame = settings.frame.xy;
+    let frame = extent;
     if frame.x == 0u || frame.y == 0u { return result; }
     let same_radius = all(radii == vec4<f32>(radii.x));
-    if PLAIN_CIRCLE || (same_radius && (lens_flags() & (GLOBAL_SIMPLE_DISC | GLOBAL_USE_NON_UNIFORM | GLOBAL_AXIAL_ABERRATION)) == GLOBAL_SIMPLE_DISC && (frame.x > 1u || frame.y > 1u)) {
+    if PLAIN_CIRCLE || (!STREAMED && same_radius && (lens_flags() & (GLOBAL_SIMPLE_DISC | GLOBAL_USE_NON_UNIFORM | GLOBAL_AXIAL_ABERRATION)) == GLOBAL_SIMPLE_DISC && (frame.x > 1u || frame.y > 1u)) {
         return circle_tree(destination, sign_value, true, radii.x);
     }
     var root_mask = 0u;
@@ -1197,7 +1203,7 @@ fn integrate_potential(destination: vec2<u32>, radii: vec4<f32>, sign_value: f32
     }
     if root_mask == 0u { return result; }
     if frame.x == 1u && frame.y == 1u {
-        return potential_leaf(vec2<u32>(0u), destination, radii, sign_value, same_radius, root_mask);
+        return potential_leaf(vec2<u32>(0u), origin, destination, radii, sign_value, same_radius, root_mask);
     }
     // Stackless like `integrate_disk`; channels without a radius are settled
     // for the whole tree.
@@ -1206,12 +1212,13 @@ fn integrate_potential(destination: vec2<u32>, radii: vec4<f32>, sign_value: f32
     var reference = 0u;
     while reference < node_count {
         let node = near_nodes[reference];
+        let bounds = node.bounds + vec4<u32>(origin, origin);
         let subtree_end = subtree_ends[reference];
         let active_mask = active_channels(reference, skip);
         var descend = active_mask;
         let area = f32((node.bounds.z - node.bounds.x) * (node.bounds.w - node.bounds.y));
         if same_radius {
-            let classification = aperture_node_class(node.bounds, destination, radii.x, radii.x, sign_value, 1.0);
+            let classification = aperture_node_class(bounds, destination, radii.x, radii.x, sign_value, 1.0);
             descend &= ~classification.empty_mask;
             let accepted = descend & classification.accept_mask;
             let inverse_area = 1.0 / max(radii.x * radii.x, 0.25);
@@ -1225,7 +1232,7 @@ fn integrate_potential(destination: vec2<u32>, radii: vec4<f32>, sign_value: f32
                 let bit = 1u << channel;
                 if (active_mask & bit) != 0u {
                     let radius = component(radii, channel);
-                    let classification = aperture_node_class_for(node.bounds, destination, radius, radius, sign_value, 1.0, bit);
+                    let classification = aperture_node_class_for(bounds, destination, radius, radius, sign_value, 1.0, bit);
                     if (classification.empty_mask & bit) != 0u { descend &= ~bit; }
                     else if (classification.accept_mask & bit) != 0u {
                         let coefficient = component(classification.coefficient, channel) / max(radius * radius, 0.25);
@@ -1246,7 +1253,7 @@ fn integrate_potential(destination: vec2<u32>, radii: vec4<f32>, sign_value: f32
             let leaf = node.children[child];
             if leaf != EMPTY_REF && (leaf & LEAF_REF_BIT) != 0u {
                 let index = leaf & ~LEAF_REF_BIT;
-                let leaf_result = potential_leaf(vec2<u32>(index % frame.x, index / frame.x), destination, radii, sign_value, same_radius, descend);
+                let leaf_result = potential_leaf(vec2<u32>(index % frame.x, index / frame.x), origin, destination, radii, sign_value, same_radius, descend);
                 result.premul += leaf_result.premul;
                 result.valid += leaf_result.valid;
             }
@@ -1258,10 +1265,10 @@ fn integrate_potential(destination: vec2<u32>, radii: vec4<f32>, sign_value: f32
 
 // Potential-disc terms of the near pixel at `position` for the channels of
 // `active_mask`: occupancy-weighted and plain aperture weight.
-fn potential_leaf(position: vec2<u32>, destination: vec2<u32>, radii: vec4<f32>, sign_value: f32, same_radius: bool, active_mask: u32) -> LensIntegral {
+fn potential_leaf(position: vec2<u32>, origin: vec2<u32>, destination: vec2<u32>, radii: vec4<f32>, sign_value: f32, same_radius: bool, active_mask: u32) -> LensIntegral {
     var result = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
     let occupancy = load_integral_pixel(position, true).valid;
-    let distance = vec2<f32>(position) - vec2<f32>(destination);
+    let distance = vec2<f32>(position + origin) - vec2<f32>(destination);
     if same_radius {
         let weights = aperture_weight(destination, distance, sign_value * radii.x, 1.0) * channel_mask_vec(active_mask);
         result.premul = weights * occupancy;
@@ -1278,9 +1285,9 @@ fn potential_leaf(position: vec2<u32>, destination: vec2<u32>, radii: vec4<f32>,
     return result;
 }
 
-fn integrate_local(destination: vec2<u32>) -> LocalIntegral {
+fn integrate_local(destination: vec2<u32>, origin: vec2<u32>, extent: vec2<u32>) -> LocalIntegral {
     var result = LocalIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
-    let frame = settings.frame.xy;
+    let frame = extent;
     if frame.x == 0u || frame.y == 0u { return result; }
     var refs: array<u32, 64>;
     refs[0] = select(0u, LEAF_REF_BIT, frame.x == 1u && frame.y == 1u);
@@ -1307,10 +1314,9 @@ fn integrate_local(destination: vec2<u32>) -> LocalIntegral {
                 let index = reference & ~LEAF_REF_BIT;
                 let position = vec2<u32>(index % frame.x, index / frame.x);
                 if position.y < frame.y {
-                    let uv = texture_uv(vec2<f32>(position) + vec2<f32>(0.5));
                     let metadata = textureLoad(near_metadata, vec2<i32>(position), 0);
                     let valid = clamp(metadata.y, 0.0, 1.0);
-                    let distance = vec2<f32>(position) - vec2<f32>(destination);
+                    let distance = vec2<f32>(position + origin) - vec2<f32>(destination);
                     let support = aperture_weight(destination, distance, 2.0, 1.0);
                     result.support_weight += support;
                     result.occupied_support += support * valid;
@@ -1330,13 +1336,14 @@ fn integrate_local(destination: vec2<u32>) -> LocalIntegral {
                 }
             } else if reference < node_count {
                 let node = near_nodes[reference];
+                let bounds = node.bounds + vec4<u32>(origin, origin);
                 var include = full_traversal;
                 if full_traversal {
-                    let support = aperture_node_class(node.bounds, destination, 0.5, 2.0, 1.0, 1.0);
+                    let support = aperture_node_class(bounds, destination, 0.5, 2.0, 1.0, 1.0);
                     include = support.empty_mask != CHANNEL_MASK;
                 } else {
-                    let min_x = max(max(f32(node.bounds.x) - f32(destination.x), 0.0), f32(destination.x) - f32(node.bounds.z - 1u));
-                    let min_y = max(max(f32(node.bounds.y) - f32(destination.y), 0.0), f32(destination.y) - f32(node.bounds.w - 1u));
+                    let min_x = max(max(f32(bounds.x) - f32(destination.x), 0.0), f32(destination.x) - f32(bounds.z - 1u));
+                    let min_y = max(max(f32(bounds.y) - f32(destination.y), 0.0), f32(destination.y) - f32(bounds.w - 1u));
                     include = dot(vec2<f32>(min_x, min_y), vec2<f32>(min_x, min_y)) <= local_support_radius * local_support_radius;
                 }
                 if include {
@@ -1821,7 +1828,7 @@ fn exact_pixel(position: vec2<u32>) -> vec4<f32> {
         front = fused.front;
         fused_potential = fused.potential;
     } else {
-        front = integrate_disk(position, 1.0, 1.0, true);
+        front = integrate_disk(position, 1.0, 1.0, true, vec2<u32>(0u), settings.frame.xy);
     }
     var potential = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
     if max(max(front.valid.x, front.valid.y), max(front.valid.z, front.valid.w)) > 0.0 &&
@@ -1831,7 +1838,7 @@ fn exact_pixel(position: vec2<u32>) -> vec4<f32> {
                 vec4<f32>(fused_potential.x), vec4<f32>(fused_potential.y), vec4<f32>(0.0),
             );
         } else {
-            potential = integrate_potential(position, front.presence, 1.0);
+            potential = integrate_potential(position, front.presence, 1.0, vec2<u32>(0u), settings.frame.xy);
         }
     }
     let occupancy = potential.premul / max(potential.valid, vec4<f32>(1.0e-6));
@@ -1841,7 +1848,7 @@ fn exact_pixel(position: vec2<u32>) -> vec4<f32> {
     if front_result.w > 1.0 { front_result /= front_result.w; }
     front_result.w = clamp(front_result.w, 0.0, 1.0);
 
-    let local = integrate_local(position);
+    let local = integrate_local(position, vec2<u32>(0u), settings.frame.xy);
     let local_color = local.premul / max(local.local_weight, vec4<f32>(1.0e-6));
     let local_coverage = clamp(local.local_weight / max(local.support_weight, vec4<f32>(1.0e-6)), vec4<f32>(0.0), vec4<f32>(1.0));
     let local_occupancy = clamp(local.occupied_support / max(local.support_weight, vec4<f32>(1.0e-6)), vec4<f32>(0.0), vec4<f32>(1.0));
@@ -1857,7 +1864,7 @@ fn exact_pixel(position: vec2<u32>) -> vec4<f32> {
     var far = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
     var hidden = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
     if center_blur > 0.0 {
-        far = integrate_disk(position, -1.0, 1.0, false);
+        far = integrate_disk(position, -1.0, 1.0, false, vec2<u32>(0u), settings.frame.xy);
         hidden = read_far_hidden(position);
     }
     let far_color_value = far_visible_color(far.premul - hidden.premul, far.valid - hidden.valid, hidden.valid.w, center_far.color);
@@ -2233,22 +2240,6 @@ struct AdaptiveStreamingSettings {
 
 const STREAM_STRIDE: u32 = 72u;
 
-fn stream_bounds(bounds: vec4<u32>) -> vec4<u32> {
-    return bounds + vec4<u32>(stream.source_origin, stream.source_origin);
-}
-
-fn stream_global_leaf(position: vec2<u32>) -> vec2<u32> {
-    return position + stream.source_origin;
-}
-
-fn stream_load_node(reference: u32, near_tree: bool) -> IntegralNode {
-    var node: IntegralNode;
-    if near_tree { node = near_nodes[reference]; }
-    else { node = far_nodes[reference]; }
-    node.bounds = stream_bounds(node.bounds);
-    return node;
-}
-
 fn stream_output_index(position: vec2<u32>) -> u32 {
     return (position.y * stream.output_extent.x + position.x) * STREAM_STRIDE;
 }
@@ -2269,274 +2260,6 @@ fn stream_write_vec4(base: u32, offset: u32, value: vec4<f32>) {
     output[base + offset + 1u] = value.y;
     output[base + offset + 2u] = value.z;
     output[base + offset + 3u] = value.w;
-}
-
-fn stream_integrate_disk(destination: vec2<u32>, sign_value: f32, search_radius: f32, near_tree: bool) -> LensIntegral {
-    var result = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
-    if any(stream.source_extent == vec2<u32>(0u)) { return result; }
-    if all(stream.source_extent == vec2<u32>(1u)) {
-        let pixel = load_integral_pixel(vec2<u32>(0u), near_tree);
-        if pixel.valid > 0.0 && pixel.coc > 0.5 {
-            let global_position = stream_global_leaf(vec2<u32>(0u));
-            let weight = aperture_weight(destination, vec2<f32>(global_position) - vec2<f32>(destination), sign_value * pixel.coc, search_radius);
-            result.premul = pixel.premul * pixel.valid * weight;
-            result.valid = vec4<f32>(pixel.valid) * weight;
-            result.presence = select(vec4<f32>(0.0), vec4<f32>(pixel.coc), weight > vec4<f32>(0.0));
-        }
-        return result;
-    }
-    let node_count = tree_length(near_tree);
-    var refs: array<u32, 64>;
-    var masks: array<u32, 64>;
-    refs[0] = 0u;
-    masks[0] = CHANNEL_MASK;
-    var stack_len = 1u;
-    while stack_len > 0u {
-        stack_len -= 1u;
-        let reference = refs[stack_len];
-        let active_mask = masks[stack_len];
-        if reference != EMPTY_REF && active_mask != 0u {
-            if (reference & LEAF_REF_BIT) != 0u {
-                let index = reference & ~LEAF_REF_BIT;
-                let local = vec2<u32>(index % stream.source_extent.x, index / stream.source_extent.x);
-                if local.y < stream.source_extent.y {
-                    let pixel = load_integral_pixel(local, near_tree);
-                    if pixel.valid > 0.0 && pixel.coc > 0.5 {
-                        let position = stream_global_leaf(local);
-                        let weights = aperture_weight(destination, vec2<f32>(position) - vec2<f32>(destination), sign_value * pixel.coc, search_radius);
-                        let active_weights = weights * channel_mask_vec(active_mask);
-                        result.premul += pixel.premul * pixel.valid * active_weights;
-                        result.valid += vec4<f32>(pixel.valid) * active_weights;
-                        result.presence = max(result.presence, select(vec4<f32>(0.0), vec4<f32>(pixel.coc), active_weights > vec4<f32>(0.0)));
-                    }
-                }
-            } else if reference < node_count {
-                let node = stream_load_node(reference, near_tree);
-                if node.weighted_valid > 0.0 {
-                    let classification = aperture_node_class(node.bounds, destination, node.coc_min, node.coc_max, sign_value, search_radius);
-                    let active_after_empty = active_mask & ~classification.empty_mask;
-                    let accepted = active_after_empty & classification.accept_mask;
-                    let accepted_weights = classification.coefficient * channel_mask_vec(accepted);
-                    result.premul += node.weighted_premul * accepted_weights;
-                    result.valid += vec4<f32>(node.weighted_valid) * accepted_weights;
-                    result.presence = max(result.presence, select(vec4<f32>(0.0), vec4<f32>(node.coc_max), accepted_weights > vec4<f32>(0.0)));
-                    let descend = active_after_empty & ~classification.accept_mask;
-                    for (var child_index = 4u; child_index > 0u; child_index--) {
-                        let child = node.children[child_index - 1u];
-                        if child != EMPTY_REF && descend != 0u && stack_len < 64u {
-                            refs[stack_len] = child;
-                            masks[stack_len] = descend;
-                            stack_len += 1u;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return result;
-}
-
-fn stream_integrate_potential(destination: vec2<u32>, radii: vec4<f32>, sign_value: f32) -> LensIntegral {
-    var result = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
-    if any(stream.source_extent == vec2<u32>(0u)) { return result; }
-    let same_radius = all(radii == vec4<f32>(radii.x));
-    if all(stream.source_extent == vec2<u32>(1u)) {
-        let pixel = load_integral_pixel(vec2<u32>(0u), true);
-        let position = stream_global_leaf(vec2<u32>(0u));
-        let distance = vec2<f32>(position) - vec2<f32>(destination);
-        let occupied = pixel.valid;
-        if same_radius {
-            let weights = aperture_weight(destination, distance, sign_value * radii.x, 1.0);
-            result.premul = vec4<f32>(occupied) * weights;
-            result.valid = weights;
-            result.presence = select(vec4<f32>(0.0), radii, weights > vec4<f32>(0.0));
-        } else {
-            for (var channel = 0u; channel < 4u; channel++) {
-                let radius = component(radii, channel);
-                if radius > 0.5 {
-                    let weight = component(aperture_weight(destination, distance, sign_value * radius, 1.0), channel);
-                    result.premul = with_added_component(result.premul, channel, occupied * weight);
-                    result.valid = with_added_component(result.valid, channel, weight);
-                    if weight > 0.0 { result.presence = with_component(result.presence, channel, radius); }
-                }
-            }
-        }
-        return result;
-    }
-    let node_count = arrayLength(&near_nodes);
-    var refs: array<u32, 64>;
-    var masks: array<u32, 64>;
-    refs[0] = 0u;
-    masks[0] = 0u;
-    for (var channel = 0u; channel < 4u; channel++) {
-        if component(radii, channel) > 0.5 { masks[0] |= 1u << channel; }
-    }
-    var stack_len = 1u;
-    while stack_len > 0u {
-        stack_len -= 1u;
-        let reference = refs[stack_len];
-        let active_mask = masks[stack_len];
-        if reference != EMPTY_REF && active_mask != 0u {
-            if (reference & LEAF_REF_BIT) != 0u {
-                let index = reference & ~LEAF_REF_BIT;
-                let local = vec2<u32>(index % stream.source_extent.x, index / stream.source_extent.x);
-                if local.y < stream.source_extent.y {
-                    let pixel = load_integral_pixel(local, true);
-                    let position = stream_global_leaf(local);
-                    if same_radius {
-                        let weights = aperture_weight(destination, vec2<f32>(position) - vec2<f32>(destination), sign_value * radii.x, 1.0) * channel_mask_vec(active_mask);
-                        result.premul += weights * pixel.valid;
-                        result.valid += weights;
-                        result.presence = max(result.presence, select(vec4<f32>(0.0), radii, weights > vec4<f32>(0.0)));
-                    } else {
-                        for (var channel = 0u; channel < 4u; channel++) {
-                            let bit = 1u << channel;
-                            if (active_mask & bit) != 0u {
-                                let weight = component(aperture_weight(destination, vec2<f32>(position) - vec2<f32>(destination), sign_value * component(radii, channel), 1.0), channel);
-                                result.premul = with_added_component(result.premul, channel, pixel.valid * weight);
-                                result.valid = with_added_component(result.valid, channel, weight);
-                                if weight > 0.0 { result.presence = with_component(result.presence, channel, component(radii, channel)); }
-                            }
-                        }
-                    }
-                }
-            } else if reference < node_count {
-                let node = stream_load_node(reference, true);
-                var descend = active_mask;
-                if same_radius {
-                    let classification = aperture_node_class(node.bounds, destination, radii.x, radii.x, sign_value, 1.0);
-                    descend &= ~classification.empty_mask;
-                    let accepted = descend & classification.accept_mask;
-                    let coefficients = classification.coefficient * channel_mask_vec(accepted) / max(radii.x * radii.x, 0.25);
-                    let area = f32((node.bounds.z - node.bounds.x) * (node.bounds.w - node.bounds.y));
-                    result.premul += vec4<f32>(node.occupied_area) * coefficients;
-                    result.valid += vec4<f32>(area) * coefficients;
-                    result.presence = max(result.presence, select(vec4<f32>(0.0), radii, coefficients > vec4<f32>(0.0)));
-                    descend &= ~classification.accept_mask;
-                } else {
-                    for (var channel = 0u; channel < 4u; channel++) {
-                        let bit = 1u << channel;
-                        if (active_mask & bit) != 0u {
-                            let radius = component(radii, channel);
-                            let classification = aperture_node_class(node.bounds, destination, radius, radius, sign_value, 1.0);
-                            if (classification.empty_mask & bit) != 0u { descend &= ~bit; }
-                            else if (classification.accept_mask & bit) != 0u {
-                                let coefficient = component(classification.coefficient, channel) / max(radius * radius, 0.25);
-                                let area = f32((node.bounds.z - node.bounds.x) * (node.bounds.w - node.bounds.y));
-                                result.premul = with_added_component(result.premul, channel, node.occupied_area * coefficient);
-                                result.valid = with_added_component(result.valid, channel, area * coefficient);
-                                result.presence = with_component(result.presence, channel, radius);
-                                descend &= ~bit;
-                            }
-                        }
-                    }
-                }
-                for (var child_index = 4u; child_index > 0u; child_index--) {
-                    let child = node.children[child_index - 1u];
-                    if child != EMPTY_REF && descend != 0u && stack_len < 64u {
-                        refs[stack_len] = child;
-                        masks[stack_len] = descend;
-                        stack_len += 1u;
-                    }
-                }
-            }
-        }
-    }
-    return result;
-}
-
-fn stream_integrate_local(destination: vec2<u32>) -> LocalIntegral {
-    var result = LocalIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
-    if all(stream.source_extent == vec2<u32>(1u)) {
-        let local = vec2<u32>(0u);
-        let position = stream_global_leaf(local);
-        let metadata = textureLoad(near_metadata, vec2<i32>(local), 0);
-        let valid = clamp(metadata.y, 0.0, 1.0);
-        let distance = vec2<f32>(position) - vec2<f32>(destination);
-        let support = aperture_weight(destination, distance, 2.0, 1.0);
-        result.support_weight = support;
-        result.occupied_support = support * valid;
-        if valid > 0.0 {
-            let coc = metadata.x / valid;
-            if coc > 0.5 {
-                let t = clamp(coc - 1.0, 0.0, 1.0);
-                let local_fraction = 1.0 - t * t * (3.0 - 2.0 * t);
-                if local_fraction > 0.0 {
-                    let color = textureLoad(near_color, vec2<i32>(local), 0) / valid;
-                    let weight = aperture_weight(destination, distance, coc, 1.0) * (valid * local_fraction);
-                    result.premul = color * weight;
-                    result.local_weight = weight;
-                }
-            }
-        }
-        return result;
-    }
-    let node_count = arrayLength(&near_nodes);
-    var refs: array<u32, 64>;
-    refs[0] = 0u;
-    var stack_len = 1u;
-    let full_traversal = (lens_flags() & (GLOBAL_USE_NON_UNIFORM | GLOBAL_AXIAL_ABERRATION)) != 0u;
-    var local_support_radius = 2.5;
-    if PLAIN_CIRCLE || (lens_flags() & GLOBAL_SIMPLE_DISC) != 0u {
-        if (lens_flags() & GLOBAL_INVERSE_FOREGROUND) != 0u && lens.filter_resolution.x > 0u && lens.filter_resolution.y > 0u {
-            local_support_radius += length(4.0 / vec2<f32>(lens.filter_resolution));
-        } else { local_support_radius += length(settings.radius.zw * 2.0); }
-    } else if (lens_flags() & GLOBAL_INVERSE_FOREGROUND) != 0u && lens.filter_resolution.x > 0u && lens.filter_resolution.y > 0u {
-        local_support_radius += length(4.0 / vec2<f32>(lens.filter_resolution));
-    }
-    while stack_len > 0u {
-        stack_len -= 1u;
-        let reference = refs[stack_len];
-        if reference != EMPTY_REF {
-            if (reference & LEAF_REF_BIT) != 0u {
-                let index = reference & ~LEAF_REF_BIT;
-                let local = vec2<u32>(index % stream.source_extent.x, index / stream.source_extent.x);
-                if local.y < stream.source_extent.y {
-                    let position = stream_global_leaf(local);
-                    let metadata = textureLoad(near_metadata, vec2<i32>(local), 0);
-                    let valid = clamp(metadata.y, 0.0, 1.0);
-                    let distance = vec2<f32>(position) - vec2<f32>(destination);
-                    let support = aperture_weight(destination, distance, 2.0, 1.0);
-                    result.support_weight += support;
-                    result.occupied_support += support * valid;
-                    if valid > 0.0 {
-                        let coc = metadata.x / valid;
-                        if coc > 0.5 {
-                            let t = clamp(coc - 1.0, 0.0, 1.0);
-                            let local_fraction = 1.0 - t * t * (3.0 - 2.0 * t);
-                            if local_fraction > 0.0 {
-                                let color = textureLoad(near_color, vec2<i32>(local), 0) / valid;
-                                let weight = aperture_weight(destination, distance, coc, 1.0) * (valid * local_fraction);
-                                result.premul += color * weight;
-                                result.local_weight += weight;
-                            }
-                        }
-                    }
-                }
-            } else if reference < node_count {
-                let node = stream_load_node(reference, true);
-                let bounds = node.bounds;
-                var include = full_traversal;
-                if full_traversal {
-                    include = aperture_node_class(bounds, destination, 0.5, 2.0, 1.0, 1.0).empty_mask != CHANNEL_MASK;
-                } else {
-                    let min_x = max(max(f32(bounds.x) - f32(destination.x), 0.0), f32(destination.x) - f32(bounds.z - 1u));
-                    let min_y = max(max(f32(bounds.y) - f32(destination.y), 0.0), f32(destination.y) - f32(bounds.w - 1u));
-                    include = min_x * min_x + min_y * min_y <= local_support_radius * local_support_radius;
-                }
-                if include {
-                    for (var child_index = 4u; child_index > 0u; child_index--) {
-                        let child = node.children[child_index - 1u];
-                        if child != EMPTY_REF && stack_len < 64u {
-                            refs[stack_len] = child;
-                            stack_len += 1u;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return result;
 }
 
 fn stream_center_phase(position: vec2<u32>, base: u32) {
@@ -2580,7 +2303,7 @@ fn adaptive_convolution_stream_high(@builtin(global_invocation_id) gid: vec3<u32
     let base = stream_output_index(local);
     let destination = stream.destination_origin + local;
     if stream.phase == 0u {
-        let front = stream_integrate_disk(destination, 1.0, 1.0, true);
+        let front = integrate_disk(destination, 1.0, 1.0, true, stream.source_origin, stream.source_extent);
         let probe = stream_far_probe_radius(base);
         if probe > 0.0 {
             stream_add_vec4(base, 68u, far_cover(destination, probe, stream.source_origin, stream.source_extent));
@@ -2590,14 +2313,14 @@ fn adaptive_convolution_stream_high(@builtin(global_invocation_id) gid: vec3<u32
         stream_write_vec4(base, 28u, max(stream_read_vec4(base, 28u), front.presence));
     } else if stream.phase == 1u {
         let front_presence = stream_read_vec4(base, 28u);
-        let potential = stream_integrate_potential(destination, front_presence, 1.0);
-        let local_integral = stream_integrate_local(destination);
+        let potential = integrate_potential(destination, front_presence, 1.0, stream.source_origin, stream.source_extent);
+        let local_integral = integrate_local(destination, stream.source_origin, stream.source_extent);
         let center_near = LayerSample(stream_read_vec4(base, 4u), output[base + 8u], output[base + 9u]);
         let center_far = LayerSample(stream_read_vec4(base, 10u), output[base + 14u], output[base + 15u]);
         let center_blur = center_blur_weight(center_near, center_far);
         var far = LensIntegral(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
         if center_blur > 0.0 {
-            far = stream_integrate_disk(destination, -1.0, 1.0, false);
+            far = integrate_disk(destination, -1.0, 1.0, false, stream.source_origin, stream.source_extent);
             let probe = stream_far_probe_radius(base);
             if probe > 0.0 {
                 let occlusion = far_occlusion_from_cover(probe, stream_read_vec4(base, 68u));

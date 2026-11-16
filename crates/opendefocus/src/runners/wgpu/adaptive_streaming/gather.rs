@@ -6,7 +6,7 @@ use crate::{
     runners::{
         adaptive::{adaptive_gather_tile_class, adaptive_near_far_search_radii},
         adaptive_streaming::ADAPTIVE_OUTPUT_BYTES_PER_PIXEL,
-        wgpu::WgpuRunner,
+        wgpu::{LensSpecialization, WgpuRunner},
     },
 };
 use ndarray::Array3;
@@ -70,6 +70,7 @@ impl WgpuRunner {
         self.clear_stream_accumulator(&accumulator)?;
         let aperture = self.make_stream_aperture(gather.aperture, gather.lens)?;
         let output_extent = [output_width as u32, output_height as u32];
+        let pipeline = self.stream_pipeline(LensSpecialization::of(gather.lens));
         let destination = StreamDestination {
             full,
             tiles_x,
@@ -92,9 +93,7 @@ impl WgpuRunner {
                 .as_ref()
                 .ok_or(Error::AdaptiveClassifierUnavailable)?,
             aperture: &aperture,
-            pipeline: self
-                .adaptive_convolution_stream_high
-                .get_or_init(|| Self::create_adaptive_streaming_convolution(&self.device)),
+            pipeline: &pipeline,
             dispatch: [
                 output_extent[0].div_ceil(WORKGROUP_EDGE),
                 output_extent[1].div_ceil(WORKGROUP_EDGE),

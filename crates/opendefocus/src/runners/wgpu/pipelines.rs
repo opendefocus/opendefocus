@@ -147,9 +147,11 @@ impl WgpuRunner {
         })
     }
 
-    /// Creates the streamed Accurate gather pipeline, which binds 18 storage resources.
+    /// Creates the streamed Accurate gather pipeline, which binds 18 storage resources, with the lens feature
+    /// switches of `lens` as constants.
     pub(super) fn create_adaptive_streaming_convolution(
         device: &wgpu::Device,
+        lens: LensSpecialization,
     ) -> wgpu::ComputePipeline {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Native adaptive streaming convolution"),
@@ -197,7 +199,13 @@ impl WgpuRunner {
             module: &shader,
             entry_point: Some("adaptive_convolution_stream_high"),
             compilation_options: wgpu::PipelineCompilationOptions {
-                constants: &[("PLAIN_CIRCLE", 0.0)],
+                constants: &[
+                    ("PLAIN_CIRCLE", 0.0),
+                    ("STREAMED", 1.0),
+                    ("LENS_SPECIALIZED", 1.0),
+                    ("LENS_FLAGS", f64::from(lens.flags)),
+                    ("NON_UNIFORM_FLAGS", f64::from(lens.non_uniform_flags)),
+                ],
                 ..Default::default()
             },
             cache: None,

@@ -189,10 +189,7 @@ impl WgpuRunner {
         ];
         let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Adaptive streamed Accurate bindings"),
-            layout: &self
-                .adaptive_convolution_stream_high
-                .get_or_init(|| Self::create_adaptive_streaming_convolution(&self.device))
-                .get_bind_group_layout(0),
+            layout: &destination.pipeline.get_bind_group_layout(0),
             entries: &entries,
         });
         Ok(StreamBindings {

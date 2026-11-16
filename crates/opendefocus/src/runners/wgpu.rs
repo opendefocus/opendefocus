@@ -178,7 +178,9 @@ pub struct WgpuRunner {
     /// Fused plain-circle Accurate specialization that walks the near tree once, built on first use.
     adaptive_convolution_circle_fused: std::sync::OnceLock<GatherPipelines>,
     /// Accurate gather for streamed source cores, built on first use.
-    adaptive_convolution_stream_high: std::sync::OnceLock<wgpu::ComputePipeline>,
+    adaptive_convolution_stream_high: std::sync::Arc<
+        std::sync::Mutex<std::collections::HashMap<LensSpecialization, wgpu::ComputePipeline>>,
+    >,
     /// Compaction pipeline that packs finalized RGBA into 16 bytes per pixel, built on first use.
     adaptive_stream_compact: std::sync::OnceLock<wgpu::ComputePipeline>,
     /// Focal and bokeh preview pipeline, built on first use.
@@ -401,7 +403,7 @@ impl WgpuRunner {
             adaptive_convolution_high: std::sync::Arc::default(),
             adaptive_convolution_circle: std::sync::OnceLock::new(),
             adaptive_convolution_circle_fused: std::sync::OnceLock::new(),
-            adaptive_convolution_stream_high: std::sync::OnceLock::new(),
+            adaptive_convolution_stream_high: std::sync::Arc::default(),
             adaptive_stream_compact: std::sync::OnceLock::new(),
             adaptive_preview: std::sync::OnceLock::new(),
             adaptive_sample_offsets: None,
