@@ -305,8 +305,7 @@ fn check_lint_inheritance() -> Result<()> {
     let manifest: toml::Table = std::fs::read_to_string(root.join("Cargo.toml"))?.parse()?;
     let members = manifest["workspace"]["members"]
         .as_array()
-        .map(|m| m.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
-        .unwrap_or_default();
+        .map_or_default(|m| m.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>());
     let missing: Vec<&str> = members
         .into_iter()
         .filter(|member| {
