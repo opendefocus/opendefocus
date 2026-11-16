@@ -113,6 +113,20 @@ impl WgpuRunner {
             .clone()
     }
 
+    /// Returns the streamed Accurate gather pipeline specialized for `lens`, creating it on first use.
+    pub(in crate::runners::wgpu) fn stream_pipeline(
+        &self,
+        lens: LensSpecialization,
+    ) -> wgpu::ComputePipeline {
+        // A poisoned lock still holds a valid cache: entries are inserted whole.
+        self.adaptive_convolution_stream_high
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .entry(lens)
+            .or_insert_with(|| Self::create_adaptive_streaming_convolution(&self.device, lens))
+            .clone()
+    }
+
     /// Dispatches the gather over a `width` by `height` frame and reads the five-channel result back.
     ///
     /// # Errors
