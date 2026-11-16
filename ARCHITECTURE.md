@@ -21,7 +21,7 @@ Accurate integrates exact source-pixel weights through conservative integral tre
 
 The authored WGSL sources live in `crates/opendefocus/src/kernel/shaders/` and are embedded through constants in the renderer's private kernel module. Preparation, classification, pyramid reduction, packing, convolution, and focal/bokeh preview rendering all use native WGSL. `cargo xtask --compile --gpu` validates all five sources with Naga on stable Rust. There is no runtime SPIR-V generation or interpreter. Rust constructs resources, CoC/aperture inputs, bounds and packed trees; all convolution runs on the GPU.
 
-Convolution has sampled and exact entry points; Accurate dispatches a far occlusion entry point before the exact one. Exact plain circles use a compile-time specialization and preorder subtree ends. When Accurate uses a plain circle, the radius exceeds two pixels, and at least half of valid near-layer entries equal the radius cap, a fused specialization walks the near tree once for front radiance and cap-potential occupancy. It uses the fused potential only when front presence equals the cap; other radii use the regular exact potential traversal. Spatial and custom apertures descend uncertain cells rather than discarding them. The explicit gather layout uses eight storage buffers. Gather uniforms occupy 64 bytes, lens uniforms 160 bytes, integral nodes 64 bytes, and aperture bounds 32 bytes. Aperture range queries read appended 32-byte mip-layout records from the existing bounds buffer; the public bounds payload and diagnostic APIs keep their original format. For custom image apertures without spatial or axial effects, a padded UV interval is first rejected only when its closest point lies provably outside the normalized clip disk. Remaining cells use one shared RGBA filter-range query for all channels; uncertain intervals still descend to exact leaves. Spatial and axial cases retain their separate channel calculations. Integral nodes are built directly in their packed GPU layout, avoiding a simultaneous raw-node copy.
+Convolution has sampled and exact entry points; Accurate dispatches a far occlusion entry point before the exact one. Exact gathers that are not the plain circle are compiled once per combination of lens feature switches (simple disc, non-uniform effects, axial aberration, catseye, astigmatism, barndoors): those flags are pipeline constants, so the driver drops the paths of disabled features. Options within a feature stay uniforms and do not compile another pipeline. The sampled and streamed pipelines read every flag from the uniform. Exact plain circles use a compile-time specialization and preorder subtree ends. When Accurate uses a plain circle, the radius exceeds two pixels, and at least half of valid near-layer entries equal the radius cap, a fused specialization walks the near tree once for front radiance and cap-potential occupancy. It uses the fused potential only when front presence equals the cap; other radii use the regular exact potential traversal. Spatial and custom apertures descend uncertain cells rather than discarding them. The explicit gather layout uses eight storage buffers. Gather uniforms occupy 64 bytes, lens uniforms 160 bytes, integral nodes 64 bytes, and aperture bounds 32 bytes. Aperture range queries read appended 32-byte mip-layout records from the existing bounds buffer; the public bounds payload and diagnostic APIs keep their original format. For custom image apertures without spatial or axial effects, a padded UV interval is first rejected only when its closest point lies provably outside the normalized clip disk. Remaining cells use one shared RGBA filter-range query for all channels; uncertain intervals still descend to exact leaves. Spatial and axial cases retain their separate channel calculations. Integral nodes are built directly in their packed GPU layout, avoiding a simultaneous raw-node copy.
 
 ## Settings and source context
 
@@ -137,6 +137,20 @@ Metal, about 6% of it with the occlusion code present but never executed. As a
 separate pre-pass whose result the gather reads from its output slots it costs
 about 0.2%. Keep work that only a few pixels need out of the exact gather
 pipeline.
+
+The exact gather shader serves every aperture and lens effect, and on Metal the
+paths a render never takes still cost it: with the lens feature switches as
+uniforms a 1080p radius-64 Accurate frame took 4.4 s with catseye, 12.1 s with
+axial aberration and 57 s with a generated bokeh image; as pipeline constants
+2.8 s, 6.0 s and 18 s, with the same output. Adding state to a branch that
+catseye never executes slowed catseye by 20% before the specialization and not
+at all after it. Specialize a pipeline rather than branching on a uniform for
+whole features. Replacing the per-pixel traversal stacks of the general disk
+and potential walks with per-channel subtree skip points measured 7% to 17%.
+
+Replacing the local layer's tree walk by a fixed 7x7 window gained nothing on
+the plain circle and cost catseye 15%: there the per-pixel lens weight, not the
+walk, is the cost, and the walk visits fewer pixels than the window.
 
 The old RustGPU-to-WGSL path had captured-storage-pointer, nested-`continue`,
 `Option` range-result and inclusive-loop failures on Metal. That translation
