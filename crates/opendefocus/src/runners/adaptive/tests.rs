@@ -398,16 +398,13 @@ fn empty_single_pixel_hierarchy_has_a_nonempty_gpu_binding_payload() {
         near_edge_distance: vec![-1.0],
     };
     let pixel = prepared.pixels[0];
-    assert_eq!(
-        crate::kernel::build_integral_tree_packed(1, 1, |_| gather_integral_pixel(pixel, true))
-            .len(),
-        0
-    );
-    assert_eq!(
-        crate::kernel::build_integral_tree_packed(1, 1, |_| gather_integral_pixel(pixel, false))
-            .len(),
-        0
-    );
+    let [near, far] = crate::kernel::build_integral_trees_packed(1, 1, |_| {
+        [
+            gather_integral_pixel(pixel, true),
+            gather_integral_pixel(pixel, false),
+        ]
+    });
+    assert!(near.is_empty() && far.is_empty());
     assert_eq!(
         build_gather_integral_nodes(&prepared).unwrap(),
         (vec![[0; 16]], vec![[0; 16]])

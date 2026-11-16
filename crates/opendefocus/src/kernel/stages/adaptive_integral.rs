@@ -75,26 +75,6 @@ pub struct IntegralPixel {
     pub occupied: f32,
 }
 
-/// Destination for packed integral nodes. Slots are reserved first and filled later.
-trait IntegralNodeStorage {
-    /// Reserves an empty slot for a node with `bounds` and returns its index.
-    fn push_empty(&mut self, bounds: UVec4) -> u32;
-    /// Stores `node` at `index`, packed into the storage layout.
-    fn write(&mut self, index: u32, node: IntegralNode);
-}
-
-impl IntegralNodeStorage for Vec<[u32; 16]> {
-    fn push_empty(&mut self, _bounds: UVec4) -> u32 {
-        let index = self.len() as u32;
-        self.push([0; 16]);
-        index
-    }
-
-    fn write(&mut self, index: u32, node: IntegralNode) {
-        self[index as usize] = node.pack();
-    }
-}
-
 #[derive(Clone, Copy)]
 /// Accumulated statistics of a subtree: weighted colour, validity, CoC range and occupancy.
 struct Summary {
@@ -151,14 +131,19 @@ impl Summary {
     }
 }
 
-/// Build the same preorder hierarchy directly in the packed storage layout
-/// consumed by GPU gather, without allocating an intermediate node vector.
+/// Builds `K` preorder hierarchies over the same frame directly in the packed storage layout consumed by GPU gather,
+/// without an intermediate node vector. `load_pixel` returns the pixel of each tree. The trees share their topology,
+/// so one traversal reads every source pixel once instead of once per tree.
 ///
 /// # Panics
 /// Panics when `width` or `height` is zero, or when `width * height` is not below 2^31.
-pub fn build_integral_tree_packed<F>(width: u32, height: u32, load_pixel: F) -> Vec<[u32; 16]>
+pub fn build_integral_trees_packed<F, const K: usize>(
+    width: u32,
+    height: u32,
+    load_pixel: F,
+) -> [Vec<[u32; 16]>; K]
 where
-    F: Fn(UVec2) -> IntegralPixel,
+    F: Fn(UVec2) -> [IntegralPixel; K],
 {
     assert!(
         width > 0 && height > 0,
@@ -166,16 +151,17 @@ where
     );
     assert!((width as u64) * (height as u64) < LEAF_BIT as u64);
     let root_size = width.max(height).next_power_of_two();
-    let mut nodes = Vec::with_capacity(dyadic_node_count(width, height, root_size));
+    let node_count = dyadic_node_count(width, height, root_size);
+    let mut trees: [Vec<[u32; 16]>; K] = std::array::from_fn(|_| Vec::with_capacity(node_count));
     let _ = build_subtree(
-        &mut nodes,
+        &mut trees,
         &load_pixel,
         width,
         height,
         UVec2::ZERO,
         root_size,
     );
-    nodes
+    trees
 }
 
 /// Counts the nodes of the dyadic tree for a `width` by `height` frame with the given root size.
@@ -195,23 +181,22 @@ fn dyadic_node_count(width: u32, height: u32, root_size: u32) -> usize {
     count
 }
 
-/// Builds the subtree for the block at `origin` with side `block_size`, writing its nodes in preorder.
-/// Returns the child reference (node index, leaf or `EMPTY_REF`) and the subtree summary.
+/// Builds the subtree of every tree for the block at `origin` with side `block_size`, writing its nodes in preorder.
+/// Returns the child reference (node index, leaf or `EMPTY_REF`), which the trees share, and each subtree summary.
 /// A single-pixel block becomes a leaf that refers to its pixel index.
-fn build_subtree<F, N>(
-    nodes: &mut N,
+fn build_subtree<F, const K: usize>(
+    trees: &mut [Vec<[u32; 16]>; K],
     load_pixel: &F,
     width: u32,
     height: u32,
     origin: UVec2,
     block_size: u32,
-) -> (u32, Summary)
+) -> (u32, [Summary; K])
 where
-    F: Fn(UVec2) -> IntegralPixel,
-    N: IntegralNodeStorage,
+    F: Fn(UVec2) -> [IntegralPixel; K],
 {
     if origin.x >= width || origin.y >= height {
-        return (EMPTY_REF, Summary::EMPTY);
+        return (EMPTY_REF, [Summary::EMPTY; K]);
     }
 
     let bounds = UVec4::new(
@@ -223,27 +208,31 @@ where
     if bounds.z - bounds.x == 1 && bounds.w - bounds.y == 1 {
         return (
             LEAF_BIT | (origin.y * width + origin.x),
-            Summary::from_pixel(load_pixel(origin)),
+            load_pixel(origin).map(Summary::from_pixel),
         );
     }
 
-    let index = nodes.push_empty(bounds);
+    let index = trees.first().map_or(0, Vec::len);
+    for nodes in trees.iter_mut() {
+        nodes.push([0; 16]);
+    }
     let half_size = block_size / 2;
-    let mut summary = Summary::EMPTY;
+    let mut summaries = [Summary::EMPTY; K];
     let mut children = UVec4::splat(EMPTY_REF);
     for child_slot in 0..4 {
         let child_origin = origin + UVec2::new(child_slot % 2, child_slot / 2) * half_size;
-        let (child_ref, child_summary) =
-            build_subtree(nodes, load_pixel, width, height, child_origin, half_size);
+        let (child_ref, child_summaries) =
+            build_subtree(trees, load_pixel, width, height, child_origin, half_size);
         children[child_slot as usize] = child_ref;
         if child_ref == EMPTY_REF {
             continue;
         }
-        summary.add(child_summary);
+        for (summary, child_summary) in summaries.iter_mut().zip(child_summaries) {
+            summary.add(child_summary);
+        }
     }
-    nodes.write(
-        index,
-        IntegralNode {
+    for (nodes, summary) in trees.iter_mut().zip(summaries) {
+        nodes[index] = IntegralNode {
             weighted_premul: summary.premul,
             bounds,
             children,
@@ -251,9 +240,10 @@ where
             coc_max: summary.coc_max,
             weighted_valid: summary.valid,
             occupied_area: summary.occupied,
-        },
-    );
-    (index, summary)
+        }
+        .pack();
+    }
+    (index as u32, summaries)
 }
 
 #[cfg(test)]
@@ -265,11 +255,13 @@ mod tests {
     /// Verifies bounds, child references and node counts for odd, degenerate and small frames.
     fn dyadic_tree_layout_handles_odd_and_degenerate_frames() {
         for (width, height) in [(1, 1), (1, 13), (13, 1), (2, 2), (3, 5), (7, 9), (17, 13)] {
-            let nodes = build_integral_tree_packed(width, height, |_| IntegralPixel {
-                premul: Vec4::new(0.125, 0.5, 1.0, 0.75),
-                coc: 2.25,
-                valid: 1.0,
-                occupied: 0.5,
+            let [nodes] = build_integral_trees_packed(width, height, |_| {
+                [IntegralPixel {
+                    premul: Vec4::new(0.125, 0.5, 1.0, 0.75),
+                    coc: 2.25,
+                    valid: 1.0,
+                    occupied: 0.5,
+                }]
             });
             let root_size = width.max(height).next_power_of_two();
             assert_eq!(

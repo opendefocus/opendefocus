@@ -277,12 +277,28 @@ pub(crate) fn dispatch_pass(
 impl WgpuRunner {
     /// Creates a read-only storage buffer holding `contents`.
     pub(crate) fn storage_buffer(&self, label: &'static str, contents: &[u8]) -> wgpu::Buffer {
-        self.device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(label),
-                contents,
-                usage: wgpu::BufferUsages::STORAGE,
-            })
+        let aligned = contents
+            .len()
+            .is_multiple_of(wgpu::COPY_BUFFER_ALIGNMENT as usize);
+        if contents.is_empty() || !aligned {
+            return self
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some(label),
+                    contents,
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
+        }
+        // A buffer mapped at creation is zero-filled before the copy; a queued write of the whole buffer is not. The
+        // layer and tree uploads are tens of megabytes per frame.
+        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some(label),
+            size: contents.len() as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        self.queue.write_buffer(&buffer, 0, contents);
+        buffer
     }
 
     /// Creates a uniform buffer holding `contents`.

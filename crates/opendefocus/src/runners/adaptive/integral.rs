@@ -11,13 +11,12 @@ pub(crate) fn build_gather_integral_nodes(
     prepared: &PreparedLayers,
 ) -> crate::error::Result<(Vec<[u32; 16]>, Vec<[u32; 16]>)> {
     let (width, height) = integral_tree_dimensions(prepared)?;
-    let near = crate::kernel::build_integral_tree_packed(width, height, |position| {
+    let [near, far] = crate::kernel::build_integral_trees_packed(width, height, |position| {
         let pixel = prepared.pixels[(position.y * width + position.x) as usize];
-        gather_integral_pixel(pixel, true)
-    });
-    let far = crate::kernel::build_integral_tree_packed(width, height, |position| {
-        let pixel = prepared.pixels[(position.y * width + position.x) as usize];
-        gather_integral_pixel(pixel, false)
+        [
+            gather_integral_pixel(pixel, true),
+            gather_integral_pixel(pixel, false),
+        ]
     });
     Ok((
         if near.is_empty() { vec![[0; 16]] } else { near },
