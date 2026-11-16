@@ -137,8 +137,7 @@ fn spot_shape_gates(
     let legacy_spots = legacy.map(|legacy| bokeh_spot_metrics(legacy, points));
     let channel_errors = legacy_spots
         .as_deref()
-        .map(|legacy| adaptive_vs_legacy(&lens_spots, legacy))
-        .unwrap_or_default();
+        .map_or_default(|legacy| adaptive_vs_legacy(&lens_spots, legacy));
     let mut section = Map::new();
     section.insert("plain".to_owned(), spots_value(&plain_spots));
     section.insert("lens".to_owned(), spots_value(&lens_spots));
