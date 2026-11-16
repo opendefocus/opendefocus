@@ -10,7 +10,7 @@ mod validation;
 
 use super::adaptive_gpu;
 use super::disc_shift;
-use super::{GatherParams, TileFeatures, WgpuRunner};
+use super::{GatherParams, LensSpecialization, TileFeatures, WgpuRunner};
 use crate::AdaptiveSampleBudget;
 use crate::convolve_settings::{ConvolveSettings, GlobalFlags};
 use crate::error::{Error, Result};
@@ -316,16 +316,9 @@ impl WgpuRunner {
             }),
         );
         let output = self.create_gather_output(&geometry, use_integrals && !plain_circle)?;
-        let lens_buffer = self.uniform_buffer(
-            "Adaptive lens parameters",
-            bytemuck::bytes_of(&native_lens(
-                lens,
-                width,
-                height,
-                max_radius_px,
-                aperture.is_some(),
-            )),
-        );
+        let native_lens = native_lens(lens, width, height, max_radius_px, aperture.is_some());
+        let lens_buffer =
+            self.uniform_buffer("Adaptive lens parameters", bytemuck::bytes_of(&native_lens));
         let bindings = GatherBindings {
             params: &params,
             sampler: &sampler,
@@ -344,9 +337,14 @@ impl WgpuRunner {
             aperture_bounds: &aperture_bounds,
             subtree_ends: &subtree_buffer,
         };
-        let pipelines = self.gather_pipeline(use_integrals, plain_circle, use_fused_capped_circle);
+        let pipelines = self.gather_pipeline(
+            use_integrals,
+            plain_circle,
+            use_fused_capped_circle,
+            LensSpecialization::of(&native_lens),
+        );
         let mut gathered = self
-            .run_gather(pipelines, &bindings, (width, height), geometry.output_size)
+            .run_gather(&pipelines, &bindings, (width, height), geometry.output_size)
             .await?;
         prepared.resolve_subpixel_focus(&mut gathered);
         Ok(gathered)
