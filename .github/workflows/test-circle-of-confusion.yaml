@@ -42,7 +42,7 @@ jobs:
         working-directory: crates/circle-of-confusion
       - run: uvx --from ruff==0.14.4 ruff format --check .
         working-directory: crates/circle-of-confusion
-      - run: uvx ty check . --ignore unresolved-import
+      - run: uvx ty check . --ignore import-not-found
         working-directory: crates/circle-of-confusion
   rust:
     runs-on: ubuntu-latest

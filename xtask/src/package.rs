@@ -183,13 +183,11 @@ fn iscc_args(
 
 /// Finds `ISCC.exe` on PATH or in the default Inno Setup 6 install folders.
 fn find_iscc() -> Option<PathBuf> {
-    let mut candidates: Vec<PathBuf> = std::env::var_os("PATH")
-        .map(|path| {
-            std::env::split_paths(&path)
-                .flat_map(|dir| [dir.join("ISCC.exe"), dir.join("iscc.exe")])
-                .collect()
-        })
-        .unwrap_or_default();
+    let mut candidates: Vec<PathBuf> = std::env::var_os("PATH").map_or_default(|path| {
+        std::env::split_paths(&path)
+            .flat_map(|dir| [dir.join("ISCC.exe"), dir.join("iscc.exe")])
+            .collect()
+    });
     for variable in ["ProgramFiles(x86)", "ProgramFiles"] {
         if let Some(root) = std::env::var_os(variable) {
             candidates.push(PathBuf::from(root).join("Inno Setup 6").join("ISCC.exe"));
