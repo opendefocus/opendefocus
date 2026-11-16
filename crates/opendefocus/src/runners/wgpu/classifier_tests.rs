@@ -8,12 +8,13 @@ use super::WgpuRunner;
 #[test]
 /// Verifies subtree ends skip only the nodes contained in each subtree.
 fn subtree_ends_skip_only_contained_preorder_nodes() {
-    let packed =
-        crate::kernel::build_integral_tree_packed(5, 3, |_| crate::kernel::IntegralPixel {
+    let [packed] = crate::kernel::build_integral_trees_packed(5, 3, |_| {
+        [crate::kernel::IntegralPixel {
             coc: 4.0,
             valid: 1.0,
             ..Default::default()
-        });
+        }]
+    });
     // Packed words 4..8 hold the node bounds (x, y, z, w).
     let bounds = |node: &[u32; 16]| [node[4], node[5], node[6], node[7]];
     let ends = super::integral_subtree_ends(&packed).unwrap();

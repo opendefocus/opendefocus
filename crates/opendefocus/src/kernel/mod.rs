@@ -14,7 +14,7 @@ pub(crate) use adaptive_gather_offsets::{
 pub use stages::adaptive_aperture_integral::{
     ApertureMip, build_aperture_bounds, build_aperture_bounds_layout,
 };
-pub use stages::adaptive_integral::{IntegralPixel, build_integral_tree_packed};
+pub use stages::adaptive_integral::{IntegralPixel, build_integral_trees_packed};
 
 /// WGSL source of the convolution (gather) kernel, embedded at compile time.
 pub const ADAPTIVE_CONVOLUTION_WGSL: &str = include_str!("shaders/adaptive_convolution.wgsl");
